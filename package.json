@@ -1,0 +1,15 @@
+{
+  "author": "Jacob Hoffman-Andrews",
+  "name": "blocktogether",
+  "description": "Share your blocks",
+  "version": "0.0.0",
+  "dependencies": {
+    "express": "",
+    "body-parser": "",
+    "passport": "",
+    "passport-twitter": "",
+    "cookie-session": "",
+    "keygrip": "",
+    "mu2": ""
+  }
+}
