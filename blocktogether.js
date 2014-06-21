@@ -18,45 +18,61 @@ var twitter = new twitterAPI({
 // Look for templates here
 mu.root = __dirname + '/templates';
 
-// Create the server
-var app = express();
-app.use(bodyParser());
-app.use(cookieSession({
-  keys: [credentials.cookieSecret],
-  proxy: true /// XXX remove
-}));
-app.use(passport.initialize());
-app.use(passport.session());
 
-passport.use(new TwitterStrategy({
-    consumerKey: credentials.consumerKey,
-    consumerSecret: credentials.consumerSecret,
-    callbackURL: "http://localhost:3000/auth/twitter/callback"
-  },
-  // Callback on verified success.
-  function(accessToken, accessTokenSecret, profile, done) {
-    done(null, {
-      profile: profile,
-      accessToken: accessToken,
-      accessTokenSecret: accessTokenSecret
-    });
-  }
-));
+function makeApp() {
+  // Create the server
+  var app = express();
+  app.use(bodyParser());
+  app.use(cookieSession({
+    keys: [credentials.cookieSecret],
+    proxy: true /// XXX remove
+  }));
+  app.use(passport.initialize());
+  app.use(passport.session());
 
-    // used to serialize the user for the session
-    passport.serializeUser(function(user, done) {
-        done(null, JSON.stringify({
-          id: user.profile.id,
-          name: user.profile.displayName,
-          accessToken: user.accessToken,
-          accessTokenSecret: user.accessTokenSecret
-        }));
-    });
+  passport.use(new TwitterStrategy({
+      consumerKey: credentials.consumerKey,
+      consumerSecret: credentials.consumerSecret,
+      callbackURL: "http://localhost:3000/auth/twitter/callback"
+    },
+    // Callback on verified success.
+    function(accessToken, accessTokenSecret, profile, done) {
+      done(null, {
+        profile: profile,
+        accessToken: accessToken,
+        accessTokenSecret: accessTokenSecret
+      });
+    }
+  ));
 
-    // used to deserialize the user
-    passport.deserializeUser(function(serialized, done) {
-        done(null, JSON.parse(serialized));
-    });
+  // used to serialize the user for the session
+  passport.serializeUser(function(user, done) {
+    done(null, JSON.stringify({
+      id: user.profile.id,
+      name: user.profile.displayName,
+      accessToken: user.accessToken,
+      accessTokenSecret: user.accessTokenSecret
+    }));
+  });
+
+  // used to deserialize the user
+  passport.deserializeUser(function(serialized, done) {
+      done(null, JSON.parse(serialized));
+  });
+  return app;
+}
+
+var app = makeApp();
+
+/**
+ * @returns {Boolean} Whether the user is logged in
+ */
+function isAuthenticated(req) {
+  return typeof(req.user) != "undefined" &&
+         typeof(req.user.id) != "undefined" &&
+         typeof(req.user.accessToken) != "undefined" &&
+         typeof(req.user.accessTokenSecret) != "undefined"
+}
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
@@ -71,12 +87,32 @@ app.get('/auth/twitter/callback',
   passport.authenticate('twitter', { successRedirect: '/logged-in',
                                      failureRedirect: '/failed' }));
 
-app.get('/',
+/*app.get('/',
   function(req, res) {
     var stream = mu.compileAndRender('main.html', {});
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
   });
+*/
+
+app.get('/login',
+  function(req, res) {
+    var stream = mu.compileAndRender('login.html', {});
+    res.header('Content-Type', 'text/html');
+    stream.pipe(res);
+  });
+
+function requireAuthentication(req, res, next) {
+  if (req.url == '/' || req.url == '/login' || req.url.match('/static/.*')) {
+    next();
+  } else if (isAuthenticated(req)) {
+    next();
+  } else {
+    res.redirect('/login');
+  }
+}
+
+app.all('*', requireAuthentication);
 
 app.get('/logged-in',
   function(req, res) {
@@ -104,6 +140,9 @@ app.get('/show-blocks',
       stream.pipe(res);
     });
   });
+
+app.use("/static", express.static(__dirname + '/static'));
+app.use("/", express.static(__dirname + '/static'));
 
 if (process.argv.length > 2) {
   var socket = process.argv[2];
