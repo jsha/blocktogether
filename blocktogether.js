@@ -3,46 +3,18 @@ var express = require('express'), // Web framework
     cookieSession = require('cookie-session'),
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
+    twitterAPI = require('node-twitter-api'),
     TwitterStrategy = require('passport-twitter').Strategy,
     mysql = require('mysql'),
-    fs = require('fs');
+    fs = require('fs'),
+    setup = require('./setup');
 
-var twitterAPI = require('node-twitter-api');
-/*
- * Credentials file should look like this:
- *
- *  {
- *    "consumerKey": "...",
- *    "consumerSecret": "...",
- *    "cookieSecret": "...",
- *    "dbUser": "...",
- *    "dbPass": "...",
- *    "dbHost": "..."
- *  }
- */
-var credentialsData = fs.readFileSync('/etc/blocktogether/credentials.json', 'utf8');
-var credentials = JSON.parse(credentialsData);
-
-var twitter = new twitterAPI({
-    consumerKey: credentials.consumerKey,
-    consumerSecret: credentials.consumerSecret
-});
+var credentials = setup.credentials;
+var mysqlConnection = setup.mysqlConnection;
+var twitter = setup.twitter;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
-
-var mysqlConnection = mysql.createConnection({
-  host     : credentials.dbHost,
-  user     : credentials.dbUser,
-  password : credentials.dbPass,
-  database : 'blocktogether'
-});
-
-mysqlConnection.connect(function(err) {
-  if (err) {
-    raise('error connecting to mysql: ' + err);
-  }
-});
 
 function makeApp() {
   // Create the server
@@ -63,8 +35,8 @@ function makeApp() {
     // Callback on verified success.
     function(accessToken, accessTokenSecret, profile, done) {
       storeToken = mysql.format(
-        'insert into twitter_tokens (uid, accessToken, accessTokenSecret)' +
-        ' values (?, ?, ?) on duplicate key update;', [profile._json.id_str, accessToken, accessTokenSecret]);
+        'replace into twitter_tokens (uid, accessToken, accessTokenSecret)' +
+        ' values (?, ?, ?);', [profile._json.id_str, accessToken, accessTokenSecret]);
       mysqlConnection.query(storeToken, function(err, rows) {
         if (err) {
           console.log("Error saving tokens: " + err);
