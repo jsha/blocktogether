@@ -10,6 +10,7 @@
     "passport-twitter": "",
     "cookie-session": "",
     "keygrip": "",
+    "mysql": "",
     "mu2": ""
   }
 }

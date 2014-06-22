@@ -4,9 +4,22 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
+    mysql = require('mysql'),
     fs = require('fs');
 
 var twitterAPI = require('node-twitter-api');
+/*
+ * Credentials file should look like this:
+ *
+ *  {
+ *    "consumerKey": "...",
+ *    "consumerSecret": "...",
+ *    "cookieSecret": "...",
+ *    "dbUser": "...",
+ *    "dbPass": "...",
+ *    "dbHost": "..."
+ *  }
+ */
 var credentialsData = fs.readFileSync('/etc/blocktogether/credentials.json', 'utf8');
 var credentials = JSON.parse(credentialsData);
 
@@ -18,6 +31,18 @@ var twitter = new twitterAPI({
 // Look for templates here
 mu.root = __dirname + '/templates';
 
+var mysqlConnection = mysql.createConnection({
+  host     : credentials.dbHost,
+  user     : credentials.dbUser,
+  password : credentials.dbPass,
+  database : 'blocktogether'
+});
+
+mysqlConnection.connect(function(err) {
+  if (err) {
+    raise('error connecting to mysql: ' + err);
+  }
+});
 
 function makeApp() {
   // Create the server
@@ -37,10 +62,18 @@ function makeApp() {
     },
     // Callback on verified success.
     function(accessToken, accessTokenSecret, profile, done) {
-      done(null, {
-        profile: profile,
-        accessToken: accessToken,
-        accessTokenSecret: accessTokenSecret
+      storeToken = mysql.format(
+        'insert into twitter_tokens (uid, accessToken, accessTokenSecret)' +
+        ' values (?, ?, ?) on duplicate key update;', [profile._json.id_str, accessToken, accessTokenSecret]);
+      mysqlConnection.query(storeToken, function(err, rows) {
+        if (err) {
+          console.log("Error saving tokens: " + err);
+        }
+        done(null, {
+          profile: profile,
+          accessToken: accessToken,
+          accessTokenSecret: accessTokenSecret
+        });
       });
     }
   ));
@@ -48,7 +81,7 @@ function makeApp() {
   // used to serialize the user for the session
   passport.serializeUser(function(user, done) {
     done(null, JSON.stringify({
-      id: user.profile.id,
+      id_str: user.profile._json.id_str,
       name: user.profile.displayName,
       accessToken: user.accessToken,
       accessTokenSecret: user.accessTokenSecret
@@ -68,10 +101,11 @@ var app = makeApp();
  * @returns {Boolean} Whether the user is logged in
  */
 function isAuthenticated(req) {
-  return typeof(req.user) != "undefined" &&
-         typeof(req.user.id) != "undefined" &&
-         typeof(req.user.accessToken) != "undefined" &&
-         typeof(req.user.accessTokenSecret) != "undefined"
+  var u = "undefined";
+  return typeof(req.user) != u &&
+         typeof(req.user.id_str) != u &&
+         typeof(req.user.accessToken) != u &&
+         typeof(req.user.accessTokenSecret) != u
 }
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
@@ -86,14 +120,6 @@ app.get('/auth/twitter', passport.authenticate('twitter'));
 app.get('/auth/twitter/callback', 
   passport.authenticate('twitter', { successRedirect: '/logged-in',
                                      failureRedirect: '/failed' }));
-
-/*app.get('/',
-  function(req, res) {
-    var stream = mu.compileAndRender('main.html', {});
-    res.header('Content-Type', 'text/html');
-    stream.pipe(res);
-  });
-*/
 
 app.get('/login',
   function(req, res) {
@@ -121,6 +147,12 @@ app.get('/logged-in',
     });
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
+  });
+
+app.get('/logout',
+  function(req, res) {
+    req.session = null;
+    res.redirect('/login');
   });
 
 function blocks(req, type, params, callback) {
