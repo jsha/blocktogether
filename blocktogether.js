@@ -3,10 +3,8 @@ var express = require('express'), // Web framework
     cookieSession = require('cookie-session'),
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
-    twitterAPI = require('node-twitter-api'),
     TwitterStrategy = require('passport-twitter').Strategy,
     mysql = require('mysql'),
-    fs = require('fs'),
     setup = require('./setup');
 
 var credentials = setup.credentials;
@@ -135,13 +133,27 @@ function blocks(req, type, params, callback) {
 
 app.get('/show-blocks',
   function(req, res) {
-    blocks(req, "list", {skip_status: 1}, function(error, results) {
-      var stream = mu.compileAndRender('show-blocks.html', {
-        screen_name: req.user.name,
-        blocks: results.users
-      });
-      res.header('Content-Type', 'text/html');
-      stream.pipe(res);
+    blocks(req, "list", {skip_status: 1, cursor: -1}, function(error, results) {
+      if (error != null) {
+        if (error.data) {
+          var errorMessage = error.data;
+        } else {
+          var errorMessage = "Unknown error";
+        }
+        var stream = mu.compileAndRender('error.html', {
+          error: errorMessage
+        });
+        res.header('Content-Type', 'text/html');
+        stream.pipe(res);
+      } else {
+        var stream = mu.compileAndRender('show-blocks.html', {
+          screen_name: req.user.name,
+          block_count: results.users.length,
+          blocks: results.users
+        });
+        res.header('Content-Type', 'text/html');
+        stream.pipe(res);
+      }
     });
   });
 
