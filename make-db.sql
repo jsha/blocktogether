@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS `twitter_tokens` (
   `uid` varchar(255) NOT NULL DEFAULT '',
-  `accessToken` varchar(255) DEFAULT NULL,
-  `accessTokenSecret` varchar(255) DEFAULT NULL,
+  `access_token` varchar(255) DEFAULT NULL,
+  `access_token_secret` varchar(255) DEFAULT NULL,
 PRIMARY KEY (`uid`));
 
 CREATE TABLE IF NOT EXISTS `blocks` (

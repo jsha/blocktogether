@@ -33,8 +33,9 @@ function makeApp() {
     // Callback on verified success.
     function(accessToken, accessTokenSecret, profile, done) {
       storeToken = mysql.format(
-        'replace into twitter_tokens (uid, accessToken, accessTokenSecret)' +
-        ' values (?, ?, ?);', [profile._json.id_str, accessToken, accessTokenSecret]);
+        'replace into twitter_tokens (uid, access_token, access_token_secret)' +
+        ' values (?, ?, ?);',
+        [profile._json.id_str, access_token, access_token_secret]);
       mysqlConnection.query(storeToken, function(err, rows) {
         if (err) {
           console.log("Error saving tokens: " + err);
