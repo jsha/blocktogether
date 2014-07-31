@@ -12,6 +12,7 @@
     "keygrip": "",
     "mysql": "",
     "mu2": "",
-    "nodemon": ""
+    "nodemon": "",
+    "sequelize": "~1.7.9"
   }
 }
