@@ -20,7 +20,7 @@ function makeApp() {
   app.use(bodyParser());
   app.use(cookieSession({
     keys: [config.cookieSecret],
-    secureProxy: true
+    secureProxy: config.secureProxy
   }));
   app.use(passport.initialize());
   app.use(passport.session());
