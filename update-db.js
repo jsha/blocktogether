@@ -1,16 +1,16 @@
 var mysql = require('mysql'),
     setup = require('./setup');
 
-var credentials = setup.credentials;
+var config = setup.config;
 var mysqlConnection = setup.mysqlConnection;
 var twitter = setup.twitter;
-var accessToken = credentials.defaultAccessToken;
-var accessTokenSecret = credentials.defaultAccessTokenSecret;
+var accessToken = config.defaultAccessToken;
+var accessTokenSecret = config.defaultAccessTokenSecret;
 
 // Find a list of uids that haven't been updated recently, and pass them to the
 // callback as an array of strings.
 function uidsNeedingUpdate(callback) {
-  uidsQuery = 'select uid from user where updated = 0 limit 100;';
+  uidsQuery = 'select uid from user where updated = 0 or screen_name is null limit 100;';
   mysqlConnection.query(uidsQuery, function(err, rows) {
     if (err) {
       console.log("Error gettig uids: " + err);
@@ -34,6 +34,10 @@ function findAndUpdateUsers() {
 
 // Given a user lookup API response from Twitter, store the user into the DB.
 function updateUsers(err, data, response) {
+  if (!!err) {
+    console.log(err);
+    return;
+  }
   for (var i = 0; i < data.length; i++) {
     storeUser(data[i]);
   }
