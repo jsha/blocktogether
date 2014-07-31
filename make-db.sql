@@ -28,3 +28,8 @@ CREATE TABLE IF NOT EXISTS `blocktogether`.`user` (
   `name` varchar(255),
   `json` varchar(4096),
 PRIMARY KEY (`uid`));
+
+CREATE TABLE IF NOT EXISTS `blocktogether`.`settings` (
+  `uid` varchar(255) NOT NULL,
+  `block_egg_mentions` boolean DEFAULT FALSE,
+PRIMARY KEY (`uid`));
