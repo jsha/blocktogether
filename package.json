@@ -2,7 +2,7 @@
   "author": "Jacob Hoffman-Andrews",
   "name": "blocktogether",
   "description": "Share your blocks",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "dependencies": {
     "express": "",
     "body-parser": "",
@@ -11,6 +11,7 @@
     "cookie-session": "",
     "keygrip": "",
     "mysql": "",
-    "mu2": ""
+    "mu2": "",
+    "nodemon": ""
   }
 }
