@@ -3,7 +3,6 @@ var mysql = require('mysql'),
     fs = require('fs'),
     setup = require('./setup');
 
-var credentials = setup.credentials;
 var mysqlConnection = setup.mysqlConnection;
 var twitter = setup.twitter;
 

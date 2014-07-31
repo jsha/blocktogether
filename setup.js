@@ -15,18 +15,18 @@ var fs = require('fs'),
  *    "dbHost": "..."
  *  }
  */
-var credentialsData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
-var credentials = JSON.parse(credentialsData);
+var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
+var config = JSON.parse(configData);
 
 var twitter = new twitterAPI({
-    consumerKey: credentials.consumerKey,
-    consumerSecret: credentials.consumerSecret
+    consumerKey: config.consumerKey,
+    consumerSecret: config.consumerSecret
 });
 
 var mysqlConnection = mysql.createConnection({
-  host     : credentials.dbHost,
-  user     : credentials.dbUser,
-  password : credentials.dbPass,
+  host     : config.dbHost,
+  user     : config.dbUser,
+  password : config.dbPass,
   database : 'blocktogether'
 });
 
@@ -37,7 +37,7 @@ mysqlConnection.connect(function(err) {
 });
 
 module.exports = {
-  credentials: credentials,
+  config: config,
   mysqlConnection: mysqlConnection,
   twitter: twitter
 };

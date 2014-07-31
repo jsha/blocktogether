@@ -7,7 +7,7 @@ var express = require('express'), // Web framework
     mysql = require('mysql'),
     setup = require('./setup');
 
-var credentials = setup.credentials;
+var config = setup.config;
 var mysqlConnection = setup.mysqlConnection;
 var twitter = setup.twitter;
 
@@ -19,23 +19,23 @@ function makeApp() {
   var app = express();
   app.use(bodyParser());
   app.use(cookieSession({
-    keys: [credentials.cookieSecret],
-    proxy: true /// XXX remove
+    keys: [config.cookieSecret],
+    secureProxy: true
   }));
   app.use(passport.initialize());
   app.use(passport.session());
 
   passport.use(new TwitterStrategy({
-      consumerKey: credentials.consumerKey,
-      consumerSecret: credentials.consumerSecret,
-      callbackURL: "http://localhost:3000/auth/twitter/callback"
+      consumerKey: config.consumerKey,
+      consumerSecret: config.consumerSecret,
+      callbackURL: config.callbackUrl
     },
     // Callback on verified success.
     function(accessToken, accessTokenSecret, profile, done) {
       storeToken = mysql.format(
         'replace into twitter_tokens (uid, access_token, access_token_secret)' +
         ' values (?, ?, ?);',
-        [profile._json.id_str, access_token, access_token_secret]);
+        [profile._json.id_str, accessToken, accessTokenSecret]);
       mysqlConnection.query(storeToken, function(err, rows) {
         if (err) {
           console.log("Error saving tokens: " + err);
@@ -78,6 +78,13 @@ function isAuthenticated(req) {
          typeof(req.user.accessToken) != u &&
          typeof(req.user.accessTokenSecret) != u
 }
+
+// First, set some default security headers for every request.
+app.get('/*', function(req, res, next) {
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Content-Security-Policy', "default-src 'self';");
+  next();
+});
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
@@ -166,6 +173,6 @@ if (process.argv.length > 2) {
   console.log("Starting server on UNIX socket " + socket);
   app.listen(socket);
 } else {
-  console.log("Starting server at http://localhost:3000/");
-  app.listen(3000);
+  console.log("Starting server.");
+  app.listen(config.port);
 }

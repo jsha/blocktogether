@@ -3,7 +3,6 @@ var mysql = require('mysql'),
     fs = require('fs'),
     setup = require('./setup');
 
-var credentials = setup.credentials;
 var mysqlConnection = setup.mysqlConnection;
 var twitter = setup.twitter;
 
@@ -34,6 +33,7 @@ function startStreams(mysqlConnection) {
           row.screen_name);
         twitter.getStream('user', {
           'replies': 'all',
+          // Only get user-related events, not all tweets in timeline.
           'with': 'user'
         }, accessToken, accessTokenSecret, boundDataCallback, endCallback);
       }
