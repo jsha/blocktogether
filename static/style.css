@@ -1,3 +1,7 @@
+body {
+  padding: 2em;
+}
+
 .signin-prompt {
   margin-top: 2em;
   margin-left: auto;
