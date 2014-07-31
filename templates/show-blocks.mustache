@@ -1,0 +1,11 @@
+  {{>header.mustache}}
+    hi @{{screen_name}}, here are your {{block_count}} blocks:
+  <p>
+  <ul>
+  {{#blocks}}
+    <b class='blocked-user'><a href='https://twitter.com/{{screen_name}}'>{{screen_name}}</b><br>
+  {{/blocks}}
+  </ul>
+
+  </body>
+</html>

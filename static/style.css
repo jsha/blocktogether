@@ -5,3 +5,13 @@
   width: 30em;
 }
 
+.navbar > a,
+.navbar > span {
+  padding: 1em;
+  text-decoration: none;
+
+}
+.navbar {
+  height: 46px;
+  font-size: 13px;
+}

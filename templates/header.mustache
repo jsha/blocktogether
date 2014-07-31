@@ -9,13 +9,11 @@
     <script type="text/javascript" src="/static/bootstrap-3.1.1/js/bootstrap.min.js"></script>
   </head>
   <body>
-  hi @{{screen_name}}, here are your {{block_count}} blocks:
-  <p>
-  <ul>
-  {{#blocks}}
-    <b>{{screen_name}}</b><br>
-  {{/blocks}}
-  </ul>
-
-  </body>
-</html>
+  {{#screen_name}}
+  <div class="navbar">
+    <a href="/">Block Together</a>
+    <a href="/show-blocks">Show Blocks</a>
+    <span>@{{screen_name}}</span>
+    <a href="/logout">Log Off</a>
+  </div>
+  {{/screen_name}}

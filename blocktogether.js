@@ -53,7 +53,7 @@ function makeApp() {
   passport.serializeUser(function(user, done) {
     done(null, JSON.stringify({
       id_str: user.profile._json.id_str,
-      name: user.profile.displayName,
+      name: user.profile.username,
       accessToken: user.accessToken,
       accessTokenSecret: user.accessTokenSecret
     }));
@@ -99,20 +99,13 @@ app.get('/auth/twitter/callback',
   passport.authenticate('twitter', { successRedirect: '/logged-in',
                                      failureRedirect: '/failed' }));
 
-app.get('/login',
-  function(req, res) {
-    var stream = mu.compileAndRender('login.html', {});
-    res.header('Content-Type', 'text/html');
-    stream.pipe(res);
-  });
-
 function requireAuthentication(req, res, next) {
-  if (req.url == '/' || req.url == '/login' || req.url.match('/static/.*')) {
+  if (req.url == '/' || req.url == '/logged-out' || req.url.match('/static/.*')) {
     next();
   } else if (isAuthenticated(req)) {
     next();
   } else {
-    res.redirect('/login');
+    res.redirect('/');
   }
 }
 
@@ -120,7 +113,7 @@ app.all('*', requireAuthentication);
 
 app.get('/logged-in',
   function(req, res) {
-    var stream = mu.compileAndRender('logged-in.html', {
+    var stream = mu.compileAndRender('logged-in.mustache', {
       screen_name: req.user.name
     });
     res.header('Content-Type', 'text/html');
@@ -130,7 +123,15 @@ app.get('/logged-in',
 app.get('/logout',
   function(req, res) {
     req.session = null;
-    res.redirect('/login');
+    res.redirect('/logged-out');
+  });
+
+app.get('/logged-out',
+  function(req, res) {
+    var stream = mu.compileAndRender('logged-out.mustache', {
+    });
+    res.header('Content-Type', 'text/html');
+    stream.pipe(res);
   });
 
 function blocks(req, type, params, callback) {
@@ -141,20 +142,23 @@ function blocks(req, type, params, callback) {
 
 app.get('/show-blocks',
   function(req, res) {
-    blocks(req, "list", {skip_status: 1, cursor: -1}, function(error, results) {
+    blocks(req, "list", {
+      skip_status: 1,
+      cursor: -1
+    }, function(error, results) {
       if (error != null) {
         if (error.data) {
           var errorMessage = error.data;
         } else {
           var errorMessage = "Unknown error";
         }
-        var stream = mu.compileAndRender('error.html', {
+        var stream = mu.compileAndRender('error.mustache', {
           error: errorMessage
         });
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
       } else {
-        var stream = mu.compileAndRender('show-blocks.html', {
+        var stream = mu.compileAndRender('show-blocks.mustache', {
           screen_name: req.user.name,
           block_count: results.users.length,
           blocks: results.users
