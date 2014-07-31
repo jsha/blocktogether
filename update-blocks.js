@@ -59,7 +59,7 @@ function handleIds(uid, getMore, err, results) {
       }
     });
     var insertUser =
-      mysql.format('insert ignore into user set uid = ?;', [uid]);
+      mysql.format('insert ignore into user set uid = ?;', [blockedId]);
     console.log(insertUser);
     mysqlConnection.query(
       insertUser,
