@@ -1,10 +1,16 @@
-CREATE TABLE IF NOT EXISTS `twitter_tokens` (
+-- Instructions:
+--  Edit to replace XXX With '<a good password>'
+--  $ mysql -u root -p < make-db.sql
+CREATE DATABASE blocktogether;
+GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY XXX;
+
+CREATE TABLE IF NOT EXISTS `blocktogether`.`twitter_tokens` (
   `uid` varchar(255) NOT NULL DEFAULT '',
   `access_token` varchar(255) DEFAULT NULL,
   `access_token_secret` varchar(255) DEFAULT NULL,
 PRIMARY KEY (`uid`));
 
-CREATE TABLE IF NOT EXISTS `blocks` (
+CREATE TABLE IF NOT EXISTS `blocktogether`.`blocks` (
   `source_uid` varchar(255) NOT NULL,
   `sink_uid` varchar(255) NOT NULL,
   `observed_date` TIMESTAMP,
@@ -12,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `blocks` (
 INDEX source (`source_uid`),
 INDEX sink (`sink_uid`));
 
-CREATE TABLE IF NOT EXISTS `user` (
+CREATE TABLE IF NOT EXISTS `blocktogether`.`user` (
   `uid` varchar(255) NOT NULL,
   `updated` TIMESTAMP,
   `friends_count` INT,

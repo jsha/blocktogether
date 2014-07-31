@@ -11,6 +11,9 @@ var twitter = setup.twitter;
  * For each user with stored credentials, start receiving their Twitter user
  * stream, in order to be able to insta-block any new users (< 1 day old)
  * who @-reply one of our users.
+ *
+ * TODO: Also collect block and unblock events.
+ * TODO: Test that streams are restarted after network down events.
  */
 function startStreams(mysqlConnection) {
   mysqlConnection.query('select uid, screen_name, access_token, access_token_secret ' +

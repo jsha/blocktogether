@@ -4,7 +4,7 @@ var fs = require('fs'),
 ;
 
 /*
- * Credentials file should look like this:
+ * Config file should look like this:
  *
  *  {
  *    "consumerKey": "...",
@@ -15,7 +15,7 @@ var fs = require('fs'),
  *    "dbHost": "..."
  *  }
  */
-var credentialsData = fs.readFileSync('/etc/blocktogether/credentials.json', 'utf8');
+var credentialsData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
 var credentials = JSON.parse(credentialsData);
 
 var twitter = new twitterAPI({
