@@ -19,3 +19,13 @@ body {
   height: 46px;
   font-size: 13px;
 }
+.all-blocks {
+  width: 20em;
+}
+.blocked-user {
+  position: relative;
+}
+button.block {
+  position: absolute;
+  right: 0;
+}

@@ -1,7 +1,6 @@
   {{>header.mustache}}
     hi @{{screen_name}}, here are your {{block_count}} blocks:
-  <p>
-  <ul>
+  <div class='all-blocks'>
   {{#blocks}}
     <b class='blocked-user'>
      <a href='https://twitter.com/{{screen_name}}'>
@@ -9,7 +8,18 @@
      </a>
      <br/>
   {{/blocks}}
-  </ul>
+  {{#ids}}
+    <div class='blocked-user'>
+     <a href='https://twitter.com/account/redirect_by_id/{{id}}'>
+        <b>{{id}}</b>
+     </a>
+     {{^own_blocks}}
+     <button class='block'>Block</button>
+     {{/own_blocks}}
+     <br/>
+    </div>
+  {{/ids}}
+  </div>
 
   </body>
 </html>

@@ -142,7 +142,7 @@ function blocks(req, type, params, callback) {
 
 app.get('/show-blocks',
   function(req, res) {
-    blocks(req, "list", {
+    blocks(req, "ids", {
       skip_status: 1,
       cursor: -1
     }, function(error, results) {
@@ -158,10 +158,15 @@ app.get('/show-blocks',
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
       } else {
+        var ids = results.ids.map(function(id) {
+          return { id: id };
+        });
         var stream = mu.compileAndRender('show-blocks.mustache', {
           screen_name: req.user.name,
-          block_count: results.users.length,
-          blocks: results.users
+          block_count: results.users ? results.users.length : results.ids.length,
+          blocks: results.users,
+          own_blocks: true,
+          ids: ids
         });
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
