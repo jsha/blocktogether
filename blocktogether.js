@@ -10,6 +10,8 @@ var express = require('express'), // Web framework
 var config = setup.config;
 var mysqlConnection = setup.mysqlConnection;
 var twitter = setup.twitter;
+var BtUser = setup.BtUser;
+var TwitterUser = setup.TwitterUser;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
@@ -32,6 +34,17 @@ function makeApp() {
     },
     // Callback on verified success.
     function(accessToken, accessTokenSecret, profile, done) {
+      var uid = profile._json.id_str;
+      BtUser
+        .findOrCreate({ uid: uid }, {
+          access_token: accessToken,
+          access_token_secret: accessTokenSecret
+        })
+        .complete(function(err, user) {
+          if (!!err) {
+            console.log(err);
+          }
+        })
       storeToken = mysql.format(
         'replace into twitter_tokens (uid, access_token, access_token_secret)' +
         ' values (?, ?, ?);',

@@ -52,9 +52,22 @@ sequelize
     }
   })
 
-var Settings = sequelize.define('Settings', {
+// Use snake_case for model accessors because that's SQL style.
+var TwitterUser = sequelize.define('TwitterUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
-  block_egg_mentions: Sequelize.BOOLEAN
+  friends_count: Sequelize.INTEGER,
+  followers_count: Sequelize.INTEGER,
+  profile_image_url_https: Sequelize.STRING,
+  screen_name: Sequelize.STRING,
+  name: Sequelize.STRING
+});
+
+var BtUser = sequelize.define('BtUser', {
+  uid: { type: Sequelize.STRING, primaryKey: true },
+  access_token: Sequelize.STRING,
+  access_token_secret: Sequelize.STRING,
+  shared_blocks_key: Sequelize.STRING,
+  block_new_accounts: Sequelize.BOOLEAN
 });
 
 sequelize
@@ -71,5 +84,7 @@ module.exports = {
   config: config,
   mysqlConnection: mysqlConnection,
   twitter: twitter,
-  sequelize: sequelize
+  sequelize: sequelize,
+  TwitterUser: TwitterUser,
+  BtUser: BtUser
 };
