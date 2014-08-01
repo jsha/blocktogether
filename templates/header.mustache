@@ -2,18 +2,19 @@
 <html>
   <head>
     <title>Block Together</title>
-    <link rel="stylesheet" href="/static/bootstrap-3.1.1/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/static/bootstrap-3.1.1/css/bootstrap-theme.min.css" />
-    <link rel="stylesheet" href="/static/style.css" />
-    <script type="text/javascript" src="/static/jquery-2.1.1.min.js"></script>
-    <script type="text/javascript" src="/static/bootstrap-3.1.1/js/bootstrap.min.js"></script>
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap.min.css' />
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap-theme.min.css' />
+    <link rel='stylesheet' href='/static/style.css' />
+    <script type='text/javascript' src='/static/jquery-2.1.1.min.js'></script>
+    <script type='text/javascript' src='/static/bootstrap-3.1.1/js/bootstrap.min.js'></script>
   </head>
   <body>
   {{#screen_name}}
-  <div class="navbar">
-    <a href="/">Block Together</a>
-    <a href="/show-blocks">Show Blocks</a>
+  <div class='navbar'>
+    <a href='/'>Block Together</a>
+    <a href='/show-blocks'>Show Blocks</a>
     <span>@{{screen_name}}</span>
-    <a href="/logout">Log Off</a>
+    <a href='/settings'>Settings</a>
+    <a href='/logout'>Log Off</a>
   </div>
   {{/screen_name}}

@@ -29,3 +29,6 @@ button.block {
   position: absolute;
   right: 0;
 }
+.saved {
+  display: none;
+}

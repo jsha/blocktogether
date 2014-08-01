@@ -1,6 +1,7 @@
 var express = require('express'), // Web framework
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
+    crypto = require('crypto'),
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
@@ -17,7 +18,7 @@ mu.root = __dirname + '/templates';
 function makeApp() {
   // Create the server
   var app = express();
-  app.use(bodyParser());
+  app.use(bodyParser.json());
   app.use(cookieSession({
     keys: [config.cookieSecret],
     secureProxy: config.secureProxy
@@ -135,6 +136,50 @@ app.get('/logged-out',
     });
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
+  });
+
+app.get('/settings',
+  function(req, res) {
+    var stream = mu.compileAndRender('settings.mustache', {
+      screen_name: req.user.name
+    });
+    res.header('Content-Type', 'text/html');
+    stream.pipe(res);
+  });
+
+app.post('/settings.json',
+  function(req, res) {
+    BtUser
+      .find({ uid: req.user.id_str })
+      .error(function(err) {
+        console.log(err);
+      }).success(function(user) {
+        console.log('Updating settings for ', user.uid, req.body);
+        if (typeof req.body.block_new_accounts !== 'undefined') {
+          user.block_new_accounts = req.body.block_new_accounts;
+        }
+        if (typeof req.body.share_blocks !== 'undefined') {
+          var new_share_blocks = req.body.share_blocks;
+          var old_share_blocks = (user.shared_blocks_key === '');
+          // Disable sharing
+          if (old_share_blocks && !new_share_blocks) {
+            user.shared_blocks_key = '';
+          }
+          if (!old_share_blocks && new_share_blocks) {
+            user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+          }
+        }
+        user
+          .save()
+          .success(function(user) {
+            res.header('Content-Type', 'application/json');
+            res.end(JSON.stringify({
+              share_blocks: true,
+              shared_blocks_key: user.shared_blocks_key,
+              block_new_accounts: true
+            }));
+          });
+      });
   });
 
 function blocks(req, type, params, callback) {
