@@ -55,6 +55,7 @@ var BtUser = sequelize.define('BtUser', {
   shared_blocks_key: Sequelize.STRING,
   block_new_accounts: Sequelize.BOOLEAN
 });
+BtUser.hasOne(TwitterUser);
 
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
@@ -69,7 +70,6 @@ var BlockBatch = sequelize.define('BlockBatch', {
   currentCursor: Sequelize.STRING,
   complete: Sequelize.BOOLEAN
 });
-
 BlockBatch.hasMany(Block, {as: 'Blocks'});
 
 sequelize
