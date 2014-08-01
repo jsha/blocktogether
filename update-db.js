@@ -1,32 +1,33 @@
-var mysql = require('mysql'),
-    setup = require('./setup');
+var setup = require('./setup');
 
-var config = setup.config;
-var mysqlConnection = setup.mysqlConnection;
-var twitter = setup.twitter;
-var accessToken = config.defaultAccessToken;
-var accessTokenSecret = config.defaultAccessTokenSecret;
+var config = setup.config,
+    twitter = setup.twitter,
+    accessToken = config.defaultAccessToken,
+    accessTokenSecret = config.defaultAccessTokenSecret,
+    BtUser = setup.BtUser,
+    TwitterUser = setup.TwitterUser,
+    BlockBatch = setup.BlockBatch,
+    Block = setup.Block;
 
 // Find a list of uids that haven't been updated recently, and pass them to the
 // callback as an array of strings.
-function uidsNeedingUpdate(callback) {
-  uidsQuery = 'select uid from user where updated = 0 or screen_name is null limit 100;';
-  mysqlConnection.query(uidsQuery, function(err, rows) {
-    if (err) {
-      console.log("Error gettig uids: " + err);
-    }
-
-    ids = [];
-    for (var i = 0; i < rows.length; i++) {
-      ids.push(rows[i].uid);
-    }
-    callback(ids);
-  });
+function usersNeedingUpdate(callback) {
+  TwitterUser
+    .findAll({
+      where: 'screen_name is null',
+      limit: 100
+    }).error(function(err) {
+      console.log(err);
+    }).success(function(users) {
+      callback(users.map(function(user) {
+        return user.uid;
+      }));
+    });
 }
 
 // Find uids needing update, look them up on Twitter, and store in database.
 function findAndUpdateUsers() {
-  uidsNeedingUpdate(function() {
+  usersNeedingUpdate(function(ids) {
     twitter.users("lookup", {skip_status: 1, user_id: ids.join(",")},
       accessToken, accessTokenSecret, updateUsers);
   });
@@ -46,21 +47,20 @@ function updateUsers(err, data, response) {
 }
 
 // Store a single user into the DB.
-function storeUser(user) {
-  storeUserQuery = mysql.format(
-    'replace into user (uid, friends_count, followers_count,' +
-    '  profile_image_url_https, screen_name, name, json) values' +
-    ' (?, ?, ?, ?, ?, ?, ?);',
-    [user.id_str, user.friends_count, user.followers_count,
-     user.profile_image_url_https, user.screen_name, user.name,
-     JSON.stringify(user)]);
-  mysqlConnection.query(storeUserQuery, function(err, rows) {
-    if (err) {
-      console.log("Error storing user lookup results: " + err);
-    } else {
-      console.log("Succesfully stored user @", user.screen_name);
-    }
-  });
+function storeUser(twitterUserResponse) {
+  TwitterUser
+    .find(twitterUserResponse.id_str)
+    .error(function(err) {
+      console.log(err);
+    }).success(function(user) {
+      console.log("Succesfully found user @", user.screen_name);
+      for (key in twitterUserResponse) {
+        if (twitterUserResponse.hasOwnProperty(key)) {
+          user[key] = twitterUserResponse[key]
+        }
+      }
+      user.save();
+    });
 }
 
 findAndUpdateUsers();

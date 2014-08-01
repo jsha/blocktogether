@@ -4,14 +4,12 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
-    mysql = require('mysql'),
     setup = require('./setup');
 
-var config = setup.config;
-var mysqlConnection = setup.mysqlConnection;
-var twitter = setup.twitter;
-var BtUser = setup.BtUser;
-var TwitterUser = setup.TwitterUser;
+var config = setup.config,
+    twitter = setup.twitter,
+    BtUser = setup.BtUser,
+    TwitterUser = setup.TwitterUser;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
@@ -36,29 +34,21 @@ function makeApp() {
     function(accessToken, accessTokenSecret, profile, done) {
       var uid = profile._json.id_str;
       BtUser
-        .findOrCreate({ uid: uid }, {
-          access_token: accessToken,
-          access_token_secret: accessTokenSecret
-        })
+        .findOrCreate({ uid: uid })
         .complete(function(err, user) {
           if (!!err) {
             console.log(err);
+          } else {
+            user.access_token = accessToken;
+            user.access_token_secret = accessTokenSecret;
+            user.save()
+            done(null, {
+              profile: profile,
+              accessToken: accessToken,
+              accessTokenSecret: accessTokenSecret
+            });
           }
-        })
-      storeToken = mysql.format(
-        'replace into twitter_tokens (uid, access_token, access_token_secret)' +
-        ' values (?, ?, ?);',
-        [profile._json.id_str, accessToken, accessTokenSecret]);
-      mysqlConnection.query(storeToken, function(err, rows) {
-        if (err) {
-          console.log("Error saving tokens: " + err);
-        }
-        done(null, {
-          profile: profile,
-          accessToken: accessToken,
-          accessTokenSecret: accessTokenSecret
         });
-      });
     }
   ));
 

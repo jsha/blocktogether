@@ -1,10 +1,9 @@
-var mysql = require('mysql'),
-    twitterAPI = require('node-twitter-api'),
+var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     setup = require('./setup');
 
-var mysqlConnection = setup.mysqlConnection;
-var twitter = setup.twitter;
+var twitter = setup.twitter,
+    BtUser = setup.BtUser;
 
 /**
  * For each user with stored credentials, start receiving their Twitter user
@@ -14,38 +13,36 @@ var twitter = setup.twitter;
  * TODO: Also collect block and unblock events.
  * TODO: Test that streams are restarted after network down events.
  */
-function startStreams(mysqlConnection) {
-  mysqlConnection.query('select uid, screen_name, access_token, access_token_secret ' +
-    'from twitter_tokens natural join user;', function(err, rows) {
-    if (err) {
-      console.log(err);
-    } else {
-      for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        var accessToken = row.access_token;
-        var accessTokenSecret = row.access_token_secret;
+function startStreams() {
+  BtUser
+    .findAll()
+    .complete(function(err, users) {
+      if (!!err) {
+        console.log(err);
+        return;
+      }
+      users.forEach(function(user) {
+        var accessToken = user.access_token;
+        var accessTokenSecret = user.access_token_secret;
         var boundDataCallback = dataCallback.bind(
           undefined, accessToken, accessTokenSecret);
         var boundEndCallback = endCallback.bind(
-          undefined, row.screen_name);
+          undefined, user.uid);
 
-        console.log('Starting user stream for uid ', row.uid, ' screen name ',
-          row.screen_name);
+        console.log('Starting user stream for uid ', user.uid);
         twitter.getStream('user', {
           'replies': 'all',
           // Only get user-related events, not all tweets in timeline.
           'with': 'user'
         }, accessToken, accessTokenSecret, boundDataCallback, endCallback);
-      }
-    }
-  });
+      });
+    });
 }
 
-startStreams(mysqlConnection);
+startStreams();
 
-function endCallback(screen_name) {
-  console.log("Ending stream for ", screen_name);
-  mysqlConnection.destroy();
+function endCallback(uid) {
+  console.log("Ending stream for ", uid);
 }
 
 function uidFromAccessToken(accessToken) {

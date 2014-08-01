@@ -1,28 +1,49 @@
-var mysql = require('mysql'),
-    twitterAPI = require('node-twitter-api'),
+/**
+ * Script to block a list of screen names using credentials for a given user id
+ */
+var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     setup = require('./setup');
 
-var mysqlConnection = setup.mysqlConnection;
-var twitter = setup.twitter;
+var twitter = setup.twitter,
+    BtUser = setup.BtUser,
+    TwitterUser = setup.TwitterUser,
+    BlockBatch = setup.BlockBatch,
+    Block = setup.Block;
 
-mysqlConnection.query('select uid, accessToken, accessTokenSecret ' +
-  'from twitter_tokens where uid = "123456789";', function(err, rows) {
-  var accessToken = rows[0].accessToken;
-  var accessTokenSecret = rows[0].accessTokenSecret;
-  var randos = fs.readFileSync('to-block.txt').toString().split("\n");
-  var chosenRando = randos[Math.floor(Math.random()*randos.length)];
-  var i = 0;
-  var blockAndNext = function() {
-    twitter.blocks("create", {screen_name: randos[i++], skip_status: 1}, accessToken, accessTokenSecret, function(error, results) {
-      if (error == null) {
-        console.log("Blocked " + results.id);
-      } else {
-        console.log("Error blocking: " + error);
-      }
-      setTimeout(blockAndNext, 100);
-    });
-  }
-  blockAndNext();
-  mysqlConnection.destroy();
-});
+if (process.argv.length < 4) {
+  console.log("Usage: js many-blocks.js UID FILE_SCREEN_NAMES");
+  process.exit();
+}
+
+BtUser
+  .find(process.argv[2])
+  .error(function(err) {
+    console.log(err);
+  }).success(function(user) {
+    var filename = process.argv[3];
+
+    var accessToken = user.access_token;
+    var accessTokenSecret = user.access_token_secret;
+    console.log(accessToken, accessTokenSecret);
+    var targets = fs.readFileSync(filename).toString().split("\n");
+
+    var i = 0;
+
+    var blockAndNext = function(i) {
+      twitter.blocks("create", {
+        screen_name: targets[i],
+        skip_status: 1
+      }, accessToken, accessTokenSecret,
+      function(err, results) {
+        if (!!err) {
+          console.log("Error blocking: %j", err);
+        } else {
+          console.log("Blocked " + results.id);
+        }
+        // In 100 ms, run this again for the next item.
+        setTimeout(blockAndNext.bind(null, i + 1), 100);
+      });
+    }
+    blockAndNext(0);
+  });

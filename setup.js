@@ -1,5 +1,4 @@
 var fs = require('fs'),
-    mysql = require('mysql'),
     twitterAPI = require('node-twitter-api')
 ;
 
@@ -21,19 +20,6 @@ var config = JSON.parse(configData);
 var twitter = new twitterAPI({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret
-});
-
-var mysqlConnection = mysql.createConnection({
-  host     : config.dbHost,
-  user     : config.dbUser,
-  password : config.dbPass,
-  database : 'blocktogether'
-});
-
-mysqlConnection.connect(function(err) {
-  if (err) {
-    raise('error connecting to mysql: ' + err);
-  }
 });
 
 var Sequelize = require('sequelize'),
@@ -70,8 +56,24 @@ var BtUser = sequelize.define('BtUser', {
   block_new_accounts: Sequelize.BOOLEAN
 });
 
+var Block = sequelize.define('Block', {
+  sink_uid: Sequelize.STRING,
+  type: Sequelize.STRING
+});
+
+/**
+ * Represents a batch of blocks fetched from Twitter, using cursoring.
+ */
+var BlockBatch = sequelize.define('BlockBatch', {
+  source_uid: Sequelize.STRING,
+  currentCursor: Sequelize.STRING,
+  complete: Sequelize.BOOLEAN
+});
+
+BlockBatch.hasMany(Block, {as: 'Blocks'});
+
 sequelize
-  .sync({ force: true })
+  .sync()
     .complete(function(err) {
        if (!!err) {
          console.log('An error occurred while creating the table:', err)
@@ -82,9 +84,10 @@ sequelize
 
 module.exports = {
   config: config,
-  mysqlConnection: mysqlConnection,
   twitter: twitter,
   sequelize: sequelize,
   TwitterUser: TwitterUser,
-  BtUser: BtUser
+  BtUser: BtUser,
+  Block: Block,
+  BlockBatch: BlockBatch
 };

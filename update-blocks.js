@@ -1,79 +1,95 @@
-var mysql = require('mysql'),
-    twitterAPI = require('node-twitter-api'),
+var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     setup = require('./setup');
 
-var mysqlConnection = setup.mysqlConnection;
-var twitter = setup.twitter;
+var twitter = setup.twitter,
+    BtUser = setup.BtUser,
+    TwitterUser = setup.TwitterUser,
+    BlockBatch = setup.BlockBatch,
+    Block = setup.Block;
 
 /**
  * For each user with stored credentials, fetch all of their blocked user ids,
  * and start filling the users table with data about those ids.
  */
-function startQueries(mysqlConnection) {
-  mysqlConnection.query('select uid, screen_name, access_token, access_token_secret ' +
-    'from twitter_tokens natural join user;', function(err, rows) {
-    if (err) {
-      console.log(err);
-    } else {
-      for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        var accessToken = row.access_token;
-        var accessTokenSecret = row.access_token_secret;
-        updateBlocks(row.uid, row.screen_name,
-          row.access_token, row.access_token_secret);
+function startQueries() {
+  BtUser
+    .findAll()
+    .complete(function(err, users) {
+      if (!!err) {
+        console.log(err);
+        return;
       }
-    }
-  });
+      users.forEach(function(user) {
+        BlockBatch.create({
+          source_uid: user.uid
+        }).error(function(err) {
+          console.log(err);
+        }).success(function(blockBatch) {
+          updateBlocks(blockBatch, user.access_token, user.access_token_secret);
+        });
+      });
+    });
 }
 
-function updateBlocks(uid, screenName, accessToken, accessTokenSecret, cursor) {
-  console.log('Fetching blocks for', uid, ' screen name ', screenName);
+function updateBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
+  console.log('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
   // update cursor.
-  var getMore = updateBlocks.bind(null, uid, screenName,
-    accessToken, accessTokenSecret);
+  var getMore = updateBlocks.bind(null, blockBatch, accessToken, accessTokenSecret);
+  var currentCursor = cursor || -1;
   twitter.blocks("ids", {
       stringify_ids: true,
-      cursor: cursor || -1
+      cursor: currentCursor,
     },
     accessToken, accessTokenSecret,
-    handleIds.bind(null, uid, getMore));
+    handleIds.bind(null, blockBatch, currentCursor, getMore));
 }
 
-function handleIds(uid, getMore, err, results) {
+function handleIds(blockBatch, currentCursor, getMore, err, results) {
   if (err) {
-    console.log(err);
+    if (err.statusCode === 429) {
+      console.log('Rate limited. Trying again in 15 minutes.');
+      setTimeout(function() {
+        getMore(currentCursor);
+      }, 15 * 60 * 1000);
+    } else {
+      console.log(err);
+    }
     return;
   }
-  for (i = 0; i < results.ids.length; i++) {
-    var blockedId = results.ids[i];
-    // TODO: Update trigger so it doesn't alway overwrite with 'external'
-    storeBlock = mysql.format(
-      'replace into blocks (source_uid, sink_uid, `trigger`)' +
-      ' values (?, ?, ?);',
-      [uid, blockedId, 'external']);
-    mysqlConnection.query(storeBlock, function(err, rows) {
-      if (err) {
-        console.log("Error saving blocks: " + err);
-      }
-    });
-    var insertUser =
-      mysql.format('insert ignore into user set uid = ?;', [blockedId]);
-    console.log(insertUser);
-    mysqlConnection.query(
-      insertUser,
-      function(err, rows) {
-        if (err) {
-          console.log("Error saving user: " + err);
-        }
-      });
-  }
-  if (results.next_cursor_str != '0') {
+
+  // Update the current cursor stored with the blockBatch. Not currently used,
+  // but may be useful to resume fetching blocks across restarts of this script.
+  blockBatch.currentCursor = currentCursor;
+  blockBatch.save();
+
+  // First, add any new uids to the TwitterUser table if they aren't already
+  // there (note ignoreDuplicates so we don't overwrite fleshed-out users).
+  var usersToCreate = results.ids.map(function(id) {
+    return {uid: id};
+  });
+  TwitterUser.bulkCreate(usersToCreate, { ignoreDuplicates: true });
+
+  // Now we create block entries for all the blocked ids. Note: setting
+  // BlockBatchId explicitly here doesn't show up in the documentation,
+  // but it seems to work.
+  var blocksToCreate = results.ids.map(function(id) {
+    return {
+      sink_uid: id,
+      BlockBatchId: blockBatch.id
+    };
+  });
+  Block.bulkCreate(blocksToCreate);
+
+  // Check whether we're done or next to grab the items at the next cursor.
+  if (results.next_cursor_str === '0') {
+    console.log('Finished fetching blocks for user ', blockBatch.source_uid);
+  } else {
     console.log('Cursoring ', results.next_cursor_str);
     getMore(results.next_cursor_str);
   }
 }
 
 
-startQueries(mysqlConnection);
+startQueries();
