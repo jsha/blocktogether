@@ -1,3 +1,5 @@
+// TODO: Add CSRF protection on POSTs
+// TODO: Login using GET allows session fixation, fix that
 var express = require('express'), // Web framework
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -161,10 +163,11 @@ app.post('/settings.json',
         if (typeof req.body.share_blocks !== 'undefined') {
           var new_share_blocks = req.body.share_blocks;
           var old_share_blocks = (user.shared_blocks_key === '');
-          // Disable sharing
+          // Disable sharing blocks
           if (old_share_blocks && !new_share_blocks) {
             user.shared_blocks_key = '';
           }
+          // Enable sharing blocks
           if (!old_share_blocks && new_share_blocks) {
             user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
           }
