@@ -30,13 +30,9 @@ var Sequelize = require('sequelize'),
     });
 sequelize
   .authenticate()
-  .complete(function(err) {
-    if (!!err) {
-      console.log('Unable to connect to the database:', err)
-    } else {
-      console.log('Sequelize onnection has been established successfully.')
-    }
-  })
+  .error(function(err) {
+    console.log('Unable to connect to the database:', err);
+  });
 
 // Use snake_case for model accessors because that's SQL style.
 var TwitterUser = sequelize.define('TwitterUser', {
@@ -50,6 +46,9 @@ var TwitterUser = sequelize.define('TwitterUser', {
 
 var BtUser = sequelize.define('BtUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
+  // Technically we should get the screen name from the linked TwitterUser, but
+  // it's much more convenient to have it right on the BtUser object.
+  screen_name: Sequelize.STRING,
   access_token: Sequelize.STRING,
   access_token_secret: Sequelize.STRING,
   shared_blocks_key: Sequelize.STRING,
@@ -74,12 +73,8 @@ BlockBatch.hasMany(Block, {as: 'Blocks'});
 
 sequelize
   .sync()
-    .complete(function(err) {
-       if (!!err) {
-         console.log('An error occurred while creating the table:', err)
-       } else {
-         console.log('It worked!')
-       }
+    .error(function(err) {
+       console.log(err);
     })
 
 module.exports = {

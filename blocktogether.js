@@ -7,7 +7,8 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
-    setup = require('./setup');
+    setup = require('./setup'),
+    _ = require('sequelize').Utils._;
 
 var config = setup.config,
     twitter = setup.twitter,
@@ -38,19 +39,28 @@ function makeApp() {
       var uid = profile._json.id_str;
       BtUser
         .findOrCreate({ uid: uid })
-        .complete(function(err, user) {
-          if (!!err) {
-            console.log(err);
-          } else {
-            user.access_token = accessToken;
-            user.access_token_secret = accessTokenSecret;
-            user.save()
-            done(null, {
-              profile: profile,
-              accessToken: accessToken,
-              accessTokenSecret: accessTokenSecret
+        .error(function(err) {
+          console.log(err);
+        }).success(function(btUser) {
+          TwitterUser
+            .findOrCreate({ uid: uid })
+            .error(function(err) {
+              console.log(err);
+            }).success(function(twitterUser) {
+              _.extend(twitterUser, profile._json);
+              twitterUser.save();
+
+              btUser.screen_name = twitterUser.screen_name;
+              btUser.access_token = accessToken;
+              btUser.access_token_secret = accessTokenSecret;
+              btUser.setTwitterUser(twitterUser);
+              btUser.save();
+              done(null, {
+                profile: profile,
+                accessToken: accessToken,
+                accessTokenSecret: accessTokenSecret
+              });
             });
-          }
         });
     }
   ));
@@ -187,7 +197,7 @@ app.post('/settings.json',
 app.get('/show-blocks',
   function(req, res) {
     BtUser
-      .find({ uid: req.user.id_str })
+      .find(req.user.id_str)
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
@@ -197,7 +207,6 @@ app.get('/show-blocks',
 
 app.get('/show-blocks/:slug',
   function(req, res) {
-    console.log('slug ', req.params.slug);
     BtUser
       .find({ where: { shared_blocks_key: req.params.slug } })
       .error(function(err) {
@@ -207,9 +216,10 @@ app.get('/show-blocks/:slug',
       });
   });
 
+/**
+ * Render the block list for a given BtUser as HTML.
+ */
 function showBlocks(req, res, btUser) {
-  console.log(btUser.uid, btUser.access_token, btUser.access_token_secret,
-  btUser.shared_blocks_key);
   twitter.blocks("ids", { skip_status: 1, cursor: -1 },
     btUser.access_token, btUser.access_token_secret,
     function(error, results) {
@@ -229,7 +239,10 @@ function showBlocks(req, res, btUser) {
           return { id: id };
         });
         var stream = mu.compileAndRender('show-blocks.mustache', {
+          // The name of the logged-in user, for the nav bar.
           screen_name: req.user.name,
+          // The name of the user whose blocks we are viewing.
+          subject_screen_name: btUser.screen_name,
           block_count: results.users ? results.users.length : results.ids.length,
           blocks: results.users,
           own_blocks: true,
