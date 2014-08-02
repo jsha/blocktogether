@@ -110,7 +110,10 @@ app.get('/auth/twitter/callback',
                                      failureRedirect: '/failed' }));
 
 function requireAuthentication(req, res, next) {
-  if (req.url == '/' || req.url == '/logged-out' || req.url.match('/static/.*')) {
+  if (req.url == '/' ||
+      req.url == '/logged-out' ||
+      req.url.match('/show-blocks/.*') ||
+      req.url.match('/static/.*')) {
     next();
   } else if (isAuthenticated(req)) {
     next();
@@ -210,7 +213,7 @@ app.post('/settings.json',
       });
   });
 
-app.get('/show-blocks',
+app.get('/my-blocks',
   function(req, res) {
     BtUser
       .find(req.user.id_str)
@@ -255,11 +258,17 @@ function showBlocks(req, res, btUser) {
           return { id: id };
         });
         var count = results.users ? results.users.length : results.ids.length;
+        // If we are rendering blocks for someone other than the logged-in user,
+        // add a field `subject_screen_name' for the person we are viewing.
+        var subject_screen_name = '';
+        if (req.user.name != btUser.screen_name) {
+          subject_screen_name = btUser.screen_name;
+        }
         var stream = mu.compileAndRender('show-blocks.mustache', {
           // The name of the logged-in user, for the nav bar.
           screen_name: req.user.name,
           // The name of the user whose blocks we are viewing.
-          subject_screen_name: btUser.screen_name,
+          subject_screen_name: subject_screen_name,
           block_count: count,
           more_than_5k: count === 5000,
           blocks: results.users,
