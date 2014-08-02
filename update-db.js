@@ -36,7 +36,12 @@ function findAndUpdateUsers() {
 // Given a user lookup API response from Twitter, store the user into the DB.
 function updateUsers(err, data, response) {
   if (!!err) {
-    console.log(err);
+    if (err.statusCode === 429) {
+      console.log('Rate limited. Trying again in 15 minutes.');
+      setTimeout(findAndUpdateUsers, 15 * 60 * 1000);
+    } else {
+      console.log(err);
+    }
     return;
   }
   for (var i = 0; i < data.length; i++) {
