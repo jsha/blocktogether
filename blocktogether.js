@@ -85,13 +85,6 @@ function isAuthenticated(req) {
          typeof(req.user.accessTokenSecret) != u
 }
 
-// First, set some default security headers for every request.
-app.get('/*', function(req, res, next) {
-  res.header('X-Frame-Options', 'SAMEORIGIN');
-  res.header('Content-Security-Policy', "default-src 'self';");
-  next();
-});
-
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -115,7 +108,13 @@ function requireAuthentication(req, res, next) {
   }
 }
 
-app.all('*', requireAuthentication);
+// First, set some default security headers for every request.
+app.get('/*', function(req, res, next) {
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Content-Security-Policy', "default-src 'self';");
+  next();
+});
+app.all('/*', requireAuthentication);
 
 app.get('/logged-in',
   function(req, res) {
@@ -185,18 +184,35 @@ app.post('/settings.json',
       });
   });
 
-function blocks(req, type, params, callback) {
-  twitter.blocks(type, params,
-    req.user.accessToken, req.user.accessTokenSecret,
-    callback);
-}
-
 app.get('/show-blocks',
   function(req, res) {
-    blocks(req, "ids", {
-      skip_status: 1,
-      cursor: -1
-    }, function(error, results) {
+    BtUser
+      .find({ uid: req.user.id_str })
+      .error(function(err) {
+        console.log(err);
+      }).success(function(user) {
+        showBlocks(req, res, user);
+      });
+  });
+
+app.get('/show-blocks/:slug',
+  function(req, res) {
+    console.log('slug ', req.params.slug);
+    BtUser
+      .find({ where: { shared_blocks_key: req.params.slug } })
+      .error(function(err) {
+        console.log(err);
+      }).success(function(user) {
+        showBlocks(req, res, user);
+      });
+  });
+
+function showBlocks(req, res, btUser) {
+  console.log(btUser.uid, btUser.access_token, btUser.access_token_secret,
+  btUser.shared_blocks_key);
+  twitter.blocks("ids", { skip_status: 1, cursor: -1 },
+    btUser.access_token, btUser.access_token_secret,
+    function(error, results) {
       if (error != null) {
         if (error.data) {
           var errorMessage = error.data;
@@ -223,7 +239,7 @@ app.get('/show-blocks',
         stream.pipe(res);
       }
     });
-  });
+}
 
 app.use("/static", express.static(__dirname + '/static'));
 app.use("/", express.static(__dirname + '/static'));
