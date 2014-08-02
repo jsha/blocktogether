@@ -6,14 +6,22 @@
     <label for='block_new_accounts'>
       Block new accounts (&lt; 1 day) that mention you?
     </label>
-    <input id=block_new_accounts name=block_new_accounts type=checkbox />
+    <input id=block_new_accounts name=block_new_accounts type=checkbox
+      {{#block_new_accounts}}checked{{/block_new_accounts}} />
   </p>
 
   <p>
     <label for='share_blocks'>
       Generate an unlisted URL to share your block list with friends?
     </label>
-    <input id=share_blocks name=share_blocks type=checkbox />
+    <input id=share_blocks name=share_blocks type=checkbox
+      {{#shared_blocks_key}}checked{{/shared_blocks_key}} />
+    {{#shared_blocks_key}}
+    <p>
+    Use this URL to share your block list:<br/>
+    <a href='/show-blocks/{{shared_blocks_key}}'>/show-blocks/{{shared_blocks_key}}</a>
+    </p>
+    {{/shared_blocks_key}}
   </p>
 
   <p>

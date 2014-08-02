@@ -1,5 +1,5 @@
 $(document).ready(function(){
-    $(":checkbox").change(function() {
+    $(":checkbox").change(function(ev) {
         console.log('Got change');
         $.ajax({
           type: 'POST',
@@ -12,6 +12,11 @@ $(document).ready(function(){
           }),
           success: function(data, textStatus, jqXHR) {
             $('.saved').show();
+            // Ideally we'd insert the new URL in the page. For now just reload
+            // the page to see the URL.
+            if (ev.target.id === 'share_blocks') {
+              document.location.reload();
+            }
           },
           error: function(jqXHR, textStatus, errorThrown) {
             alert('Error: ' + textStatus + errorThrown);

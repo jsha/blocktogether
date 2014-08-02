@@ -24,9 +24,10 @@ var twitter = new twitterAPI({
 
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
+      logging: config.sequelizeLogging ? console.log : false,
       dialect: "mysql",
       host: config.dbHost,
-      port:    3306,
+      port: 3306,
     });
 sequelize
   .authenticate()

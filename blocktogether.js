@@ -1,5 +1,6 @@
 // TODO: Add CSRF protection on POSTs
 // TODO: Login using GET allows session fixation, fix that
+// TODO: Log off using GET allows drive-by logoff, fix that.
 var express = require('express'), // Web framework
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -151,17 +152,31 @@ app.get('/logged-out',
 
 app.get('/settings',
   function(req, res) {
-    var stream = mu.compileAndRender('settings.mustache', {
-      screen_name: req.user.name
-    });
-    res.header('Content-Type', 'text/html');
-    stream.pipe(res);
+    BtUser
+      .find(req.user.id_str)
+      .error(function(err) {
+        console.log(err);
+      }).success(function(btUser) {
+        console.log('btu ', btUser.dataValues);
+        console.log({
+          screen_name: btUser.screen_name,
+          block_new_accounts: btUser.block_new_accounts,
+          shared_blocks_key: btUser.shared_blocks_key
+        });
+        var stream = mu.compileAndRender('settings.mustache', {
+          screen_name: btUser.screen_name,
+          block_new_accounts: btUser.block_new_accounts,
+          shared_blocks_key: btUser.shared_blocks_key
+        });
+        res.header('Content-Type', 'text/html');
+        stream.pipe(res);
+      });
   });
 
 app.post('/settings.json',
   function(req, res) {
     BtUser
-      .find({ uid: req.user.id_str })
+      .find(req.user.id_str)
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
@@ -171,7 +186,8 @@ app.post('/settings.json',
         }
         if (typeof req.body.share_blocks !== 'undefined') {
           var new_share_blocks = req.body.share_blocks;
-          var old_share_blocks = (user.shared_blocks_key === '');
+          var old_share_blocks = (user.shared_blocks_key !== '');
+          console.log(old_share_blocks, new_share_blocks);
           // Disable sharing blocks
           if (old_share_blocks && !new_share_blocks) {
             user.shared_blocks_key = '';
@@ -238,12 +254,14 @@ function showBlocks(req, res, btUser) {
         var ids = results.ids.map(function(id) {
           return { id: id };
         });
+        var count = results.users ? results.users.length : results.ids.length;
         var stream = mu.compileAndRender('show-blocks.mustache', {
           // The name of the logged-in user, for the nav bar.
           screen_name: req.user.name,
           // The name of the user whose blocks we are viewing.
           subject_screen_name: btUser.screen_name,
-          block_count: results.users ? results.users.length : results.ids.length,
+          block_count: count,
+          more_than_5k: count === 5000,
           blocks: results.users,
           own_blocks: true,
           ids: ids

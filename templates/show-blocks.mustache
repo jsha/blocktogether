@@ -1,5 +1,6 @@
   {{>header.mustache}}
-    User @{{subject_screen_name}} is blocking {{block_count}} users on Twitter:
+    User @{{subject_screen_name}} is blocking {{block_count}}
+    {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
   <div class='all-blocks'>
   {{#blocks}}
     <b class='blocked-user'>
