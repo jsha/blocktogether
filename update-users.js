@@ -27,6 +27,7 @@ function usersNeedingUpdate(callback) {
 
 // Find uids needing update, look them up on Twitter, and store in database.
 function findAndUpdateUsers() {
+  console.log("Finding and updating users.");
   usersNeedingUpdate(function(ids) {
     if (ids.length > 0) {
     console.log(ids);
@@ -53,8 +54,12 @@ function updateUsers(err, data, response) {
     storeUser(data[i]);
   }
   // Poll for more users to update in 20 seconds. This just barely maxes out our
-  // rate limit for /users/lookup. TODO: If we cycle through a couple of default
-  // users we could double our rate.
+  // rate limit for /users/lookup. TODO: If we use credentials from a few
+  // different users we could significantly increase our rate.
+  // FIXME: Since this is now triggered each time a user logs in, we will
+  // gradually wind up with large number of timeouts pending to run
+  // findAndUpdateUsers. It's a reasonably cheap call but we should find a
+  // better way to limit the maximum outstanding instances.
   setTimeout(findAndUpdateUsers, 20000);
 }
 
@@ -75,4 +80,10 @@ function storeUser(twitterUserResponse) {
     });
 }
 
-findAndUpdateUsers();
+module.exports = {
+  findAndUpdateUsers: findAndUpdateUsers
+};
+
+if (require.main === module) {
+  findAndUpdateUsers();
+}

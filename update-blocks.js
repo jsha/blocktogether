@@ -1,6 +1,7 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    updateUsers = require('./update-users');
 
 var twitter = setup.twitter,
     BtUser = setup.BtUser,
@@ -94,7 +95,13 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
       BlockBatchId: blockBatch.id
     };
   });
-  Block.bulkCreate(blocksToCreate);
+  Block
+    .bulkCreate(blocksToCreate)
+    .error(function(err) {
+      console.log(err);
+    }).success(function(blocks) {
+      updateUsers.findAndUpdateUsers();
+    });
 
   // Check whether we're done or next to grab the items at the next cursor.
   if (results.next_cursor_str === '0') {
