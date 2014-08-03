@@ -15,14 +15,28 @@ var twitter = setup.twitter,
  */
 function forAllUsersUpdateBlocks() {
   BtUser
-    .findAll()
-    .complete(function(err, users) {
-      if (!!err) {
-        console.log(err);
-        return;
-      }
+    .findAll({
+      // Get the latest complete BlockBatch for the user and ski pif < 1 day
+      include: [{
+        model: BlockBatch,
+        where: { complete: true },
+        required: false,
+        limit: 1,
+        order: 'updatedAt DESC',
+      }]
+    }).error(function(err) {
+      console.log(err);
+    }).success(function(users) {
       users.forEach(function(user) {
-        updateBlocks(user);
+        var oneDayInMillis = 86400 * 1000;
+        var batches = user.blockBatches;
+        if (batches &&
+            batches.length > 0 &&
+            (new Date() - new Date(batches[0].createdAt)) < oneDayInMillis) {
+          console.log('Skipping', user.uid, '- already up to date.');
+        } else {
+          updateBlocks(user);
+        }
       });
     });
 }
@@ -107,6 +121,10 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
   if (results.next_cursor_str === '0') {
     console.log('Finished fetching', results.ids.length, 'blocks for user',
       blockBatch.source_uid);
+    blockBatch.complete = true;
+    blockBatch.save().error(function(err) {
+      console.log(err);
+    });
   } else {
     console.log('Cursoring ', results.next_cursor_str);
     getMore(results.next_cursor_str);
