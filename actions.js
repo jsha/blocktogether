@@ -83,8 +83,9 @@ function processBlocks() {
  * @param{Action[]} actions The Actions to be updated based on the results.
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
-  if (sinkUids > 100) {
+  if (sinkUids.length > 100) {
     console.log('SEVERE: No more than 100 sinkUids allowed.');
+    return;
   }
   console.log('Checking follow status ', sourceBtUser.uid,
     ' --???--> ', sinkUids);
@@ -160,5 +161,6 @@ if (require.main === module) {
   // redundant work as each instance tried to grab work from a previous
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
+  processBlocks();
   setInterval(processBlocks, 30 * 1000);
 }
