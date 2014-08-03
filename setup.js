@@ -98,6 +98,8 @@ _.extend(Action, {
   // If the action did not need to be performed because the source was already
   // blocking the sink.
   CANCELLED_DUPLICATE: 'cancelled-duplicate',
+  // You cannot block yourself.
+  CANCELLED_SELF: 'cancelled-self',
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
   UNBLOCK: 'unblock'

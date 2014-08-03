@@ -104,6 +104,8 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
             newState = Action.CANCELLED_DUPLICATE;
           } else if (_.contains(conns, 'following')) {
             newState = Action.CANCELLED_FOLLOWING;
+          } else if (sourceBtUser.uid === sink_uid) {
+            newState = Action.CANCELLED_SELF;
           }
           // If we're cancelling, update the state of the action. It's
           // possible to have multiple pending Blocks for the same sink_uid, so
