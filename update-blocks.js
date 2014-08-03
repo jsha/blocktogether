@@ -98,7 +98,8 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
 
   // Check whether we're done or next to grab the items at the next cursor.
   if (results.next_cursor_str === '0') {
-    console.log('Finished fetching blocks for user ', blockBatch.source_uid);
+    console.log('Finished fetching', results.ids.length, 'blocks for user',
+      blockBatch.source_uid);
   } else {
     console.log('Cursoring ', results.next_cursor_str);
     getMore(results.next_cursor_str);

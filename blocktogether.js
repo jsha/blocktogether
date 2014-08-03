@@ -116,7 +116,7 @@ app.get('/auth/twitter', passport.authenticate('twitter'));
 // access was granted, the user will be logged in.  Otherwise,
 // authentication has failed.
 app.get('/auth/twitter/callback', 
-  passport.authenticate('twitter', { successRedirect: '/logged-in',
+  passport.authenticate('twitter', { successRedirect: '/settings',
                                      failureRedirect: '/failed' }));
 
 function requireAuthentication(req, res, next) {
@@ -139,15 +139,6 @@ app.get('/*', function(req, res, next) {
   next();
 });
 app.all('/*', requireAuthentication);
-
-app.get('/logged-in',
-  function(req, res) {
-    var stream = mu.compileAndRender('logged-in.mustache', {
-      logged_in_screen_name: req.user.name
-    });
-    res.header('Content-Type', 'text/html');
-    stream.pipe(res);
-  });
 
 app.get('/logout',
   function(req, res) {
