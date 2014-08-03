@@ -184,11 +184,10 @@ app.post('/settings.json',
         }
         if (typeof req.body.share_blocks !== 'undefined') {
           var new_share_blocks = req.body.share_blocks;
-          var old_share_blocks = (user.shared_blocks_key !== '');
-          console.log(old_share_blocks, new_share_blocks);
+          var old_share_blocks = user.shared_blocks_key != null;
           // Disable sharing blocks
           if (old_share_blocks && !new_share_blocks) {
-            user.shared_blocks_key = '';
+            user.shared_blocks_key = null;
           }
           // Enable sharing blocks
           if (!old_share_blocks && new_share_blocks) {
@@ -252,7 +251,12 @@ function showBlocks(req, res, btUser) {
   // add a field `subject_screen_name' for the person we are viewing.
   var subject_screen_name = '';
   var own_blocks = true;
-  if (req.user.name != btUser.screen_name) {
+  // The user viewing this page may not be logged in.
+  var logged_in_screen_name = undefined;
+  if (req.user) {
+    logged_in_screen_name = req.user.name;
+  }
+  if (logged_in_screen_name != btUser.screen_name) {
     subject_screen_name = btUser.screen_name;
     own_blocks = false;
   }
@@ -296,7 +300,7 @@ function showBlocks(req, res, btUser) {
             });
             var templateData = {
               // The name of the logged-in user, for the nav bar.
-              screen_name: req.user.name,
+              screen_name: logged_in_screen_name,
               // The name of the user whose blocks we are viewing.
               subject_screen_name: subject_screen_name,
               block_count: count,
