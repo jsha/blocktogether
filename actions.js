@@ -46,10 +46,11 @@ function queueBlocks(source_uid, list) {
  * state to CANCELLED_FOLLOWING.
  */
 function processBlocks() {
-  // TODO: Add a where clause to the include to filter out non-pending Actions.
   BtUser
-    .findAll({include: [Action]})
-    .error(function(err) {
+    .findAll({include: [{
+      model: Action,
+      where: [ 'status = "pending"' ]
+    }]}).error(function(err) {
       console.log(err);
     }).success(function(btUsers) {
       btUsers.forEach(function(btUser) {
@@ -96,7 +97,6 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
       if (!!err) {
         console.log(err);
       } else {
-        console.log(results);
         results.forEach(function(friendship) {
           var conns = friendship.connections;
           var sink_uid = friendship.id_str;
