@@ -7,26 +7,32 @@
     You are blocking {{block_count}}
     {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
   {{/subject_screen_name}}
-  <div class='all-blocks'>
-  {{#blocks}}
-    <b class='blocked-user'>
-     <a href='https://twitter.com/{{screen_name}}'>
-       {{screen_name}}
-     </a>
-     <br/>
-  {{/blocks}}
-  {{#ids}}
-    <div class='blocked-user'>
-     <a href='https://twitter.com/account/redirect_by_id/{{id}}'>
-        <b>{{id}}</b>
-     </a>
-     {{^own_blocks}}
-     <button class='block'>Block</button>
-     {{/own_blocks}}
-     <br/>
-    </div>
-  {{/ids}}
-  </div>
+  <table class='all-blocks'>
+  {{#blocked_users}}
+    <tr class='blocked-user'>
+      <td>
+       {{#screen_name}} {{! If full user object is available use it. }}
+       <a href='https://twitter.com/{{screen_name}}'>
+         {{screen_name}} ({{name}})
+       </a>
+       {{/screen_name}}
+       {{^screen_name}} {{! Otherwise just do user id }}
+       <a href='https://twitter.com/account/redirect_by_id/{{uid}}'>
+          {{uid}}
+       </a>
+       {{/screen_name}}
+      </td>
+      <td class='action'>
+        {{#own_blocks}}
+        <button class='unblock'>Unblock</button>
+        {{/own_blocks}}
+        {{^own_blocks}}
+        <button class='block'>Block</button>
+        {{/own_blocks}}
+      </td>
+    </tr>
+  {{/blocked_users}}
+  </table>
 
   </body>
 </html>

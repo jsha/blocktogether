@@ -20,14 +20,16 @@ body {
   font-size: 13px;
 }
 .all-blocks {
-  width: 20em;
+  width: 30em;
 }
 .blocked-user {
   position: relative;
 }
-button.block {
-  position: absolute;
-  right: 0;
+button.block,
+button.unblock {
+  font-size: 8px;
+  /* The block/unblock functionality is not yet implemented. */
+  display: none;
 }
 .saved {
   display: none;

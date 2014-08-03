@@ -47,8 +47,10 @@ function updateUsers(err, data, response) {
   for (var i = 0; i < data.length; i++) {
     storeUser(data[i]);
   }
-  // Poll for more users to update in 1 second.
-  setTimeout(findAndUpdateUsers, 1000);
+  // Poll for more users to update in 20 seconds. This just barely maxes out our
+  // rate limit for /users/lookup. TODO: If we cycle through a couple of default
+  // users we could double our rate.
+  setTimeout(findAndUpdateUsers, 20000);
 }
 
 // Store a single user into the DB.

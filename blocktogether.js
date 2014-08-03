@@ -239,6 +239,14 @@ app.get('/show-blocks/:slug',
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, btUser) {
+  // If we are rendering blocks for someone other than the logged-in user,
+  // add a field `subject_screen_name' for the person we are viewing.
+  var subject_screen_name = '';
+  var own_blocks = true;
+  if (req.user.name != btUser.screen_name) {
+    subject_screen_name = btUser.screen_name;
+    own_blocks = false;
+  }
   twitter.blocks("ids", { skip_status: 1, cursor: -1 },
     btUser.access_token, btUser.access_token_secret,
     function(error, results) {
@@ -254,29 +262,42 @@ function showBlocks(req, res, btUser) {
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
       } else {
-        var ids = results.ids.map(function(id) {
-          return { id: id };
-        });
         var count = results.users ? results.users.length : results.ids.length;
-        // If we are rendering blocks for someone other than the logged-in user,
-        // add a field `subject_screen_name' for the person we are viewing.
-        var subject_screen_name = '';
-        if (req.user.name != btUser.screen_name) {
-          subject_screen_name = btUser.screen_name;
-        }
-        var stream = mu.compileAndRender('show-blocks.mustache', {
-          // The name of the logged-in user, for the nav bar.
-          screen_name: req.user.name,
-          // The name of the user whose blocks we are viewing.
-          subject_screen_name: subject_screen_name,
-          block_count: count,
-          more_than_5k: count === 5000,
-          blocks: results.users,
-          own_blocks: true,
-          ids: ids
+
+        // Now create an Object that has an entry for every id, even if that
+        // id didn't have details in the DB. A two-step process. First make
+        // the array.
+        var blockedUsers = {};
+        results.ids.forEach(function(uid) {
+          blockedUsers[uid] = {uid: uid};
         });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
+        // Then try to look up all those users in the DB and fill in the
+        // structure.
+        TwitterUser
+          .findAll({ where:
+            {uid: { in: results.ids }}})
+          .success(function(users) {
+            // Then fill it with DB results.
+            users.forEach(function(twitterUser) {
+              blockedUsers[twitterUser.uid] = twitterUser.dataValues;
+            });
+            // Now turn that Object into a list for use by Mustache.
+            var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
+              return blockedUsers[uid];
+            });
+            var templateData = {
+              // The name of the logged-in user, for the nav bar.
+              screen_name: req.user.name,
+              // The name of the user whose blocks we are viewing.
+              subject_screen_name: subject_screen_name,
+              block_count: count,
+              more_than_5k: count === 5000,
+              blocked_users: blockedUsersList,
+              own_blocks: true
+            };
+            res.header('Content-Type', 'text/html');
+            mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+          });
       }
     });
 }
