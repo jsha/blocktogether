@@ -29,7 +29,7 @@ function startStreams() {
         var boundEndCallback = endCallback.bind(
           undefined, user.uid);
 
-        console.log('Starting user stream for uid ', user.uid);
+        console.log('Starting user stream for uid', user.uid);
         twitter.getStream('user', {
           'replies': 'all',
           // Only get user-related events, not all tweets in timeline.
@@ -42,7 +42,7 @@ function startStreams() {
 startStreams();
 
 function endCallback(uid) {
-  console.log("Ending stream for ", uid);
+  console.log("Ending stream for", uid);
 }
 
 function uidFromAccessToken(accessToken) {
@@ -58,7 +58,6 @@ function uidFromAccessToken(accessToken) {
  * day, block them. Exception: Do not block someone our user already follows.
  */
 function dataCallback(accessToken, accessTokenSecret, err, data, ret, res) {
-  console.log(data);
   var recipientUid = uidFromAccessToken(accessToken);
   if (data && data.text && data.user && data.user.created_at &&
       data.user.id_str !== recipientUid) {
