@@ -22,7 +22,7 @@ function forAllUsersUpdateBlocks() {
         return;
       }
       users.forEach(function(user) {
-        updateBlocksForUser(user);
+        updateBlocks(user);
       });
     });
 }
