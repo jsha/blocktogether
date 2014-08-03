@@ -10,6 +10,7 @@ var express = require('express'), // Web framework
     TwitterStrategy = require('passport-twitter').Strategy,
     setup = require('./setup'),
     actions = require('./actions'),
+    updateBlocks = require('./update-blocks'),
     _ = require('sequelize').Utils._;
 
 var config = setup.config,
@@ -56,7 +57,15 @@ function makeApp() {
               btUser.access_token = accessToken;
               btUser.access_token_secret = accessTokenSecret;
               btUser.setTwitterUser(twitterUser);
-              btUser.save();
+              btUser
+                .save()
+                .error(function(err) {
+                  console.log(err);
+                }).success(function(btUser) {
+                  // When a user logs in, kick off an updated fetch of their
+                  // blocks.
+                  updateBlocks.updateBlocks(btUser);
+                });
               done(null, {
                 profile: profile,
                 accessToken: accessToken,

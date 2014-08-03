@@ -12,7 +12,7 @@ var twitter = setup.twitter,
  * For each user with stored credentials, fetch all of their blocked user ids,
  * and start filling the users table with data about those ids.
  */
-function startQueries() {
+function forAllUsersUpdateBlocks() {
   BtUser
     .findAll()
     .complete(function(err, users) {
@@ -21,22 +21,32 @@ function startQueries() {
         return;
       }
       users.forEach(function(user) {
-        BlockBatch.create({
-          source_uid: user.uid
-        }).error(function(err) {
-          console.log(err);
-        }).success(function(blockBatch) {
-          updateBlocks(blockBatch, user.access_token, user.access_token_secret);
-        });
+        updateBlocksForUser(user);
       });
     });
 }
 
-function updateBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
+/**
+ * For a given BtUser, fetch all current blocks and store in DB.
+ *
+ * @param{BtUser} user The user whose blocks we want to fetch.
+ */
+function updateBlocks(user) {
+  BlockBatch.create({
+    source_uid: user.uid
+  }).error(function(err) {
+    console.log(err);
+  }).success(function(blockBatch) {
+    fetchAndStoreBlocks(blockBatch, user.access_token, user.access_token_secret);
+  });
+}
+
+function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
   console.log('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
   // update cursor.
-  var getMore = updateBlocks.bind(null, blockBatch, accessToken, accessTokenSecret);
+  var getMore = fetchAndStoreBlocks.bind(null,
+    blockBatch, accessToken, accessTokenSecret);
   var currentCursor = cursor || -1;
   twitter.blocks("ids", {
       // Stringify ids is very important, or we'll get back numeric ids that
@@ -95,5 +105,10 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
   }
 }
 
+module.exports = {
+  updateBlocks: updateBlocks
+};
 
-startQueries();
+if (require.main === module) {
+  forAllUsersUpdateBlocks();
+}
