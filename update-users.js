@@ -27,7 +27,6 @@ function usersNeedingUpdate(callback) {
 
 // Find uids needing update, look them up on Twitter, and store in database.
 function findAndUpdateUsers() {
-  console.log("Finding and updating users.");
   usersNeedingUpdate(function(ids) {
     if (ids.length > 0) {
     console.log(ids);
