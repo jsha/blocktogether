@@ -9,6 +9,7 @@ var express = require('express'), // Web framework
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
     setup = require('./setup'),
+    actions = require('./actions'),
     _ = require('sequelize').Utils._;
 
 var config = setup.config,
@@ -160,12 +161,6 @@ app.get('/settings',
       .error(function(err) {
         console.log(err);
       }).success(function(btUser) {
-        console.log('btu ', btUser.dataValues);
-        console.log({
-          screen_name: btUser.screen_name,
-          block_new_accounts: btUser.block_new_accounts,
-          shared_blocks_key: btUser.shared_blocks_key
-        });
         var stream = mu.compileAndRender('settings.mustache', {
           screen_name: btUser.screen_name,
           block_new_accounts: btUser.block_new_accounts,
@@ -233,6 +228,20 @@ app.get('/show-blocks/:slug',
       }).success(function(user) {
         showBlocks(req, res, user);
       });
+  });
+
+app.post('/do-blocks.json',
+  function(req, res) {
+    res.header('Content-Type', 'application/json');
+    if (req.body.list) {
+      actions.queueBlocks(req.user.id_str, req.body.list);
+      res.end("{}");
+    } else {
+      res.status(400);
+      res.end(JSON.stringify({
+        error: "Need to supply a list of ids"
+      }));
+    }
   });
 
 /**

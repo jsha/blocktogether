@@ -72,6 +72,19 @@ var BlockBatch = sequelize.define('BlockBatch', {
 });
 BlockBatch.hasMany(Block, {as: 'Blocks'});
 
+/**
+ * An action (block or unblock) that we perform on behalf of a user.
+ * These are created when we intend to perform the action, and marked 'done'
+ * once it's completed.
+ */
+var Action = sequelize.define('Action', {
+  source_uid: Sequelize.STRING,
+  sink_uid: Sequelize.STRING,
+  type: Sequelize.STRING, // block or unblock
+  done: Sequelize.BOOLEAN
+});
+Action.hasOne(BtUser, {foreignKey: 'uid'});
+
 sequelize
   .sync()
     .error(function(err) {
@@ -85,5 +98,6 @@ module.exports = {
   TwitterUser: TwitterUser,
   BtUser: BtUser,
   Block: Block,
-  BlockBatch: BlockBatch
+  BlockBatch: BlockBatch,
+  Action: Action
 };
