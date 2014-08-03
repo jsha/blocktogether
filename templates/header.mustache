@@ -9,12 +9,15 @@
     <script type='text/javascript' src='/static/bootstrap-3.1.1/js/bootstrap.min.js'></script>
   </head>
   <body>
-  {{#screen_name}}
   <div class='navbar'>
     <a href='/'>Block Together</a>
     <a href='/my-blocks'>My Blocks</a>
-    <span>@{{screen_name}}</span>
     <a href='/settings'>Settings</a>
+    {{#screen_name}}
+    <span>@{{screen_name}}</span>
     <a href='/logout'>Log Off</a>
+    {{/screen_name}}
+    {{^screen_name}}
+    <a href='/login-prompt'>Log On</a>
+    {{/screen_name}}
   </div>
-  {{/screen_name}}
