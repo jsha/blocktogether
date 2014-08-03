@@ -7,7 +7,7 @@ var twitter = setup.twitter,
 
 /**
  * For each user with stored credentials, start receiving their Twitter user
- * stream, in order to be able to insta-block any new users (< 1 day old)
+ * stream, in order to be able to insta-block any new users (< 7 days old)
  * who @-reply one of our users.
  *
  * TODO: Also collect block and unblock events.
@@ -54,17 +54,17 @@ function uidFromAccessToken(accessToken) {
  * Given the arguments passed to getStream, the only events we receive should be
  * at-replies. TODO: Add sanity check to filter non-at-replies, just in case.
  *
- * On receiving an at-reply, check the age of the sender. If it is less than one
- * day, block them. Exception: Do not block someone our user already follows.
+ * On receiving an at-reply, check the age of the sender. If it is less than
+ * seven days, block them. Exception: Do not block someone our user already follows.
  */
 function dataCallback(accessToken, accessTokenSecret, err, data, ret, res) {
   var recipientUid = uidFromAccessToken(accessToken);
   if (data && data.text && data.user && data.user.created_at &&
       data.user.id_str !== recipientUid) {
-    var age = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
-    console.log(uidFromAccessToken(accessToken), " got ",
-      data.user.screen_name, " (age ", age, "):", data.text);
-    if (age < 1000) {
+    var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
+    console.log(uidFromAccessToken(accessToken), 'got at reply from',
+      data.user.screen_name, ' (age ', ageInDays, ')');
+    if (ageInDays < 7) {
       blockUnlessFollowing(accessToken, accessTokenSecret, data.user);
     }
   }

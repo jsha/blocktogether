@@ -76,6 +76,7 @@ var BlockBatch = sequelize.define('BlockBatch', {
   complete: Sequelize.BOOLEAN
 });
 BlockBatch.hasMany(Block, {as: 'Blocks'});
+BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid'});
 
 /**
  * An action (block or unblock) that we perform on behalf of a user.
