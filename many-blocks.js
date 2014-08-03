@@ -26,24 +26,27 @@ BtUser
     var accessToken = user.access_token;
     var accessTokenSecret = user.access_token_secret;
     console.log(accessToken, accessTokenSecret);
-    var targets = fs.readFileSync(filename).toString().split("\n");
+    var targets = fs.readFileSync(filename)
+      .toString().replace(/\n$/, '').split("\n");
 
-    var i = 0;
-
-    var blockAndNext = function(i) {
-      twitter.blocks("create", {
-        screen_name: targets[i],
-        skip_status: 1
-      }, accessToken, accessTokenSecret,
-      function(err, results) {
-        if (!!err) {
-          console.log("Error blocking: %j", err);
-        } else {
-          console.log("Blocked " + results.id);
-        }
-        // In 100 ms, run this again for the next item.
-        setTimeout(blockAndNext.bind(null, i + 1), 100);
-      });
+    var blockAndNext = function(targets) {
+      if (targets.length > 0) {
+        var targetScreenName = targets.pop();
+        console.log("Blocking " + targetScreenName);
+        twitter.blocks("create", {
+          screen_name: targetScreenName,
+          skip_status: 1
+        }, accessToken, accessTokenSecret,
+        function(err, results) {
+          if (!!err) {
+            console.log("Error blocking: %j", err);
+          } else {
+            console.log("Blocked " + targetScreenName);
+          }
+          // In 100 ms, run this again for the next item.
+          setTimeout(blockAndNext.bind(null, targets), 100);
+        });
+      }
     }
-    blockAndNext(0);
+    blockAndNext(targets);
   });
