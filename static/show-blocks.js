@@ -1,5 +1,5 @@
 $(function(){
-  $('.block-all').click(function(ev) {
+  function blockAll() {
     var uids = $('.blocked-user').map(function (el) {
       return $(this).data('uid');
     });
@@ -19,5 +19,12 @@ $(function(){
         alert('Error: ' + textStatus + errorThrown);
       }
     });
+  }
+  $('.block-all').click(function(ev) {
+    if ($('.logon').length > 0) {
+      alert('Please log on in order to block people.');
+    } else {
+      blockAll();
+    }
   });
 });
