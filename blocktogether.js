@@ -11,11 +11,13 @@ var express = require('express'), // Web framework
     setup = require('./setup'),
     actions = require('./actions'),
     updateBlocks = require('./update-blocks'),
+    timeago = require('timeago'),
     _ = require('sequelize').Utils._;
 
 var config = setup.config,
     twitter = setup.twitter,
     BtUser = setup.BtUser,
+    Action = setup.Action,
     TwitterUser = setup.TwitterUser;
 
 // Look for templates here
@@ -209,12 +211,24 @@ app.post('/settings.json',
 app.get('/actions',
   function(req, res) {
     BtUser
-      .find(req.user.id_str)
+      .find({
+        where: { uid: req.user.id_str },
+        include: [Action]
+      })
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
+        // Decorate the actions with human-friendly times
+        var actions = user.actions.map(function (action) {
+          return _.extend(action, {
+            prettyCreated: timeago(new Date(action.createdAt)),
+            prettyUpdated: timeago(new Date(action.updatedAt))
+          });
+        });
+        console.log(actions);
         var stream = mu.compileAndRender('actions.mustache', {
-          logged_in_screen_name: req.user.name
+          logged_in_screen_name: req.user.name,
+          actions: actions
         });
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
@@ -320,7 +334,7 @@ function showBlocks(req, res, btUser) {
               block_count: count,
               more_than_5k: count === 5000,
               blocked_users: blockedUsersList,
-              own_blocks: subject_screen_name == logged_in_screen_name
+              own_blocks: own_blocks
             };
             res.header('Content-Type', 'text/html');
             mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);

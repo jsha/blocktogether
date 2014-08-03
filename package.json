@@ -13,6 +13,7 @@
     "mysql": "",
     "mu2": "",
     "nodemon": "",
-    "sequelize": "~1.7.9"
+    "sequelize": "~1.7.9",
+    "timeago": "~0.1.0"
   }
 }
