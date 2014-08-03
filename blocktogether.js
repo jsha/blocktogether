@@ -178,7 +178,6 @@ app.post('/settings.json',
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
-        console.log('Updating settings for ', user.uid, req.body);
         if (typeof req.body.block_new_accounts !== 'undefined') {
           user.block_new_accounts = req.body.block_new_accounts;
         }
@@ -313,7 +312,6 @@ function showBlocks(req, res, btUser) {
             var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
               return blockedUsers[uid];
             });
-            console.log(blockedUsersList);
             var templateData = {
               // The name of the logged-in user, for the nav bar.
               logged_in_screen_name: logged_in_screen_name,
