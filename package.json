@@ -15,6 +15,7 @@
     "nodemon": "",
     "sequelize": "~1.7.9",
     "timeago": "~0.1.0",
-    "node-twitter-api": "~1.2.3"
+    "node-twitter-api": "~1.2.3",
+    "log4js": "~0.6.16"
   }
 }

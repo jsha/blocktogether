@@ -1,5 +1,6 @@
 var fs = require('fs'),
-    twitterAPI = require('node-twitter-api')
+    twitterAPI = require('node-twitter-api'),
+    log4js = require('log4js'),
     _ = require('sequelize').Utils._
 ;
 

@@ -8,10 +8,10 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
+    timeago = require('timeago'),
     setup = require('./setup'),
     actions = require('./actions'),
     updateBlocks = require('./update-blocks'),
-    timeago = require('timeago'),
     _ = require('sequelize').Utils._;
 
 var config = setup.config,
