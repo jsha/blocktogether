@@ -1,5 +1,6 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api')
+    _ = require('sequelize').Utils._
 ;
 
 /*
@@ -45,6 +46,10 @@ var TwitterUser = sequelize.define('TwitterUser', {
   name: Sequelize.STRING
 });
 
+/**
+ * BtUser, shorthand for Block Together User. Contains the user-related data
+ * specific to Block Together, as opposed to their Twitter user profile.
+ */
 var BtUser = sequelize.define('BtUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
   // Technically we should get the screen name from the linked TwitterUser, but
@@ -83,8 +88,20 @@ var Action = sequelize.define('Action', {
   type: Sequelize.STRING, // block or unblock
   status: { type: Sequelize.STRING, defaultValue: 'pending' }
 });
-Action.hasOne(BtUser, {foreignKey: 'uid'});
-Action.sync({force: true});
+BtUser.hasMany(Action, {foreignKey: 'source_uid'});
+_.extend(Action, {
+  // Constants for the valid values of `status'.
+  PENDING: 'pending',
+  DONE: 'done',
+  CANCELLED_FOLLOWING: 'cancelled-following',
+  CANCELLED_SUSPENDED: 'cancelled-suspended',
+  // If the action did not need to be performed because the source was already
+  // blocking the sink.
+  CANCELLED_DUPLICATE: 'cancelled-duplicate',
+  // Constants for the valid values of 'type'.
+  BLOCK: 'block',
+  UNBLOCK: 'unblock'
+});
 
 sequelize
   .sync()

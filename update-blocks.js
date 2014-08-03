@@ -39,6 +39,8 @@ function updateBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
   var getMore = updateBlocks.bind(null, blockBatch, accessToken, accessTokenSecret);
   var currentCursor = cursor || -1;
   twitter.blocks("ids", {
+      // Stringify ids is very important, or we'll get back numeric ids that
+      // will get subtly mangled by JS.
       stringify_ids: true,
       cursor: currentCursor,
     },
@@ -66,6 +68,8 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
 
   // First, add any new uids to the TwitterUser table if they aren't already
   // there (note ignoreDuplicates so we don't overwrite fleshed-out users).
+  // Note: even though the field name is 'ids', these are actually stringified
+  // ids because we specified that in the request.
   var usersToCreate = results.ids.map(function(id) {
     return {uid: id};
   });
