@@ -225,7 +225,6 @@ app.get('/actions',
             prettyUpdated: timeago(new Date(action.updatedAt))
           });
         });
-        console.log(actions);
         var stream = mu.compileAndRender('actions.mustache', {
           logged_in_screen_name: req.user.name,
           actions: actions
