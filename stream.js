@@ -98,7 +98,6 @@ function blockUnlessFollowing(accessToken, accessTokenSecret, targetUser) {
           });
         }
       });
-      console.log('following', following);
       if (!following) {
         twitter.blocks('create', {
           user_id: targetUser.id_str,
