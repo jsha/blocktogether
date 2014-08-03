@@ -12,12 +12,13 @@
   <div class='navbar'>
     <a href='/'>Block Together</a>
     <a href='/my-blocks'>My Blocks</a>
+    <a href='/actions'>Actions</a>
     <a href='/settings'>Settings</a>
-    {{#screen_name}}
-    <span>@{{screen_name}}</span>
+    {{#logged_in_screen_name}}
+    <span>@{{logged_in_screen_name}}</span>
     <a href='/logout'>Log Off</a>
-    {{/screen_name}}
-    {{^screen_name}}
+    {{/logged_in_screen_name}}
+    {{^logged_in_screen_name}}
     <a href='/login-prompt'>Log On</a>
-    {{/screen_name}}
+    {{/logged_in_screen_name}}
   </div>

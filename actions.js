@@ -26,7 +26,7 @@ function queueBlocks(source_uid, list) {
 
 Action
   .findAll({
-    where: { done: false, },
+    where: { status: 'pending', },
     order: 'updatedAt ASC',
     include: [BtUser]
   }).success(function(actions) {

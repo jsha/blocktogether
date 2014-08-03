@@ -1,4 +1,5 @@
   {{>header.mustache}}
+  <script type='text/javascript' src='/static/show-blocks.js'></script>
   {{#subject_screen_name}}
     User @{{subject_screen_name}} is blocking {{block_count}}
     {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
@@ -7,9 +8,21 @@
     You are blocking {{block_count}}
     {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
   {{/subject_screen_name}}
+  {{! When displaying someone else's blocks, give an option to block all the
+      same ones.  }}
+  {{^own_blocks}}
+  <div>
+    <button class='block-all'>Block All</button>
+    <div class='block-all-processing'>
+      Block Together will now block {{block_count}} users using your account
+      @{{logged_in_screen_name}}. This may take some time. You can check
+      on progress at <a href='/actions'>the Actions page</a>.
+    </div>
+  </div>
+  {{/own_blocks}}
   <table class='all-blocks'>
   {{#blocked_users}}
-    <tr class='blocked-user'>
+    <tr class='blocked-user' data-uid='{{uid}}'>
       <td>
        {{#screen_name}} {{! If full user object is available use it. }}
        <a href='https://twitter.com/{{screen_name}}'>

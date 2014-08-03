@@ -81,9 +81,10 @@ var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING, // block or unblock
-  done: Sequelize.BOOLEAN
+  status: { type: Sequelize.STRING, defaultValue: 'pending' }
 });
 Action.hasOne(BtUser, {foreignKey: 'uid'});
+Action.sync({force: true});
 
 sequelize
   .sync()

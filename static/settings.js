@@ -1,6 +1,5 @@
 $(document).ready(function(){
     $(":checkbox").change(function(ev) {
-        console.log('Got change');
         $.ajax({
           type: 'POST',
           url: '/settings.json',

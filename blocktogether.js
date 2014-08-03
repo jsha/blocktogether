@@ -134,7 +134,7 @@ app.all('/*', requireAuthentication);
 app.get('/logged-in',
   function(req, res) {
     var stream = mu.compileAndRender('logged-in.mustache', {
-      screen_name: req.user.name
+      logged_in_screen_name: req.user.name
     });
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
@@ -162,7 +162,7 @@ app.get('/settings',
         console.log(err);
       }).success(function(btUser) {
         var stream = mu.compileAndRender('settings.mustache', {
-          screen_name: btUser.screen_name,
+          logged_in_screen_name: btUser.screen_name,
           block_new_accounts: btUser.block_new_accounts,
           shared_blocks_key: btUser.shared_blocks_key
         });
@@ -204,6 +204,21 @@ app.post('/settings.json',
               block_new_accounts: true
             }));
           });
+      });
+  });
+
+app.get('/actions',
+  function(req, res) {
+    BtUser
+      .find(req.user.id_str)
+      .error(function(err) {
+        console.log(err);
+      }).success(function(user) {
+        var stream = mu.compileAndRender('actions.mustache', {
+          logged_in_screen_name: req.user.name
+        });
+        res.header('Content-Type', 'text/html');
+        stream.pipe(res);
       });
   });
 
@@ -298,15 +313,16 @@ function showBlocks(req, res, btUser) {
             var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
               return blockedUsers[uid];
             });
+            console.log(blockedUsersList);
             var templateData = {
               // The name of the logged-in user, for the nav bar.
-              screen_name: logged_in_screen_name,
+              logged_in_screen_name: logged_in_screen_name,
               // The name of the user whose blocks we are viewing.
               subject_screen_name: subject_screen_name,
               block_count: count,
               more_than_5k: count === 5000,
               blocked_users: blockedUsersList,
-              own_blocks: true
+              own_blocks: subject_screen_name == logged_in_screen_name
             };
             res.header('Content-Type', 'text/html');
             mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);

@@ -28,8 +28,13 @@ function usersNeedingUpdate(callback) {
 // Find uids needing update, look them up on Twitter, and store in database.
 function findAndUpdateUsers() {
   usersNeedingUpdate(function(ids) {
-    twitter.users("lookup", {skip_status: 1, user_id: ids.join(",")},
-      accessToken, accessTokenSecret, updateUsers);
+    if (ids.length > 0) {
+    console.log(ids);
+      twitter.users("lookup", {skip_status: 1, user_id: ids.join(",")},
+        accessToken, accessTokenSecret, updateUsers);
+    } else {
+      updateUsers(null, []);
+    }
   });
 }
 

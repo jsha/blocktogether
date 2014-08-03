@@ -34,3 +34,6 @@ button.unblock {
 .saved {
   display: none;
 }
+.block-all-processing {
+  display: none;
+}
