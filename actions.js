@@ -3,6 +3,7 @@
  */
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    _ = require('sequelize').Utils._,
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -11,10 +12,16 @@ var twitter = setup.twitter,
 
 /**
  * Given a list of uids, enqueue them all in the Actions table.
+ *
+ * TODO: Once all the actions are created, this should kick off a processing run
+ * for the triggering user. Need to figure out how to do Promise joins.
+ *
+ * @param{string} source_uid The user who wants to perform these actions.
+ * @param{string[]} list A list of uids to target with the actions.
  */
 function queueBlocks(source_uid, list) {
-  list.forEach(function(sink_uid) {
-    Action.create({
+  list.map(function(sink_uid) {
+    return Action.create({
       source_uid: source_uid,
       sink_uid: sink_uid,
       type: "block"
@@ -53,25 +60,51 @@ function processBlocks() {
     }]}).error(function(err) {
       console.log(err);
     }).success(function(btUsers) {
-      btUsers.forEach(function(btUser) {
-        // Out of the available pending block actions on this user,
-        // pick up to 100 with the earliest updatedAt times.
-        var actionsToCheck = btUser.actions.filter(function(action) {
-          return (action.status === Action.PENDING &&
-                  action.type === Action.BLOCK);
-        }).sort(function(a, b) {
-          new Date(a.updatedAt) - new Date(b.updatedAt);
-        }).slice(0, 100);
-        if (actionsToCheck.length > 0) {
-          // Now that we've got our list, send them to Twitter to see if the
-          // btUser follows them.
-          var sinkUids = actionsToCheck.map(function(action) {
-            return action.sink_uid;
-          })
-          blockUnlessFollowing(btUser, sinkUids, actionsToCheck);
-        }
-      });
+      btUsers.forEach(processActionsForUser);
     })
+}
+
+/**
+ * For a given user id, fetch and process pending actions.
+ * @param{string} uid The uid of the user to process.
+ */
+function processActionsForUserId(uid) {
+  BtUser
+    .find({
+      where: { uid: uid },
+      include: [{
+        model: Action,
+        where: [ 'status = "pending"' ]
+      }]
+    }).error(function(err) {
+      console.log(err);
+    }).success(function(btUser) {
+      processActionsForUser(btUser);
+    })
+}
+
+/**
+ * Given a BtUser that has a number of Actions preloaded, process those actions
+ * as appropriate.
+ * @param{BtUser} btUser The user whose attached Actions we should process.
+ */
+function processActionsForUser(btUser) {
+  // Out of the available pending block actions on this user,
+  // pick up to 100 with the earliest updatedAt times.
+  var actionsToCheck = btUser.actions.filter(function(action) {
+    return (action.status === Action.PENDING &&
+            action.type === Action.BLOCK);
+  }).sort(function(a, b) {
+    new Date(a.updatedAt) - new Date(b.updatedAt);
+  }).slice(0, 100);
+  if (actionsToCheck.length > 0) {
+    // Now that we've got our list, send them to Twitter to see if the
+    // btUser follows them.
+    var sinkUids = actionsToCheck.map(function(action) {
+      return action.sink_uid;
+    })
+    blockUnlessFollowing(btUser, sinkUids, actionsToCheck);
+  }
 }
 
 /**
@@ -150,7 +183,8 @@ function setActionsStatus(sink_uid, actions, newState) {
 }
 
 module.exports = {
-  queueBlocks: queueBlocks
+  queueBlocks: queueBlocks,
+  processActionsForUserId: processActionsForUserId
 };
 
 if (require.main === module) {

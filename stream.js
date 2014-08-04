@@ -1,8 +1,10 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    actions = require('./actions'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
+    Action = setup.Action,
     BtUser = setup.BtUser;
 
 /**
@@ -24,10 +26,8 @@ function startStreams() {
       users.forEach(function(user) {
         var accessToken = user.access_token;
         var accessTokenSecret = user.access_token_secret;
-        var boundDataCallback = dataCallback.bind(
-          undefined, accessToken, accessTokenSecret);
-        var boundEndCallback = endCallback.bind(
-          undefined, user.uid);
+        var boundDataCallback = dataCallback.bind(undefined, user);
+        var boundEndCallback = endCallback.bind(undefined, user.uid);
 
         console.log('Starting user stream for uid', user.uid);
         twitter.getStream('user', {
@@ -45,10 +45,6 @@ function endCallback(uid) {
   console.log("Ending stream for", uid);
 }
 
-function uidFromAccessToken(accessToken) {
-  return accessToken.split("-")[0];
-}
-
 /**
  * Called each time there is data available on the user stream.
  * Given the arguments passed to getStream, the only events we receive should be
@@ -57,60 +53,29 @@ function uidFromAccessToken(accessToken) {
  * On receiving an at-reply, check the age of the sender. If it is less than
  * seven days, block them. Exception: Do not block someone our user already follows.
  */
-function dataCallback(accessToken, accessTokenSecret, err, data, ret, res) {
-  var recipientUid = uidFromAccessToken(accessToken);
+function dataCallback(recipientBtUser, err, data, ret, res) {
+  var recipientUid = recipientBtUser.uid;
+  // If present, data.user is the user who sent the at-reply.
   if (data && data.text && data.user && data.user.created_at &&
       data.user.id_str !== recipientUid) {
     var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
-    console.log(uidFromAccessToken(accessToken), 'got at reply from',
+    console.log(recipientBtUser.screen_name, 'got at reply from',
       data.user.screen_name, ' (age ', ageInDays, ')');
-    if (ageInDays < 7) {
-      blockUnlessFollowing(accessToken, accessTokenSecret, data.user);
+    if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+      enqueueBlock(recipientBtUser, data.user);
     }
   }
 }
 
 /**
- * Check whether our user follows a given user; If not block them.
+ * Put a block on the Actions list for this user and process it.
  */
-function blockUnlessFollowing(accessToken, accessTokenSecret, targetUser) {
-  blockerUid = uidFromAccessToken(accessToken);
-  twitter.friendships('lookup', {
-    user_id: targetUser.id_str,
-  }, accessToken, accessTokenSecret, function(err, data, response) {
-    if (err) {
-      console.log(err);
-    } else {
-      // An example item from the friendships/lookup.json API:
-      // [ { name: 'Foo Bar',
-      //     screen_name: 'foobar',
-      //     id: 123456789,
-      //     id_str: '123456789',
-      //     connections: [ 'none' ] } ]
-      // OR:
-      //  ...
-      //     connections: [ 'following' ] } ]
-      var following = data.some(function(item) {
-        if (item.id_str === targetUser.id_str) {
-          return item.connections.some(function(connection) {
-            return connection === 'following';
-          });
-        }
-      });
-      if (!following) {
-        twitter.blocks('create', {
-          user_id: targetUser.id_str,
-          skip_status: 1
-        }, accessToken, accessTokenSecret, function(err, results) {
-          if (err) {
-            console.log('Error creating block ', blockerUid,
-              ' -block-> ', targetUser.id_str, ': ', err);
-          } else {
-            console.log('Success creating block ', blockerUid,
-              ' -block-> ', targetUser.id_str, ': ', results);
-          }
-        });
-      }
-    }
-  });
+function enqueueBlock(recipientBtUser, targetUser) {
+  actions.queueBlocks(recipientBtUser.uid, [targetUser.id_str]);
+  // HACK: Wait 500 ms and then process actions for the user. The ideal thing
+  // here would be for queueBlocks to automatically kick off a processing run
+  // for its source_uid.
+  setTimeout(function() {
+    actions.processActionsForUserId(recipientBtUser.uid);
+  }, 500);
 }
