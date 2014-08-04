@@ -141,6 +141,21 @@ app.get('/*', function(req, res, next) {
   next();
 });
 app.all('/*', requireAuthentication);
+// Check that POSTs were made via XMLHttpRequest, as a simple form of CSRF
+// protection. This form of CSRF protection is somewhat more fragile than
+// token-based CSRF protection, but has the advantage of simplicity.
+// The X-Requested-With: XMLHttpRequest is automatically set by jQuery's
+// $.ajax() method.
+app.post('/*', function(req, res, next) {
+  if (req.header('X-Requested-With') !== "XMLHttpRequest") {
+    res.status(400);
+    res.end(JSON.stringify({
+      error: "Must provide X-Requested-With: XMLHttpRequest."
+    }));
+  } else {
+    next();
+  }
+});
 
 app.get('/logout',
   function(req, res) {
