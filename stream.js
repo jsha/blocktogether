@@ -1,11 +1,23 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     actions = require('./actions'),
+    https = require('https'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
     Action = setup.Action,
     BtUser = setup.BtUser;
+
+// An associative array of streams currently running. Indexed by uid.
+var streams = {
+  'dummy': 1 // Start with a dummy uid to make the findAll query simpler.
+};
+
+// Set the maximum number of sockets higher so we can have a reasonable number
+// of streams going.
+// TODO: Request Site Streams access.
+// TODO: Only start streams for users who have block_new_accounts = true.
+https.globalAgent.maxSockets = 100;
 
 /**
  * For each user with stored credentials, start receiving their Twitter user
@@ -16,33 +28,37 @@ var twitter = setup.twitter,
  * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
+  // Find all users who don't already have a running stream.
   BtUser
-    .findAll()
-    .complete(function(err, users) {
-      if (!!err) {
-        console.log(err);
-        return;
-      }
+    .findAll({
+      where: { uid: { not: Object.keys(streams) } },
+      limit: 10
+    }).error(function(err) {
+      console.log(err);
+    }).success(function(users) {
       users.forEach(function(user) {
         var accessToken = user.access_token;
         var accessTokenSecret = user.access_token_secret;
         var boundDataCallback = dataCallback.bind(undefined, user);
         var boundEndCallback = endCallback.bind(undefined, user.uid);
 
-        console.log('Starting user stream for uid', user.uid);
-        twitter.getStream('user', {
+        console.log('Starting user stream for uid', user.uid, accessTokenSecret,
+        accessToken);
+        var req = twitter.getStream('user', {
+          // Get events for all replies, not just people the user follows.
           'replies': 'all',
           // Only get user-related events, not all tweets in timeline.
           'with': 'user'
         }, accessToken, accessTokenSecret, boundDataCallback, endCallback);
+
+        streams[user.uid] = req;
       });
     });
 }
 
-startStreams();
-
 function endCallback(uid) {
   console.log("Ending stream for", uid);
+  delete streams[uid];
 }
 
 /**
@@ -61,9 +77,13 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
     console.log(recipientBtUser.screen_name, 'got at reply from',
       data.user.screen_name, ' (age ', ageInDays, ')');
-    if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
-      enqueueBlock(recipientBtUser, data.user);
-    }
+    // The user may have changed settings since we started the stream. Reload to
+    // get the latest setting.
+    recipientBtUser.reload().success(function() {
+      if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+        enqueueBlock(recipientBtUser, data.user);
+      }
+    });
   }
 }
 
@@ -79,3 +99,6 @@ function enqueueBlock(recipientBtUser, targetUser) {
     actions.processActionsForUserId(recipientBtUser.uid);
   }, 500);
 }
+
+startStreams();
+setInterval(startStreams, 5 * 1000);
