@@ -1,0 +1,14 @@
+{
+  "port": 2078,
+  "callbackUrl": "https://blocktogether.org/auth/twitter/callback",
+  "sequelizeLogging": false,
+  "secureProxy": true,
+  "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
+  "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+  "cookieSecret": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
+  "dbUser": "blocktogether",
+  "dbPass": "AAAAAAAAAAA",
+  "dbHost": "localhost",
+  "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+}
