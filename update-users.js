@@ -51,14 +51,6 @@ function updateUsers(err, data, response) {
   for (var i = 0; i < data.length; i++) {
     storeUser(data[i]);
   }
-  // Poll for more users to update in 20 seconds. This just barely maxes out our
-  // rate limit for /users/lookup. TODO: If we use credentials from a few
-  // different users we could significantly increase our rate.
-  // FIXME: Since this is now triggered each time a user logs in, we will
-  // gradually wind up with large number of timeouts pending to run
-  // findAndUpdateUsers. It's a reasonably cheap call but we should find a
-  // better way to limit the maximum outstanding instances.
-  setTimeout(findAndUpdateUsers, 20000);
 }
 
 // Store a single user into the DB.
@@ -84,4 +76,13 @@ module.exports = {
 
 if (require.main === module) {
   findAndUpdateUsers();
+  // Poll for more users to update every 20 seconds. This just barely maxes out our
+  // rate limit for /users/lookup. TODO: If we use credentials from a few
+  // different users we could significantly increase our rate.
+  // TODO: When we know there are still pending users, we should go faster. E.g.
+  // when a user with very many blocks signs in, we want to look up each of
+  // their blocked users very quickly so we can display screen names.
+  // However, this runs into issues with suspended users, because they will
+  // always 404 and so always remain pending.
+  setInterval(findAndUpdateUsers, 20 * 1000);
 }

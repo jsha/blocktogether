@@ -137,4 +137,5 @@ module.exports = {
 
 if (require.main === module) {
   forAllUsersUpdateBlocks();
+  setInterval(forAllUsersUpdateBlocks, 60 * 1000);
 }
