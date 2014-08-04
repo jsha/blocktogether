@@ -57,7 +57,7 @@ function startStreams() {
 
 function endCallback(user) {
   console.log("Ending stream for", user.screen_name);
-  delete streams[uid];
+  delete streams[user.uid];
 }
 
 /**
