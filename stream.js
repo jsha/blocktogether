@@ -42,8 +42,7 @@ function startStreams() {
         var boundDataCallback = dataCallback.bind(undefined, user);
         var boundEndCallback = endCallback.bind(undefined, user);
 
-        console.log('Starting user stream for uid', user.uid, accessTokenSecret,
-        accessToken);
+        console.log('Starting stream for user', user.screen_name, user.uid);
         var req = twitter.getStream('user', {
           // Get events for all replies, not just people the user follows.
           'replies': 'all',
