@@ -241,7 +241,7 @@ app.get('/my-blocks',
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
-        showBlocks(req, res, user);
+        showBlocks(req, res, user, true /* ownBlocks */);
       });
   });
 
@@ -252,7 +252,7 @@ app.get('/show-blocks/:slug',
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
-        showBlocks(req, res, user);
+        showBlocks(req, res, user, false /* ownBlocks */);
       });
   });
 
@@ -273,19 +273,11 @@ app.post('/do-blocks.json',
 /**
  * Render the block list for a given BtUser as HTML.
  */
-function showBlocks(req, res, btUser) {
-  // If we are rendering blocks for someone other than the logged-in user,
-  // add a field `subject_screen_name' for the person we are viewing.
-  var subject_screen_name = '';
-  var own_blocks = true;
+function showBlocks(req, res, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
   if (req.user) {
     logged_in_screen_name = req.user.name;
-  }
-  if (logged_in_screen_name != btUser.screen_name) {
-    subject_screen_name = btUser.screen_name;
-    own_blocks = false;
   }
   twitter.blocks("ids", { skip_status: 1, cursor: -1 },
     btUser.access_token, btUser.access_token_secret,
@@ -329,11 +321,11 @@ function showBlocks(req, res, btUser) {
               // The name of the logged-in user, for the nav bar.
               logged_in_screen_name: logged_in_screen_name,
               // The name of the user whose blocks we are viewing.
-              subject_screen_name: subject_screen_name,
+              subject_screen_name: btUser.screen_name,
               block_count: count,
               more_than_5k: count === 5000,
               blocked_users: blockedUsersList,
-              own_blocks: own_blocks
+              own_blocks: ownBlocks
             };
             res.header('Content-Type', 'text/html');
             mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);

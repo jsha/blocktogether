@@ -1,13 +1,13 @@
   {{>header.mustache}}
   <script type='text/javascript' src='/static/show-blocks.js'></script>
-  {{#subject_screen_name}}
+  {{^own_blocks}}
     User @{{subject_screen_name}} is blocking {{block_count}}
     {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
-  {{/subject_screen_name}}
-  {{^subject_screen_name}}
+  {{/own_blocks}}
+  {{#own_blocks}}
     You are blocking {{block_count}}
     {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
-  {{/subject_screen_name}}
+  {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
       same ones.  }}
   {{^own_blocks}}
