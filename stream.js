@@ -40,7 +40,7 @@ function startStreams() {
         var accessToken = user.access_token;
         var accessTokenSecret = user.access_token_secret;
         var boundDataCallback = dataCallback.bind(undefined, user);
-        var boundEndCallback = endCallback.bind(undefined, user.uid);
+        var boundEndCallback = endCallback.bind(undefined, user);
 
         console.log('Starting user stream for uid', user.uid, accessTokenSecret,
         accessToken);
@@ -49,15 +49,15 @@ function startStreams() {
           'replies': 'all',
           // Only get user-related events, not all tweets in timeline.
           'with': 'user'
-        }, accessToken, accessTokenSecret, boundDataCallback, endCallback);
+        }, accessToken, accessTokenSecret, boundDataCallback, boundEndCallback);
 
         streams[user.uid] = req;
       });
     });
 }
 
-function endCallback(uid) {
-  console.log("Ending stream for", uid);
+function endCallback(user) {
+  console.log("Ending stream for", user.screen_name);
   delete streams[uid];
 }
 
