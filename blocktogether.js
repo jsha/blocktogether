@@ -267,7 +267,13 @@ app.get('/show-blocks/:slug',
       .error(function(err) {
         console.log(err);
       }).success(function(user) {
-        showBlocks(req, res, user, false /* ownBlocks */);
+        if (user) {
+          showBlocks(req, res, user, false /* ownBlocks */);
+        } else {
+          res.header('Content-Type', 'application/html');
+          res.status(404);
+          res.end("<h1>404 Page not found</h1>");
+        }
       });
   });
 
