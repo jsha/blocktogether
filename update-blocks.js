@@ -16,7 +16,7 @@ var twitter = setup.twitter,
 function forAllUsersUpdateBlocks() {
   BtUser
     .findAll({
-      // Get the latest complete BlockBatch for the user and ski pif < 1 day
+      // Get the latest complete BlockBatch for the user and skip if < 1 day
       include: [{
         model: BlockBatch,
         where: { complete: true },
