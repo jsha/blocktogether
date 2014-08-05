@@ -31,7 +31,10 @@ function startStreams() {
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
-      where: { uid: { not: Object.keys(streams) } },
+      where: {
+        uid: { not: Object.keys(streams) },
+        block_new_accounts: true
+      },
       limit: 10
     }).error(function(err) {
       console.log(err);
