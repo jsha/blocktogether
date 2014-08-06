@@ -18,6 +18,8 @@ var config = setup.config,
     twitter = setup.twitter,
     BtUser = setup.BtUser,
     Action = setup.Action,
+    BlockBatch = setup.BlockBatch,
+    Block = setup.Block,
     TwitterUser = setup.TwitterUser;
 
 // Look for templates here
@@ -300,59 +302,59 @@ function showBlocks(req, res, btUser, ownBlocks) {
   if (req.user) {
     logged_in_screen_name = req.user.name;
   }
-  twitter.blocks("ids", { skip_status: 1, cursor: -1 },
-    btUser.access_token, btUser.access_token_secret,
-    function(error, results) {
-      if (error != null) {
-        if (error.data) {
-          var errorMessage = error.data;
-        } else {
-          var errorMessage = "Unknown error";
-        }
-        var stream = mu.compileAndRender('error.mustache', {
-          error: errorMessage
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      } else {
-        var count = results.users ? results.users.length : results.ids.length;
-
-        // Now create an Object that has an entry for every id, even if that
-        // id didn't have details in the DB. A two-step process. First make
-        // the array.
-        var blockedUsers = {};
-        results.ids.forEach(function(uid) {
-          blockedUsers[uid] = {uid: uid};
-        });
-        // Then try to look up all those users in the DB and fill in the
-        // structure.
-        TwitterUser
-          .findAll({ where:
-            {uid: { in: results.ids }}})
-          .success(function(users) {
-            // Then fill it with DB results.
-            users.forEach(function(twitterUser) {
-              blockedUsers[twitterUser.uid] = twitterUser.dataValues;
-            });
-            // Now turn that Object into a list for use by Mustache.
-            var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
-              return blockedUsers[uid];
-            });
-            var templateData = {
-              // The name of the logged-in user, for the nav bar.
-              logged_in_screen_name: logged_in_screen_name,
-              // The name of the user whose blocks we are viewing.
-              subject_screen_name: btUser.screen_name,
-              block_count: count,
-              more_than_5k: count === 5000,
-              blocked_users: blockedUsersList,
-              own_blocks: ownBlocks
-            };
-            res.header('Content-Type', 'text/html');
-            mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+  btUser.getBlockBatches({
+    where: { complete: true },
+    limit: 1,
+    order: 'newid()',
+    include: [Block]
+  }).error(function(err) {
+    console.log(err);
+  }).success(function(blockBatches) {
+    if (blockBatches && blockBatches.length > 0) {
+      console.log("Block batch success ", blockBatches, blockBatches[0].blocks.length);
+      var blocks = blockBatches[0].blocks;
+      // Now create an Object that will have an entry for every id, even if that
+      // id doesn't have details in the DB. A two-step process. First make
+      // the array.
+      var blockedUsers = {};
+      var blockedUids = [];
+      blocks.forEach(function(block) {
+        blockedUsers[block.sink_uid] = {uid: block.sink_uid};
+        blockedUids.push(block.sink_uid);
+      });
+      // Then try to look up all those users in the DB and fill in the
+      // structure.
+      TwitterUser
+        .findAll({ where:
+          {uid: { in: blockedUids }}})
+        .error(function(err) {
+          console.log(err);
+        }).success(function(users) {
+          // Then fill it with DB results.
+          users.forEach(function(twitterUser) {
+            blockedUsers[twitterUser.uid] = twitterUser.dataValues;
           });
-      }
-    });
+          // Now turn that Object into a list for use by Mustache.
+          var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
+            return blockedUsers[uid];
+          });
+          var templateData = {
+            // The name of the logged-in user, for the nav bar.
+            logged_in_screen_name: logged_in_screen_name,
+            // The name of the user whose blocks we are viewing.
+            subject_screen_name: btUser.screen_name,
+            block_count: count,
+            more_than_5k: count === 5000,
+            blocked_users: blockedUsersList,
+            own_blocks: ownBlocks
+          };
+          res.header('Content-Type', 'text/html');
+          mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+        });
+    } else {
+      console.log("Failed to get a block batch");
+    }
+  });
 }
 
 app.use("/static", express.static(__dirname + '/static'));

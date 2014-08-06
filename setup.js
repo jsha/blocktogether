@@ -76,7 +76,8 @@ var BlockBatch = sequelize.define('BlockBatch', {
   currentCursor: Sequelize.STRING,
   complete: Sequelize.BOOLEAN
 });
-BlockBatch.hasMany(Block, {as: 'Blocks'});
+BlockBatch.hasMany(Block);
+Block.hasOne(BlockBatch);
 BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid'});
 
 /**
