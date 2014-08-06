@@ -17,7 +17,7 @@ var streams = {
 // of streams going.
 // TODO: Request Site Streams access.
 // TODO: Only start streams for users who have block_new_accounts = true.
-https.globalAgent.maxSockets = 100;
+https.globalAgent.maxSockets = 10000;
 
 /**
  * For each user with stored credentials, start receiving their Twitter user
