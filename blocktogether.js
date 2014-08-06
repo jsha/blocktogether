@@ -305,12 +305,17 @@ function showBlocks(req, res, btUser, ownBlocks) {
   btUser.getBlockBatches({
     where: { complete: true },
     limit: 1,
-    order: 'newid()',
     include: [Block]
   }).error(function(err) {
     console.log(err);
   }).success(function(blockBatches) {
-    if (blockBatches && blockBatches.length > 0) {
+    if (!blockBatches || blockBatches.length < 1) {
+      var stream = mu.compileAndRender('error.mustache', {
+        error: "No blocks fetched yet. Please try again soon."
+      });
+      res.header('Content-Type', 'text/html');
+      stream.pipe(res);
+    } else {
       console.log("Block batch success ", blockBatches, blockBatches[0].blocks.length);
       var blocks = blockBatches[0].blocks;
       // Now create an Object that will have an entry for every id, even if that
@@ -322,6 +327,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
         blockedUsers[block.sink_uid] = {uid: block.sink_uid};
         blockedUids.push(block.sink_uid);
       });
+      var count = blockedUids.length;
       // Then try to look up all those users in the DB and fill in the
       // structure.
       TwitterUser
@@ -351,8 +357,6 @@ function showBlocks(req, res, btUser, ownBlocks) {
           res.header('Content-Type', 'text/html');
           mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
         });
-    } else {
-      console.log("Failed to get a block batch");
     }
   });
 }
