@@ -59,16 +59,23 @@ function startStreams() {
     });
 }
 
-function endCallback(user) {
-  console.log("Ending stream for", user.screen_name);
+function deleteIfRevoked(user) {
   twitter.account("verify_credentials", {}, user.access_token,
     user.access_token_secret, function(err, results) {
-      if (err) {
-        console.log("Verify credentials error", err);
-      } else {
-        console.log("Verify credentials", results);
+      if (err && err.data) {
+        var errJson = JSON.parse(err.data);
+        if (errJson.errors &&
+            errJson.errors.some(function(e) { console.log(e);return e.code === 89 })) {
+          console.log("User", user.screen_name, "revoked app, deleting.");
+          user.destroy();
+        }
       }
   });
+}
+
+function endCallback(user) {
+  console.log("Ending stream for", user.screen_name);
+  deleteIfRevoked(user);
   delete streams[user.uid];
 }
 
@@ -86,6 +93,13 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   if (data.disconnect) {
     console.log(recipientBtUser.screen_name,
       'disconnect message:', data.disconnect);
+    // Code 6 is for revoked, e.g.:
+    // { code: 6, stream_name:
+    //   'twestact4&XXXXXXXXXXXXXXXXXXXXXXXXX-userstream685868461329014147',
+    //    reason: 'token revoked for userId 596947990' }
+    if (data.disconnect.code === 6) {
+      deleteIfRevoked(recipientBtUser);
+    }
   } else if (data.warning) {
     console.log(recipientBtUser.screen_name,
       'stream warning message:', data.warning);
