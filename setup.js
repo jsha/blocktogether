@@ -77,7 +77,6 @@ var BlockBatch = sequelize.define('BlockBatch', {
   complete: Sequelize.BOOLEAN
 });
 BlockBatch.hasMany(Block);
-Block.hasOne(BlockBatch);
 Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid'});
 
