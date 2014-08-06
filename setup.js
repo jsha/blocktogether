@@ -76,9 +76,9 @@ var BlockBatch = sequelize.define('BlockBatch', {
   currentCursor: Sequelize.STRING,
   complete: Sequelize.BOOLEAN
 });
-BlockBatch.hasMany(Block);
+BlockBatch.hasMany(Block, {onDelete: 'cascade'});
 Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
-BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid'});
+BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
 
 /**
  * An action (block or unblock) that we perform on behalf of a user.

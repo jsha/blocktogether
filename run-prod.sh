@@ -1,7 +1,7 @@
 #!/bin/bash
 run() {
   (while :; do
-     js ${1}.js >> /tmp/bt.${1}.log 2>&1 
+     js /usr/local/blocktogether/current/${1}.js >> /tmp/bt.${1}.log 2>&1 
    done) &
 }
 
