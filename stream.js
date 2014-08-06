@@ -61,6 +61,14 @@ function startStreams() {
 
 function endCallback(user) {
   console.log("Ending stream for", user.screen_name);
+  twitter.account("verify_credentials", {}, user.access_token,
+    user.access_token_secret, function(err, results) {
+      if (err) {
+        console.log("Verify credentials error", err);
+      } else {
+        console.log("Verify credentials", results);
+      }
+  });
   delete streams[user.uid];
 }
 
