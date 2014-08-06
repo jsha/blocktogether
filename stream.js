@@ -2,6 +2,7 @@ var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     actions = require('./actions'),
     https = require('https'),
+    updateBlocks = require('./update-blocks'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -33,7 +34,7 @@ function startStreams() {
     .findAll({
       where: {
         uid: { not: Object.keys(streams) },
-        block_new_accounts: true
+        //block_new_accounts: true
       },
       limit: 10
     }).error(function(err) {
@@ -73,19 +74,37 @@ function endCallback(user) {
  */
 function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
-  // If present, data.user is the user who sent the at-reply.
-  if (data && data.text && data.user && data.user.created_at &&
-      data.user.id_str !== recipientUid) {
-    var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
-    console.log(recipientBtUser.screen_name, 'got at reply from',
-      data.user.screen_name, ' (age ', ageInDays, ')');
-    // The user may have changed settings since we started the stream. Reload to
-    // get the latest setting.
-    recipientBtUser.reload().success(function() {
-      if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
-        enqueueBlock(recipientBtUser, data.user);
-      }
-    });
+  if (!data) return;
+  if (data.disconnect) {
+    console.log(recipientBtUser.screen_name,
+      'disconnect message:', data.disconnect);
+  } else if (data.warning) {
+    console.log(recipientBtUser.screen_name,
+      'stream warning message:', data.warning);
+  } else if (data.event) {
+    console.log(recipientBtUser.screen_name, 'event', data.event);
+    // When the user blocks or unblocks a user, refresh all their blocks.
+    // We could be more efficient about this by just editing the latest
+    // blockbatch, but this is quick and easy.
+    if (data.event === 'block' || data.event === 'unblock') {
+      updateBlocks.updateBlocks(recipientBtUser);
+    }
+  } else if (data.text) {
+    // If present, data.user is the user who sent the at-reply.
+    if (data.user && data.user.created_at &&
+        data.user.id_str !== recipientUid) {
+      var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
+      console.log(recipientBtUser.screen_name, 'got at reply from',
+        data.user.screen_name, ' (age ', ageInDays, ')');
+      console.log(data);
+      // The user may have changed settings since we started the stream. Reload to
+      // get the latest setting.
+      recipientBtUser.reload().success(function() {
+        if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+          enqueueBlock(recipientBtUser, data.user);
+        }
+      });
+    }
   }
 }
 
