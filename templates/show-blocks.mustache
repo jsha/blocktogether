@@ -2,11 +2,11 @@
   <script type='text/javascript' src='/static/show-blocks.js'></script>
   {{^own_blocks}}
     User @{{subject_screen_name}} is blocking {{block_count}}
-    {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
+    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
     You are blocking {{block_count}}
-    {{#more_than_5k}}+{{/more_than_5k}} users on Twitter:
+    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
       same ones.  }}

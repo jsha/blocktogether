@@ -293,6 +293,14 @@ app.post('/do-blocks.json',
     }
   });
 
+function renderHtmlError(message) {
+  var stream = mu.compileAndRender('error.mustache', {
+    error: message
+  });
+  res.header('Content-Type', 'text/html');
+  stream.pipe(res);
+}
+
 /**
  * Render the block list for a given BtUser as HTML.
  */
@@ -302,61 +310,52 @@ function showBlocks(req, res, btUser, ownBlocks) {
   if (req.user) {
     logged_in_screen_name = req.user.name;
   }
-  btUser.getBlockBatches({
-    where: { complete: true },
+  BlockBatch.find({
+    where: { source_uid: btUser.uid },
     limit: 1,
-    include: [Block]
+    // We prefer a the most recent complete BlockBatch, but if none is
+    // available we will choose the most recent non-complete BlockBatch.
+    order: 'complete desc, createdAt desc',
   }).error(function(err) {
     console.log(err);
-  }).success(function(blockBatches) {
-    if (!blockBatches || blockBatches.length < 1) {
-      var stream = mu.compileAndRender('error.mustache', {
-        error: "No blocks fetched yet. Please try again soon."
-      });
-      res.header('Content-Type', 'text/html');
-      stream.pipe(res);
+  }).success(function(blockBatch) {
+    if (!blockBatch) {
+      renderHtmlError("No blocks fetched yet. Please try again soon.");
     } else {
-      console.log("Block batch success ", blockBatches, blockBatches[0].blocks.length);
-      var blocks = blockBatches[0].blocks;
-      // Now create an Object that will have an entry for every id, even if that
-      // id doesn't have details in the DB. A two-step process. First make
-      // the array.
-      var blockedUsers = {};
-      var blockedUids = [];
-      blocks.forEach(function(block) {
-        blockedUsers[block.sink_uid] = {uid: block.sink_uid};
-        blockedUids.push(block.sink_uid);
-      });
-      var count = blockedUids.length;
-      // Then try to look up all those users in the DB and fill in the
-      // structure.
-      TwitterUser
-        .findAll({ where:
-          {uid: { in: blockedUids }}})
-        .error(function(err) {
-          console.log(err);
-        }).success(function(users) {
-          // Then fill it with DB results.
-          users.forEach(function(twitterUser) {
-            blockedUsers[twitterUser.uid] = twitterUser.dataValues;
-          });
-          // Now turn that Object into a list for use by Mustache.
-          var blockedUsersList = Object.keys(blockedUsers).map(function(uid) {
-            return blockedUsers[uid];
-          });
-          var templateData = {
-            // The name of the logged-in user, for the nav bar.
-            logged_in_screen_name: logged_in_screen_name,
-            // The name of the user whose blocks we are viewing.
-            subject_screen_name: btUser.screen_name,
-            block_count: count,
-            more_than_5k: count === 5000,
-            blocked_users: blockedUsersList,
-            own_blocks: ownBlocks
-          };
-          res.header('Content-Type', 'text/html');
-          mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+      blockBatch.getBlocks({
+        limit: 5000,
+        include: [{
+          model: TwitterUser,
+          required: false
+        }]
+      }).error(function(err) {
+        console.log(err);
+      }).success(function(blocks) {
+        // Create a list of users that has at least a uid entry even if the
+        // TwitterUser doesn't yet exist in our DB.
+        var blockedUsersList = blocks.map(function(block) {
+          if (block.twitterUser) {
+            return block.twitterUser;
+          } else {
+            return {uid: block.sink_uid};
+          }
         });
+        var templateData = {
+          updated: timeago(new Date(blockBatch.createdAt)),
+          // The name of the logged-in user, for the nav bar.
+          logged_in_screen_name: logged_in_screen_name,
+          // The name of the user whose blocks we are viewing.
+          subject_screen_name: btUser.screen_name,
+          // TODO: We could get the full count even when we are only displaying
+          // 5000.
+          block_count: blocks.length,
+          theres_more: blocks.length === 5000,
+          blocked_users: blockedUsersList,
+          own_blocks: ownBlocks
+        };
+        res.header('Content-Type', 'text/html');
+        mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+      })
     }
   });
 }
