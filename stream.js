@@ -29,6 +29,7 @@ https.globalAgent.maxSockets = 10000;
  * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
+  console.log('Active streams:', Object.keys(streams).length);
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
