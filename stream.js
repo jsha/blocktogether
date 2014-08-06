@@ -96,7 +96,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
       console.log(recipientBtUser.screen_name, 'got at reply from',
         data.user.screen_name, ' (age ', ageInDays, ')');
-      console.log(data);
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
       recipientBtUser.reload().success(function() {
