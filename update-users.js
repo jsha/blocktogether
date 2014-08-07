@@ -1,4 +1,5 @@
-var setup = require('./setup');
+var setup = require('./setup'),
+    _ = require('sequelize').Utils._;
 
 var config = setup.config,
     twitter = setup.twitter,
@@ -28,10 +29,10 @@ function usersNeedingUpdate(callback) {
 
 // Find uids needing update, look them up on Twitter, and store in database.
 function findAndUpdateUsers() {
-  usersNeedingUpdate(function(ids) {
-    if (ids.length > 0) {
-      twitter.users("lookup", {skip_status: 1, user_id: ids.join(",")},
-        accessToken, accessTokenSecret, updateUsers);
+  usersNeedingUpdate(function(uids) {
+    if (uids.length > 0) {
+      twitter.users("lookup", {skip_status: 1, user_id: uids.join(",")},
+        accessToken, accessTokenSecret, updateUsers.bind(null, uids));
     } else {
       updateUsers(null, []);
     }
@@ -39,7 +40,7 @@ function findAndUpdateUsers() {
 }
 
 // Given a user lookup API response from Twitter, store the user into the DB.
-function updateUsers(err, data, response) {
+function updateUsers(uids, err, data, response) {
   if (!!err) {
     if (err.statusCode === 429) {
       console.log('Rate limited. Trying again in 15 minutes.');
@@ -49,24 +50,30 @@ function updateUsers(err, data, response) {
     }
     return;
   }
-  for (var i = 0; i < data.length; i++) {
-    storeUser(data[i]);
-  }
+  console.log("Got /users/lookup response size", data.length,
+    "for", uids.length, "uids");
+  foundUids = {}
+  data.forEach(function(twitterUserResponse) {
+    storeUser(twitterUserResponse);
+    foundUids[twitterUserResponse.uid] = 1;
+  });
+
+  uids.forEach(function(uid) {
+    if (foundUids[uid]) {
+      console.log('Did not find uid', uid, 'probably suspended.');
+    }
+  });
 }
 
 // Store a single user into the DB.
 function storeUser(twitterUserResponse) {
   TwitterUser
-    .find(twitterUserResponse.id_str)
+    .findOrCreate({ uid: twitterUserResponse.id_str })
     .error(function(err) {
       console.log(err);
     }).success(function(user) {
       console.log("Succesfully found user @", user.screen_name);
-      for (key in twitterUserResponse) {
-        if (twitterUserResponse.hasOwnProperty(key)) {
-          user[key] = twitterUserResponse[key]
-        }
-      }
+      user = _.extend(user, twitterUserResponse);
       user.save();
     });
 }
@@ -85,5 +92,5 @@ if (require.main === module) {
   // their blocked users very quickly so we can display screen names.
   // However, this runs into issues with suspended users, because they will
   // always 404 and so always remain pending.
-  setInterval(findAndUpdateUsers, 20 * 1000);
+  setInterval(findAndUpdateUsers, 2000);
 }
