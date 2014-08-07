@@ -70,29 +70,41 @@ function makeApp() {
                   // blocks.
                   updateBlocks.updateBlocks(btUser);
                 });
-              done(null, {
-                profile: profile,
-                accessToken: accessToken,
-                accessTokenSecret: accessTokenSecret
-              });
+              done(null, btUser);
             });
         });
     }
   ));
 
-  // used to serialize the user for the session
+  // Serialize the uid and credentials into session. TODO: use a unique session
+  // id instead of the Twitter credentials to save cookie space and reduce risk
+  // of Twitter credential exposure.
   passport.serializeUser(function(user, done) {
     done(null, JSON.stringify({
-      id_str: user.profile._json.id_str,
-      name: user.profile.username,
-      accessToken: user.accessToken,
-      accessTokenSecret: user.accessTokenSecret
+      uid: user.uid,
+      accessToken: user.access_token,
+      accessTokenSecret: user.access_token_secret
     }));
   });
 
-  // used to deserialize the user
+  // Given the serialized uid and credentials, try to find the corresponding
+  // user in the BtUsers table. If not found, that's fine - it might be a
+  // logged-out path. Logged-out users are handed in requireAuthentication
+  // below.
   passport.deserializeUser(function(serialized, done) {
-      done(null, JSON.parse(serialized));
+      var sessionUser = JSON.parse(serialized);
+      BtUser.find({
+        where: {
+          uid: sessionUser.uid,
+          access_token: sessionUser.accessToken,
+          access_token_secret: sessionUser.accessTokenSecret
+        }
+      }).error(function(err) {
+        console.log(err);
+        done(null, undefined);
+      }).success(function(user) {
+        done(null, user);
+      })
   });
   return app;
 }
@@ -105,9 +117,9 @@ var app = makeApp();
 function isAuthenticated(req) {
   var u = "undefined";
   return typeof(req.user) != u &&
-         typeof(req.user.id_str) != u &&
-         typeof(req.user.accessToken) != u &&
-         typeof(req.user.accessTokenSecret) != u
+         typeof(req.user.uid) != u &&
+         typeof(req.user.access_token) != u &&
+         typeof(req.user.access_token_secret) != u
 }
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
@@ -119,7 +131,7 @@ app.get('/auth/twitter', passport.authenticate('twitter'));
 // authentication process by attempting to obtain an access token.  If
 // access was granted, the user will be logged in.  Otherwise,
 // authentication has failed.
-app.get('/auth/twitter/callback', 
+app.get('/auth/twitter/callback',
   passport.authenticate('twitter', { successRedirect: '/settings',
                                      failureRedirect: '/failed' }));
 
@@ -175,53 +187,41 @@ app.get('/logged-out',
 
 app.get('/settings',
   function(req, res) {
-    BtUser
-      .find(req.user.id_str)
-      .error(function(err) {
-        console.log(err);
-      }).success(function(btUser) {
-        var stream = mu.compileAndRender('settings.mustache', {
-          logged_in_screen_name: btUser.screen_name,
-          block_new_accounts: btUser.block_new_accounts,
-          shared_blocks_key: btUser.shared_blocks_key
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      });
+    var stream = mu.compileAndRender('settings.mustache', {
+      logged_in_screen_name: req.user.screen_name,
+      block_new_accounts: req.user.block_new_accounts,
+      shared_blocks_key: req.user.shared_blocks_key
+    });
+    res.header('Content-Type', 'text/html');
+    stream.pipe(res);
   });
 
 app.post('/settings.json',
   function(req, res) {
-    BtUser
-      .find(req.user.id_str)
-      .error(function(err) {
-        console.log(err);
-      }).success(function(user) {
-        if (typeof req.body.block_new_accounts !== 'undefined') {
-          user.block_new_accounts = req.body.block_new_accounts;
-        }
-        if (typeof req.body.share_blocks !== 'undefined') {
-          var new_share_blocks = req.body.share_blocks;
-          var old_share_blocks = user.shared_blocks_key != null;
-          // Disable sharing blocks
-          if (old_share_blocks && !new_share_blocks) {
-            user.shared_blocks_key = null;
-          }
-          // Enable sharing blocks
-          if (!old_share_blocks && new_share_blocks) {
-            user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
-          }
-        }
-        user
-          .save()
-          .success(function(user) {
-            res.header('Content-Type', 'application/json');
-            res.end(JSON.stringify({
-              share_blocks: true,
-              shared_blocks_key: user.shared_blocks_key,
-              block_new_accounts: true
-            }));
-          });
+    if (typeof req.body.block_new_accounts !== 'undefined') {
+      req.user.block_new_accounts = req.body.block_new_accounts;
+    }
+    if (typeof req.body.share_blocks !== 'undefined') {
+      var new_share_blocks = req.body.share_blocks;
+      var old_share_blocks = req.user.shared_blocks_key != null;
+      // Disable sharing blocks
+      if (old_share_blocks && !new_share_blocks) {
+        req.user.shared_blocks_key = null;
+      }
+      // Enable sharing blocks
+      if (!old_share_blocks && new_share_blocks) {
+        req.user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+      }
+    }
+    req.user
+      .save()
+      .success(function(user) {
+        res.header('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          share_blocks: true,
+          shared_blocks_key: user.shared_blocks_key,
+          block_new_accounts: true
+        }));
       });
   });
 
@@ -229,21 +229,22 @@ app.get('/actions',
   function(req, res) {
     BtUser
       .find({
-        where: { uid: req.user.id_str },
+        where: { uid: req.user.uid },
         include: [Action]
       })
+    req.user.getActions()
       .error(function(err) {
         console.log(err);
-      }).success(function(user) {
+      }).success(function(actions) {
         // Decorate the actions with human-friendly times
-        var actions = user.actions.map(function (action) {
+        actions = actions.map(function (action) {
           return _.extend(action, {
             prettyCreated: timeago(new Date(action.createdAt)),
             prettyUpdated: timeago(new Date(action.updatedAt))
           });
         });
         var stream = mu.compileAndRender('actions.mustache', {
-          logged_in_screen_name: req.user.name,
+          logged_in_screen_name: req.user.screen_name,
           actions: actions
         });
         res.header('Content-Type', 'text/html');
@@ -253,13 +254,7 @@ app.get('/actions',
 
 app.get('/my-blocks',
   function(req, res) {
-    BtUser
-      .find(req.user.id_str)
-      .error(function(err) {
-        console.log(err);
-      }).success(function(user) {
-        showBlocks(req, res, user, true /* ownBlocks */);
-      });
+    showBlocks(req, res, req.user, true /* ownBlocks */);
   });
 
 app.get('/show-blocks/:slug',
@@ -283,7 +278,7 @@ app.post('/do-blocks.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
     if (req.body.list) {
-      actions.queueBlocks(req.user.id_str, req.body.list);
+      actions.queueBlocks(req.user.uid, req.body.list);
       res.end("{}");
     } else {
       res.status(400);
@@ -308,7 +303,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
   if (req.user) {
-    logged_in_screen_name = req.user.name;
+    logged_in_screen_name = req.user.screen_name;
   }
   BlockBatch.find({
     where: { source_uid: btUser.uid },
