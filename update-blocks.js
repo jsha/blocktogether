@@ -23,13 +23,22 @@ function forAllUsersUpdateBlocks() {
         required: false,
         limit: 1,
         order: 'updatedAt DESC',
-      }]
+      }],
+      order: 'updatedAt ASC',
+      limit: 10
     }).error(function(err) {
       console.log(err);
     }).success(function(users) {
       users.forEach(function(user) {
         var oneDayInMillis = 86400 * 1000;
         var batches = user.blockBatches;
+        // HACK: mark the user as updated. This allows us to use the order
+        // updatedAt ASC / limit 10 above to iterate through chunks of the user
+        // base at a reasonable pace.
+        user.updatedAt = new Date();
+        user.save().error(function(err) {
+          console.log(err);
+        });
         if (batches &&
             batches.length > 0 &&
             (new Date() - new Date(batches[0].createdAt)) < oneDayInMillis) {
@@ -137,5 +146,5 @@ module.exports = {
 
 if (require.main === module) {
   forAllUsersUpdateBlocks();
-  setInterval(forAllUsersUpdateBlocks, 60 * 1000);
+  setInterval(forAllUsersUpdateBlocks, 1000);
 }
