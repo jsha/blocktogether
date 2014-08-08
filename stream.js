@@ -2,6 +2,7 @@ var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     actions = require('./actions'),
     https = require('https'),
+    updateUsers = require('./update-users'),
     updateBlocks = require('./update-blocks'),
     setup = require('./setup');
 
@@ -112,6 +113,11 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     // blockbatch, but this is quick and easy.
     if (data.event === 'block' || data.event === 'unblock') {
       updateBlocks.updateBlocks(recipientBtUser);
+    }
+    // If the event target is present, it's a Twitter User object, and we should
+    // save it if we don't already have it.
+    if (data.target) {
+      updateUsers.storeUser(data.target);
     }
 
     handleUnblock(data);
