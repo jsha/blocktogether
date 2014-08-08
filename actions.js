@@ -8,6 +8,7 @@ var twitterAPI = require('node-twitter-api'),
 
 var twitter = setup.twitter,
     BtUser = setup.BtUser,
+    UnblockedUser = setup.UnblockedUser,
     Action = setup.Action;
 
 /**
@@ -54,10 +55,17 @@ function queueBlocks(source_uid, list) {
  */
 function processBlocks() {
   BtUser
-    .findAll({include: [{
-      model: Action,
-      where: [ 'status = "pending"' ]
-    }]}).error(function(err) {
+    .findAll({
+      include: [{
+        model: Action,
+        // Out of the available pending block actions on this user,
+        // pick up to 100 with the earliest updatedAt times.
+        where: [ 'status = "pending" and type = "block"' ],
+        order: 'updatedAt ASC',
+        limit: 100
+      },
+      UnblockedUser]
+    }).error(function(err) {
       console.log(err);
     }).success(function(btUsers) {
       btUsers.forEach(processActionsForUser);
@@ -74,8 +82,13 @@ function processActionsForUserId(uid) {
       where: { uid: uid },
       include: [{
         model: Action,
-        where: [ 'status = "pending"' ]
-      }]
+        // Out of the available pending block actions on this user,
+        // pick up to 100 with the earliest updatedAt times.
+        where: [ 'status = "pending" and type = "block"' ],
+        order: 'updatedAt ASC',
+        limit: 100
+      },
+      UnblockedUser]
     }).error(function(err) {
       console.log(err);
     }).success(function(btUser) {
@@ -89,14 +102,7 @@ function processActionsForUserId(uid) {
  * @param{BtUser} btUser The user whose attached Actions we should process.
  */
 function processActionsForUser(btUser) {
-  // Out of the available pending block actions on this user,
-  // pick up to 100 with the earliest updatedAt times.
-  var actionsToCheck = btUser.actions.filter(function(action) {
-    return (action.status === Action.PENDING &&
-            action.type === Action.BLOCK);
-  }).sort(function(a, b) {
-    new Date(a.updatedAt) - new Date(b.updatedAt);
-  }).slice(0, 100);
+  var actionsToCheck = btUser.actions;
   if (actionsToCheck.length > 0) {
     // Now that we've got our list, send them to Twitter to see if the
     // btUser follows them.
@@ -121,6 +127,9 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     console.log('SEVERE: No more than 100 sinkUids allowed.');
     return;
   }
+  var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
+    return uu.sink_uid;
+  });
   console.log('Checking follow status ', sourceBtUser.uid,
     ' --???--> ', sinkUids);
   twitter.friendships("lookup", {
@@ -140,6 +149,9 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
             newState = Action.CANCELLED_FOLLOWING;
           } else if (sourceBtUser.uid === sink_uid) {
             newState = Action.CANCELLED_SELF;
+          } else if (_.contains(unblockedUids, sink_uid)) {
+            // If the user unblocked the sink_uid in the past, don't re-block.
+            newState = Action.CANCELLED_UNBLOCKED;
           }
           // If we're cancelling, update the state of the action. It's
           // possible to have multiple pending Blocks for the same sink_uid, so
@@ -148,7 +160,6 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
             setActionsStatus(sink_uid, actions, newState);
           } else {
             // No obstacles to blocking the sink_uid have been found, block 'em!
-
             twitter.blocks("create", {
                 user_id: sink_uid,
                 skip_status: 1
@@ -188,7 +199,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-  // TODO: It's possible for one run of processBlocks to take more than 30
+  // TODO: It's possible for one run of processBlocks could take more than 10
   // seconds, in which case we wind up with multiple instances running
   // concurrently. This probably won't happen since each run only processes 100
   // items per user, but with a lot of users it could, and would lead to some
@@ -196,5 +207,5 @@ if (require.main === module) {
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
   processBlocks();
-  setInterval(processBlocks, 30 * 1000);
+  setInterval(processBlocks, 10 * 1000);
 }

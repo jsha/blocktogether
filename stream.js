@@ -107,7 +107,14 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       'stream warning message:', data.warning);
   } else if (data.event) {
     console.log(recipientBtUser.screen_name, 'event', data.event);
-    handleEvent(data);
+    // When the user blocks or unblocks a user, refresh all their blocks.
+    // We could be more efficient about this by just editing the latest
+    // blockbatch, but this is quick and easy.
+    if (data.event === 'block' || data.event === 'unblock') {
+      updateBlocks.updateBlocks(recipientBtUser);
+    }
+
+    handleUnblock(data);
   } else if (data.text) {
     // If present, data.user is the user who sent the at-reply.
     if (data.user && data.user.created_at &&
@@ -126,14 +133,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   }
 }
 
-function handleEvent(data) {
-  // When the user blocks or unblocks a user, refresh all their blocks.
-  // We could be more efficient about this by just editing the latest
-  // blockbatch, but this is quick and easy.
-  if (data.event === 'block' || data.event === 'unblock') {
-    updateBlocks.updateBlocks(recipientBtUser);
-  }
-
+function handleUnblock(data) {
   if (data.event === 'unblock') {
     UnblockedUser.find({
       where: {

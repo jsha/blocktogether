@@ -227,13 +227,10 @@ app.post('/settings.json',
 
 app.get('/actions',
   function(req, res) {
-    BtUser
-      .find({
-        where: { uid: req.user.uid },
-        include: [Action]
-      })
-    req.user.getActions()
-      .error(function(err) {
+    req.user
+      .getActions({
+        order: 'updatedAt DESC'
+      }).error(function(err) {
         console.log(err);
       }).success(function(actions) {
         // Decorate the actions with human-friendly times
