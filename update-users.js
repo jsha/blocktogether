@@ -71,15 +71,24 @@ function storeUser(twitterUserResponse) {
     .findOrCreate({ uid: twitterUserResponse.id_str })
     .error(function(err) {
       console.log(err);
-    }).success(function(user) {
-      console.log("Succesfully found user @", user.screen_name);
+    }).success(function(user, created) {
       user = _.extend(user, twitterUserResponse);
-      user.save();
+      user.save()
+        .error(function(err) {
+          console.log(err);
+        }).success(function(user) {
+          if (created) {
+            console.log("Updated user ", user.screen_name);
+          } else {
+            console.log("Created user ", user.screen_name);
+          }
+        });
     });
 }
 
 module.exports = {
-  findAndUpdateUsers: findAndUpdateUsers
+  findAndUpdateUsers: findAndUpdateUsers,
+  storeUser: storeUser
 };
 
 if (require.main === module) {
