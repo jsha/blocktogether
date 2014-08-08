@@ -8,5 +8,4 @@ run() {
 run blocktogether
 run stream
 run actions
-run update-blocks
 run update-users

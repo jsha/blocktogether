@@ -7,6 +7,7 @@ var twitterAPI = require('node-twitter-api'),
 
 var twitter = setup.twitter,
     Action = setup.Action,
+    UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
 
 // An associative array of streams currently running. Indexed by uid.
@@ -106,12 +107,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       'stream warning message:', data.warning);
   } else if (data.event) {
     console.log(recipientBtUser.screen_name, 'event', data.event);
-    // When the user blocks or unblocks a user, refresh all their blocks.
-    // We could be more efficient about this by just editing the latest
-    // blockbatch, but this is quick and easy.
-    if (data.event === 'block' || data.event === 'unblock') {
-      updateBlocks.updateBlocks(recipientBtUser);
-    }
+    handleEvent(data);
   } else if (data.text) {
     // If present, data.user is the user who sent the at-reply.
     if (data.user && data.user.created_at &&
@@ -127,6 +123,36 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
         }
       });
     }
+  }
+}
+
+function handleEvent(data) {
+  // When the user blocks or unblocks a user, refresh all their blocks.
+  // We could be more efficient about this by just editing the latest
+  // blockbatch, but this is quick and easy.
+  if (data.event === 'block' || data.event === 'unblock') {
+    updateBlocks.updateBlocks(recipientBtUser);
+  }
+
+  if (data.event === 'unblock') {
+    UnblockedUser.find({
+      where: {
+        source_uid: data.source.id_str,
+        sink_uid: data.target.id_str
+      }
+    }).error(function(err) {
+      console.log(err);
+    }).success(function(unblockedUser) {
+      if (!unblockedUser) {
+        unblockedUser = UnblockedUser.build({
+          source_uid: data.source.id_str,
+          sink_uid: data.target.id_str
+        });
+      }
+      unblockedUser.save().error(function(err) {
+        console.log(err);
+      });
+    })
   }
 }
 

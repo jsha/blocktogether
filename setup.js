@@ -101,12 +101,31 @@ _.extend(Action, {
   // If the action did not need to be performed because the source was already
   // blocking the sink.
   CANCELLED_DUPLICATE: 'cancelled-duplicate',
+  // If a user has previously unblocked the target, the target should be immune
+  // from future automated blocks.
+  CANCELLED_UNBLOCKED: 'cancelled-unblocked',
   // You cannot block yourself.
   CANCELLED_SELF: 'cancelled-self',
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
   UNBLOCK: 'unblock'
 });
+
+/**
+ * A record of a user who was unblocked by a BlockTogether user.
+ * Note: This is NOT parallel to the Blocks table because we cannot update
+ * it at will from the REST API. Right now this table is only filled by
+ * stream.js when it receives an unblock event, and entries are never removed
+ * except manually by the user.
+ *
+ * Entries in this table are used to prevent re-blocking a user who has been
+ * manually unblocked.
+ */
+var UnblockedUser = sequelize.define('UnblockedUser', {
+  source_uid: Sequelize.STRING,
+  sink_uid: Sequelize.STRING,
+});
+BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
 
 sequelize
   .sync()
@@ -122,5 +141,6 @@ module.exports = {
   BtUser: BtUser,
   Block: Block,
   BlockBatch: BlockBatch,
+  UnblockedUser: UnblockedUser,
   Action: Action
 };
