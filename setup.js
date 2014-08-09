@@ -59,7 +59,8 @@ var BtUser = sequelize.define('BtUser', {
   access_token: Sequelize.STRING,
   access_token_secret: Sequelize.STRING,
   shared_blocks_key: Sequelize.STRING,
-  block_new_accounts: Sequelize.BOOLEAN
+  block_new_accounts: Sequelize.BOOLEAN,
+  follow_blocktogether: Sequelize.BOOLEAN
 });
 BtUser.hasOne(TwitterUser);
 

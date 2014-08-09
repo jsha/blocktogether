@@ -190,7 +190,8 @@ app.get('/settings',
     var stream = mu.compileAndRender('settings.mustache', {
       logged_in_screen_name: req.user.screen_name,
       block_new_accounts: req.user.block_new_accounts,
-      shared_blocks_key: req.user.shared_blocks_key
+      shared_blocks_key: req.user.shared_blocks_key,
+      follow_blocktogether: req.user.follow_blocktogether
     });
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
@@ -198,22 +199,40 @@ app.get('/settings',
 
 app.post('/settings.json',
   function(req, res) {
+    var user = req.user;
     if (typeof req.body.block_new_accounts !== 'undefined') {
-      req.user.block_new_accounts = req.body.block_new_accounts;
+      user.block_new_accounts = req.body.block_new_accounts;
     }
     if (typeof req.body.share_blocks !== 'undefined') {
       var new_share_blocks = req.body.share_blocks;
-      var old_share_blocks = req.user.shared_blocks_key != null;
+      var old_share_blocks = user.shared_blocks_key != null;
       // Disable sharing blocks
       if (old_share_blocks && !new_share_blocks) {
-        req.user.shared_blocks_key = null;
+        user.shared_blocks_key = null;
       }
       // Enable sharing blocks
       if (!old_share_blocks && new_share_blocks) {
-        req.user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+        user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
       }
     }
-    req.user
+    if (typeof req.body.follow_blocktogether !== 'undefined') {
+      var new_follow = req.body.follow_blocktogether;
+      var old_follow = user.follow_blocktogether;
+      user.follow_blocktogether = new_follow;
+      var blocktogether = 'blocktogether';
+      // Unfollow blocktogether.
+      if (old_follow && !new_follow) {
+        twitter.friendships('destroy', { screen_name: blocktogether },
+          user.access_token, user.access_token_secret,
+          function() {});
+      } else if (!old_follow && new_follow) {
+        // Follow blocktogether
+        twitter.friendships('create', { screen_name: blocktogether },
+          user.access_token, user.access_token_secret,
+          function() {});
+      }
+    }
+    user
       .save()
       .success(function(user) {
         res.header('Content-Type', 'application/json');

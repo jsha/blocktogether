@@ -2,7 +2,7 @@
   "author": "Jacob Hoffman-Andrews",
   "name": "blocktogether",
   "description": "Share your blocks",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "dependencies": {
     "express": "",
     "body-parser": "",
@@ -16,6 +16,7 @@
     "sequelize": "~1.7.9",
     "timeago": "~0.1.0",
     "node-twitter-api": "~1.2.3",
-    "log4js": "~0.6.16"
+    "log4js": "~0.6.16",
+    "sequelize-cli": "~0.2.4"
   }
 }

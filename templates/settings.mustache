@@ -1,6 +1,5 @@
   {{>header.mustache}}
   <script type='text/javascript' src='/static/settings.js'></script>
-  <script type='text/javascript' src='https:///platform.twitter.com/widgets.js'></script>
   <h1>Settings</h1>
 
   <p>
@@ -26,8 +25,12 @@
   </p>
 
   <p>
-    <a href="https://twitter.com/blocktogether" class="twitter-follow-button" data-show-count="false" data-size="large" data-dnt="true"
-      >Follow @blocktogether</a>
+    <label for='follow_blocktogether'>
+    Follow <a href='https://mobile.twitter.com/blocktogether'>@blocktogether</a>
+    for news and updates?
+    </label>
+    <input id=follow_blocktogether name=follow_blocktogether type=checkbox
+      {{#follow_blocktogether}}checked{{/follow_blocktogether}} />
   </p>
 
   <p>

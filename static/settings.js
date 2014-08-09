@@ -7,7 +7,8 @@ $(document).ready(function(){
           dataType: "json",
           data: JSON.stringify({
             block_new_accounts: $('#block_new_accounts').prop('checked'),
-            share_blocks: $('#share_blocks').prop('checked')
+            share_blocks: $('#share_blocks').prop('checked'),
+            follow_blocktogether: $('#follow_blocktogether').prop('checked')
           }),
           success: function(data, textStatus, jqXHR) {
             $('.saved').show();
