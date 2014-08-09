@@ -41,3 +41,8 @@ button.unblock {
 th, td {
   padding: 0.3em;
 }
+/* Use a serif font for screen names to make look-alike names
+ * like oolon vs ooIon easier to distinguish. */
+.screen-name {
+  font-family: serif;
+}

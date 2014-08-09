@@ -1,8 +1,10 @@
   {{>header.mustache}}
   <script type='text/javascript' src='/static/show-blocks.js'></script>
   {{^own_blocks}}
-    User @{{subject_screen_name}} is blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}):
+    User <span class='screen-name'>@{{subject_screen_name}}</span>
+    is blocking {{block_count}}
+    {{#theres_more}}+{{/theres_more}}
+    users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
     You are blocking {{block_count}}
@@ -20,19 +22,31 @@
     </div>
   </div>
   {{/own_blocks}}
-  <table class='all-blocks'>
+  <table class='table table-condensed table-hover all-blocks'>
+    <thead>
+      <tr class='table-header'>
+        <th>Screen Name</th>
+        <th>Name</th>
+        <th></th>
+      </tr>
+    </thead>
   {{#blocked_users}}
     <tr class='blocked-user' data-uid='{{uid}}'>
       <td>
        {{#screen_name}} {{! If full user object is available use it. }}
-       <a href='https://twitter.com/{{screen_name}}'>
-         {{screen_name}} ({{name}})
+       <a class='screen-name' href='https://mobile.twitter.com/{{screen_name}}'>
+         {{screen_name}}
        </a>
        {{/screen_name}}
        {{^screen_name}} {{! Otherwise just do user id }}
        <a href='https://twitter.com/account/redirect_by_id/{{uid}}'>
           {{uid}}
        </a>
+       {{/screen_name}}
+      </td>
+      <td>
+       {{#screen_name}}
+         {{name}}
        {{/screen_name}}
       </td>
       <td class='action'>
@@ -46,6 +60,4 @@
     </tr>
   {{/blocked_users}}
   </table>
-
-  </body>
-</html>
+  {{>footer.mustache}}

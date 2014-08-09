@@ -6,11 +6,13 @@
   will not block somebody you are currently following.
   </p>
 
-  <table class='unblocks'>
-  <tr class='table-header'>
-    <th>Uid</th>
-    <th>Unblock time</th>
-  </tr>
+  <table class='table unblocks'>
+    <thead>
+      <tr class='table-header'>
+        <th>Uid</th>
+        <th>Unblock time</th>
+      </tr>
+    </thead>
 
   {{^unblocked_users}}
   <p><b>No unblocked users found.</b></p>
@@ -23,5 +25,4 @@
     </tr>
   {{/unblocked_users}}
   </table>
-  </body>
-</html>
+  {{>footer.mustache}}

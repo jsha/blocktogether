@@ -1,14 +1,16 @@
   {{>header.mustache}}
   Block actions pending and performed on your account by Block Together.
   "Cancelled-duplicate" means you already blocked the target.
-  <table class='actions'>
-  <tr class='table-header'>
-    <th>Action</th>
-    <th>Target</th>
-    <th>Status</th>
-    <th>Created</th>
-    <th>Updated</th>
-  </tr>
+  <table class='table actions'>
+  <thead>
+    <tr class='table-header'>
+      <th>Action</th>
+      <th>Target</th>
+      <th>Status</th>
+      <th>Created</th>
+      <th>Updated</th>
+    </tr>
+  </thead>
   {{#actions}}
     <tr class='action' data-id='{{id}}'>
       <td>{{type}}</td>
@@ -19,6 +21,4 @@
     </tr>
   {{/actions}}
   </table>
-
-  </body>
-</html>
+  {{>footer.mustache}}
