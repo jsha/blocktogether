@@ -16,6 +16,7 @@ var express = require('express'), // Web framework
 
 var config = setup.config,
     twitter = setup.twitter,
+    logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -47,12 +48,12 @@ function makeApp() {
       BtUser
         .findOrCreate({ uid: uid })
         .error(function(err) {
-          console.log(err);
+          logger.error(err);
         }).success(function(btUser) {
           TwitterUser
             .findOrCreate({ uid: uid })
             .error(function(err) {
-              console.log(err);
+              logger.error(err);
             }).success(function(twitterUser) {
               _.extend(twitterUser, profile._json);
               twitterUser.save();
@@ -64,7 +65,7 @@ function makeApp() {
               btUser
                 .save()
                 .error(function(err) {
-                  console.log(err);
+                  logger.error(err);
                 }).success(function(btUser) {
                   // When a user logs in, kick off an updated fetch of their
                   // blocks.
@@ -100,7 +101,7 @@ function makeApp() {
           access_token_secret: sessionUser.accessTokenSecret
         }
       }).error(function(err) {
-        console.log(err);
+        logger.error(err);
         done(null, undefined);
       }).success(function(user) {
         done(null, user);
@@ -250,7 +251,7 @@ app.get('/actions',
       .getActions({
         order: 'updatedAt DESC'
       }).error(function(err) {
-        console.log(err);
+        logger.error(err);
       }).success(function(actions) {
         // Decorate the actions with human-friendly times
         actions = actions.map(function (action) {
@@ -273,7 +274,7 @@ app.get('/my-unblocks',
     req.user
       .getUnblockedUsers()
       .error(function(err) {
-        console.log(err);
+        logger.error(err);
       }).success(function(unblockedUsers) {
         var stream = mu.compileAndRender('my-unblocks.mustache', {
           logged_in_screen_name: req.user.screen_name,
@@ -294,7 +295,7 @@ app.get('/show-blocks/:slug',
     BtUser
       .find({ where: { shared_blocks_key: req.params.slug } })
       .error(function(err) {
-        console.log(err);
+        logger.error(err);
       }).success(function(user) {
         if (user) {
           showBlocks(req, res, user, false /* ownBlocks */);
@@ -344,7 +345,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
     // available we will choose the most recent non-complete BlockBatch.
     order: 'complete desc, createdAt desc',
   }).error(function(err) {
-    console.log(err);
+    logger.error(err);
   }).success(function(blockBatch) {
     if (!blockBatch) {
       renderHtmlError("No blocks fetched yet. Please try again soon.");
@@ -356,7 +357,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
           required: false
         }]
       }).error(function(err) {
-        console.log(err);
+        logger.error(err);
       }).success(function(blocks) {
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
@@ -392,9 +393,9 @@ app.use("/", express.static(__dirname + '/static'));
 
 if (process.argv.length > 2) {
   var socket = process.argv[2];
-  console.log("Starting server on UNIX socket " + socket);
+  logger.info("Starting server on UNIX socket " + socket);
   app.listen(socket);
 } else {
-  console.log("Starting server.");
+  logger.info("Starting server.");
   app.listen(config.port);
 }

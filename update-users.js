@@ -3,6 +3,7 @@ var setup = require('./setup'),
 
 var config = setup.config,
     twitter = setup.twitter,
+    logger = setup.logger,
     accessToken = config.defaultAccessToken,
     accessTokenSecret = config.defaultAccessTokenSecret,
     BtUser = setup.BtUser,
@@ -19,7 +20,7 @@ function usersNeedingUpdate(callback) {
       order: 'createdAt DESC',
       limit: 100
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(users) {
       callback(users.map(function(user) {
         return user.uid;
@@ -41,16 +42,16 @@ function findAndUpdateUsers() {
 
 // Given a user lookup API response from Twitter, store the user into the DB.
 function updateUsers(uids, err, data, response) {
-  if (!!err) {
+  if (err) {
     if (err.statusCode === 429) {
-      console.log('Rate limited. Trying again in 15 minutes.');
+      logger.warn('Rate limited. Trying again in 15 minutes.');
       setTimeout(findAndUpdateUsers, 15 * 60 * 1000);
     } else {
-      console.log(err);
+      logger.error(err);
     }
     return;
   }
-  console.log("Got /users/lookup response size", data.length,
+  logger.info("Got /users/lookup response size", data.length,
     "for", uids.length, "uids");
   foundUids = {}
   data.forEach(function(twitterUserResponse) {
@@ -60,7 +61,7 @@ function updateUsers(uids, err, data, response) {
 
   uids.forEach(function(uid) {
     if (foundUids[uid]) {
-      console.log('Did not find uid', uid, 'probably suspended.');
+      logger.warn('Did not find uid', uid, 'probably suspended.');
     }
   });
 }
@@ -70,17 +71,17 @@ function storeUser(twitterUserResponse) {
   TwitterUser
     .findOrCreate({ uid: twitterUserResponse.id_str })
     .error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(user, created) {
       user = _.extend(user, twitterUserResponse);
       user.save()
         .error(function(err) {
-          console.log(err);
+          logger.error(err);
         }).success(function(user) {
           if (created) {
-            console.log("Updated user ", user.screen_name);
+            logger.debug("Updated user ", user.screen_name);
           } else {
-            console.log("Created user ", user.screen_name);
+            logger.debug("Created user ", user.screen_name);
           }
         });
     });

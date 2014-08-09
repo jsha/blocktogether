@@ -24,9 +24,19 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 
+var logger = log4js.getLogger({
+  appenders: [
+    { type: "console" }
+  ],
+  replaceConsole: true
+});
+logger.setLevel('DEBUG');
+
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
-      logging: config.sequelizeLogging ? console.log : false,
+      logging: function(message) {
+        logger.debug(message);
+      },
       dialect: "mysql",
       host: config.dbHost,
       port: 3306,
@@ -34,7 +44,7 @@ var Sequelize = require('sequelize'),
 sequelize
   .authenticate()
   .error(function(err) {
-    console.log('Unable to connect to the database:', err);
+    logger.error('Unable to connect to the database:', err);
   });
 
 // Use snake_case for model accessors because that's SQL style.
@@ -131,13 +141,14 @@ BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
 sequelize
   .sync()
     .error(function(err) {
-       console.log(err);
+       logger.error(err);
     })
 
 module.exports = {
   config: config,
   twitter: twitter,
   sequelize: sequelize,
+  logger: logger,
   TwitterUser: TwitterUser,
   BtUser: BtUser,
   Block: Block,

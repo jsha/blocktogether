@@ -7,6 +7,7 @@ var twitterAPI = require('node-twitter-api'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
+    logger = setup.logger,
     BtUser = setup.BtUser,
     UnblockedUser = setup.UnblockedUser,
     Action = setup.Action;
@@ -27,7 +28,7 @@ function queueBlocks(source_uid, list) {
       sink_uid: sink_uid,
       type: "block"
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     });
   });
 }
@@ -66,7 +67,7 @@ function processBlocks() {
       },
       UnblockedUser]
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(btUsers) {
       btUsers.forEach(processActionsForUser);
     })
@@ -90,7 +91,7 @@ function processActionsForUserId(uid) {
       },
       UnblockedUser]
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(btUser) {
       processActionsForUser(btUser);
     })
@@ -124,20 +125,20 @@ function processActionsForUser(btUser) {
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
-    console.log('SEVERE: No more than 100 sinkUids allowed.');
+    logger.error('No more than 100 sinkUids allowed.');
     return;
   }
   var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
     return uu.sink_uid;
   });
-  console.log('Checking follow status ', sourceBtUser.uid,
+  logger.debug('Checking follow status ', sourceBtUser.uid,
     ' --???--> ', sinkUids);
   twitter.friendships("lookup", {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function (err, results) {
-      if (!!err) {
-        console.log(err);
+      if (err) {
+        logger.error(err);
       } else {
         results.forEach(function(friendship) {
           var conns = friendship.connections;
@@ -165,10 +166,10 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
                 skip_status: 1
               }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
               function(err, results) {
-                if (!!err) {
-                  console.log("Error blocking: %j", err);
+                if (err) {
+                  logger.error("Error blocking: %j", err);
                 } else {
-                  console.log("Blocked " + results.screen_name);
+                  logger.info("Blocked " + results.screen_name);
                   setActionsStatus(sink_uid, actions, Action.DONE);
                 }
               });
@@ -187,7 +188,7 @@ function setActionsStatus(sink_uid, actions, newState) {
     if (sink_uid === action.sink_uid) {
       action.status = newState;
       action.save().error(function (err) {
-        console.log(err);
+        logger.error(err);
       });
     }
   })

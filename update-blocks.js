@@ -4,6 +4,7 @@ var twitterAPI = require('node-twitter-api'),
     updateUsers = require('./update-users');
 
 var twitter = setup.twitter,
+    logger = setup.logger,
     BtUser = setup.BtUser,
     TwitterUser = setup.TwitterUser,
     BlockBatch = setup.BlockBatch,
@@ -27,7 +28,7 @@ function forAllUsersUpdateBlocks() {
       order: 'updatedAt ASC',
       limit: 10
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(users) {
       users.forEach(function(user) {
         var oneDayInMillis = 86400 * 1000;
@@ -37,12 +38,12 @@ function forAllUsersUpdateBlocks() {
         // base at a reasonable pace.
         user.updatedAt = new Date();
         user.save().error(function(err) {
-          console.log(err);
+          logger.error(err);
         });
         if (batches &&
             batches.length > 0 &&
             (new Date() - new Date(batches[0].createdAt)) < oneDayInMillis) {
-          console.log('Skipping', user.uid, '- already up to date.');
+          logger.debug('Skipping', user.uid, '- already up to date.');
         } else {
           updateBlocks(user);
         }
@@ -59,14 +60,14 @@ function updateBlocks(user) {
   BlockBatch.create({
     source_uid: user.uid
   }).error(function(err) {
-    console.log(err);
+    logger.error(err);
   }).success(function(blockBatch) {
     fetchAndStoreBlocks(blockBatch, user.access_token, user.access_token_secret);
   });
 }
 
 function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
-  console.log('Fetching blocks for', blockBatch.source_uid);
+  logger.info('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
   // update cursor.
   var getMore = fetchAndStoreBlocks.bind(null,
@@ -85,12 +86,12 @@ function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor)
 function handleIds(blockBatch, currentCursor, getMore, err, results) {
   if (err) {
     if (err.statusCode === 429) {
-      console.log('Rate limited. Trying again in 15 minutes.');
+      logger.warn('Rate limited. Trying again in 15 minutes.');
       setTimeout(function() {
         getMore(currentCursor);
       }, 15 * 60 * 1000);
     } else {
-      console.log(err);
+      logger.error(err);
     }
     return;
   }
@@ -121,21 +122,21 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
   Block
     .bulkCreate(blocksToCreate)
     .error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(blocks) {
       updateUsers.findAndUpdateUsers();
     });
 
   // Check whether we're done or next to grab the items at the next cursor.
   if (results.next_cursor_str === '0') {
-    console.log('Finished fetching', results.ids.length, 'blocks for user',
-      blockBatch.source_uid);
+    logger.info('Finished fetching blocks for user', blockBatch.source_uid);
+    // Mark the BlockBatch as complete and save that bit.
     blockBatch.complete = true;
     blockBatch.save().error(function(err) {
-      console.log(err);
+      logger.error(err);
     });
   } else {
-    console.log('Cursoring ', results.next_cursor_str);
+    logger.debug('Cursoring ', results.next_cursor_str);
     getMore(results.next_cursor_str);
   }
 }

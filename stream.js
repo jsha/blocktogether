@@ -7,6 +7,7 @@ var twitterAPI = require('node-twitter-api'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
+    logger = setup.logger,
     Action = setup.Action,
     UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
@@ -31,7 +32,7 @@ https.globalAgent.maxSockets = 10000;
  * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
-  console.log('Active streams:', Object.keys(streams).length);
+  logger.info('Active streams:', Object.keys(streams).length);
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
@@ -41,7 +42,7 @@ function startStreams() {
       },
       limit: 10
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(users) {
       users.forEach(function(user) {
         var accessToken = user.access_token;
@@ -49,7 +50,7 @@ function startStreams() {
         var boundDataCallback = dataCallback.bind(undefined, user);
         var boundEndCallback = endCallback.bind(undefined, user);
 
-        console.log('Starting stream for user', user.screen_name, user.uid);
+        logger.info('Starting stream for user', user.screen_name, user.uid);
         var req = twitter.getStream('user', {
           // Get events for all replies, not just people the user follows.
           'replies': 'all',
@@ -66,10 +67,12 @@ function deleteIfRevoked(user) {
   twitter.account("verify_credentials", {}, user.access_token,
     user.access_token_secret, function(err, results) {
       if (err && err.data) {
+        // For some reason the error data is given as a string, so we have to
+        // parse it.
         var errJson = JSON.parse(err.data);
         if (errJson.errors &&
-            errJson.errors.some(function(e) { console.log(e);return e.code === 89 })) {
-          console.log("User", user.screen_name, "revoked app, deleting.");
+            errJson.errors.some(function(e) { return e.code === 89 })) {
+          logger.warn("User", user.screen_name, "revoked app, deleting.");
           user.destroy();
         }
       }
@@ -77,7 +80,7 @@ function deleteIfRevoked(user) {
 }
 
 function endCallback(user) {
-  console.log("Ending stream for", user.screen_name);
+  logger.warn("Ending stream for", user.screen_name);
   deleteIfRevoked(user);
   delete streams[user.uid];
 }
@@ -94,7 +97,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
   if (!data) return;
   if (data.disconnect) {
-    console.log(recipientBtUser.screen_name,
+    logger.warn(recipientBtUser.screen_name,
       'disconnect message:', data.disconnect);
     // Code 6 is for revoked, e.g.:
     // { code: 6, stream_name:
@@ -104,10 +107,10 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       deleteIfRevoked(recipientBtUser);
     }
   } else if (data.warning) {
-    console.log(recipientBtUser.screen_name,
+    logger.warn(recipientBtUser.screen_name,
       'stream warning message:', data.warning);
   } else if (data.event) {
-    console.log(recipientBtUser.screen_name, 'event', data.event);
+    logger.info(recipientBtUser.screen_name, 'event', data.event);
     // When the user blocks or unblocks a user, refresh all their blocks.
     // We could be more efficient about this by just editing the latest
     // blockbatch, but this is quick and easy.
@@ -126,7 +129,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     if (data.user && data.user.created_at &&
         data.user.id_str !== recipientUid) {
       var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
-      console.log(recipientBtUser.screen_name, 'got at reply from',
+      logger.info(recipientBtUser.screen_name, 'got at reply from',
         data.user.screen_name, ' (age ', ageInDays, ')');
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
@@ -147,7 +150,7 @@ function handleUnblock(data) {
         sink_uid: data.target.id_str
       }
     }).error(function(err) {
-      console.log(err);
+      logger.error(err);
     }).success(function(unblockedUser) {
       if (!unblockedUser) {
         unblockedUser = UnblockedUser.build({
@@ -156,7 +159,7 @@ function handleUnblock(data) {
         });
       }
       unblockedUser.save().error(function(err) {
-        console.log(err);
+        logger.error(err);
       });
     })
   }
