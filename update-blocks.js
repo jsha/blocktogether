@@ -1,5 +1,6 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    timeago = require('timeago'),
     setup = require('./setup'),
     updateUsers = require('./update-users');
 
@@ -10,42 +11,49 @@ var twitter = setup.twitter,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block;
 
+var ONE_DAY_IN_MILLIS = 86400 * 1000;
+
 /**
- * For each user with stored credentials, fetch all of their blocked user ids,
- * and start filling the users table with data about those ids.
+ * Find a user who hasn't had their blocks updated recently and update them.
  */
-function forAllUsersUpdateBlocks() {
+function findAndUpdateBlocks() {
   BtUser
-    .findAll({
-      // Get the latest complete BlockBatch for the user and skip if < 1 day
-      include: [{
-        model: BlockBatch,
-        where: { complete: true },
-        required: false,
-        limit: 1,
-        order: 'updatedAt DESC',
-      }],
-      order: 'updatedAt ASC',
-      limit: 10
+    .find({
+      order: 'BtUsers.updatedAt ASC',
     }).error(function(err) {
       logger.error(err);
-    }).success(function(users) {
-      users.forEach(function(user) {
-        var oneDayInMillis = 86400 * 1000;
-        var batches = user.blockBatches;
-        // HACK: mark the user as updated. This allows us to use the order
-        // updatedAt ASC / limit 10 above to iterate through chunks of the user
-        // base at a reasonable pace.
+    }).success(function(user) {
+      // We structure this as a nested fetch rather than using sequelize's include
+      // functionality, because ordering inside nested selects doesn't appear to
+      // work (https://github.com/sequelize/sequelize/issues/2121).
+      user.getBlockBatches({
+        // Get the latest BlockBatch for the user and skip if < 1 day old.
+        // Note: We count even incomplete BlockBatches towards being 'recently
+        // updated'. This prevents the setInterval from repeatedly initiating
+        // block fetches for the same user, because the first block fetch will
+        // create an up-to-date BlockBatch immediately (even though it will take
+        // some time to fill it and mark it complete).
+        limit: 1,
+        order: 'updatedAt desc'
+      }).error(function(err) {
+        logger.err(err);
+      }).success(function(batches) {
+        // HACK: mark the user as updated. This allows us to iterate through the
+        // BtUsers table looking for users that haven't had their blocks updated
+        // recently, instead of having to iterate on a join of BlockBatches with
+        // BtUsers.
         user.updatedAt = new Date();
         user.save().error(function(err) {
           logger.error(err);
         });
-        if (batches &&
-            batches.length > 0 &&
-            (new Date() - new Date(batches[0].createdAt)) < oneDayInMillis) {
-          logger.debug('Skipping', user.uid, '- already up to date.');
+        if (batches && batches.length > 0) {
+          logger.debug('User', user.uid, 'has updated blocks from',
+            timeago(new Date(batches[0].createdAt)));
+          if ((new Date() - new Date(batches[0].createdAt)) > ONE_DAY_IN_MILLIS) {
+            updateBlocks(user);
+          }
         } else {
-          updateBlocks(user);
+          logger.warn('User', user.uid, 'has no updated blocks ever.');
         }
       });
     });
@@ -146,6 +154,6 @@ module.exports = {
 };
 
 if (require.main === module) {
-  forAllUsersUpdateBlocks();
-  setInterval(forAllUsersUpdateBlocks, 1000);
+  findAndUpdateBlocks();
+  setInterval(findAndUpdateBlocks, 1000);
 }
