@@ -40,11 +40,25 @@ function findAndUpdateUsers() {
   });
 }
 
+function deleteUser(uid) {
+  TwitterUser.destroy({ uid: uid }).error(function(err) {
+    logger.error(err);
+  }).success(function() {
+    logger.debug('Deleted suspended user', uid);
+  });
+}
+
 // Given a user lookup API response from Twitter, store the user into the DB.
 function updateUsers(uids, err, data, response) {
   if (err) {
     if (err.statusCode === 429) {
       logger.warn('Rate limited.');
+    } else if (err.statusCode === 404) {
+      // When none of the users in a lookup are available (i.e. they are all
+      // suspended or deleted), Twitter returns 404. Delete all of them.
+      logger.warn('Twitter returned 404 to /users/lookup, deleting',
+        uids.length, 'users');
+      uids.forEach(deleteUser);
     } else {
       logger.error(err);
     }
@@ -61,11 +75,7 @@ function updateUsers(uids, err, data, response) {
   uids.forEach(function(uid) {
     if (!foundUids[uid]) {
       logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
-      TwitterUser.destroy({ uid: uid }).error(function(err) {
-        logger.error(err);
-      }).success(function() {
-        logger.debug('Deleted suspended user', uid);
-      });
+      deleteUser(uid);
     }
   });
 }
