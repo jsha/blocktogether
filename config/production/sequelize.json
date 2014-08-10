@@ -1,0 +1,9 @@
+{
+  "development": {
+    "username": "blocktogether",
+    "password": "herierroulthpidmilyman",
+    "database": "blocktogether",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  }
+}

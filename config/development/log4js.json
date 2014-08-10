@@ -1,0 +1,9 @@
+{
+  appenders: [{
+    type: "file",
+    filename: "/tmp/bt.blocktogether.log",
+    maxLogsize: 1024,
+    backups: 10
+  }],
+  replaceConsole: true
+}

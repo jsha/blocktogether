@@ -1,7 +1,8 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
-    _ = require('sequelize').Utils._
+    Sequelize = require('sequelize'),
+    _ = Sequelize.Utils._
 ;
 
 /*
@@ -16,7 +17,9 @@ var fs = require('fs'),
  *    "dbHost": "..."
  *  }
  */
-var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
+var env = process.env.NODE_ENV || 'development';
+var configDir = '/etc/blocktogether/' + env;
+var configData = fs.readFileSync(configDir + '/blocktogether.json', 'utf8');
 var config = JSON.parse(configData);
 
 var twitter = new twitterAPI({
@@ -24,30 +27,27 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 
-var logger = log4js.getLogger({
-  appenders: [
-    { type: "console" }
-  ],
-  replaceConsole: true
-});
+log4js.configure(configDir + '/log4js.json');
+var logger = log4js.getLogger();
 logger.setLevel('DEBUG');
 
-var Sequelize = require('sequelize'),
-    sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
+var sequelizeConfig = fs.readFileSync(configDir + '/sequelize.json', 'utf8');
+var sequelize = new Sequelize('blocktogether',
+  _.extend(sequelizeConfig, {
       logging: function(message) {
         logger.debug(message);
       },
-      dialect: "mysql",
-      host: config.dbHost,
-      port: 3306,
-    });
+    }));
 sequelize
   .authenticate()
   .error(function(err) {
     logger.error('Unable to connect to the database:', err);
   });
 
-// Use snake_case for model accessors because that's SQL style.
+/**
+ * A representation of Twitter's User object. We store only a subset of fields
+ * that we care about.
+ */
 var TwitterUser = sequelize.define('TwitterUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
   friends_count: Sequelize.INTEGER,
@@ -74,6 +74,9 @@ var BtUser = sequelize.define('BtUser', {
 });
 BtUser.hasOne(TwitterUser);
 
+/**
+ * A single block fetched from Twitter.
+ */
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING
@@ -134,14 +137,15 @@ _.extend(Action, {
  */
 var UnblockedUser = sequelize.define('UnblockedUser', {
   source_uid: Sequelize.STRING,
-  sink_uid: Sequelize.STRING,
+  sink_uid: Sequelize.STRING
 });
 BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
 
 sequelize
   .sync()
     .error(function(err) {
-       logger.error(err);
+       logger.fatal(err);
+       process.exit(1);
     })
 
 module.exports = {
