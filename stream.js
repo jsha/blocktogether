@@ -38,7 +38,7 @@ function startStreams() {
     .findAll({
       where: {
         uid: { not: Object.keys(streams) },
-        //block_new_accounts: true
+        block_new_accounts: true
       },
       limit: 10
     }).error(function(err) {
