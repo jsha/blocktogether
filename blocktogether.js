@@ -49,11 +49,13 @@ function makeApp() {
         .findOrCreate({ uid: uid })
         .error(function(err) {
           logger.error(err);
+          done(null, undefined);
         }).success(function(btUser) {
           TwitterUser
             .findOrCreate({ uid: uid })
             .error(function(err) {
               logger.error(err);
+              done(null, undefined);
             }).success(function(twitterUser) {
               _.extend(twitterUser, profile._json);
               twitterUser.save();
@@ -66,12 +68,13 @@ function makeApp() {
                 .save()
                 .error(function(err) {
                   logger.error(err);
+                  done(null, undefined);
                 }).success(function(btUser) {
                   // When a user logs in, kick off an updated fetch of their
                   // blocks.
                   updateBlocks.updateBlocks(btUser);
+                  done(null, btUser);
                 });
-              done(null, btUser);
             });
         });
     }
