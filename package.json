@@ -2,21 +2,21 @@
   "author": "Jacob Hoffman-Andrews",
   "name": "blocktogether",
   "description": "Share your blocks",
+  "repository": "https://github.com/jsha/blocktogether.git",
   "version": "0.1.0",
   "dependencies": {
-    "express": "",
-    "body-parser": "",
-    "passport": "",
-    "passport-twitter": "",
-    "cookie-session": "",
-    "keygrip": "",
-    "mysql": "",
-    "mu2": "",
-    "nodemon": "",
+    "express": "~4.8.2",
+    "body-parser": "~1.6.2",
+    "passport": "~0.2.0",
+    "passport-twitter": "~1.0.2",
+    "cookie-session": "~1.0.2",
+    "mu2": "~0.5.20",
+    "nodemon": "~1.2.1",
     "sequelize": "~1.7.9",
     "timeago": "~0.1.0",
     "node-twitter-api": "~1.2.3",
     "log4js": "~0.6.16",
-    "sequelize-cli": "~0.2.4"
+    "sequelize-cli": "~0.2.4",
+    "mysql": "~2.4.2"
   }
 }
