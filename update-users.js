@@ -44,8 +44,7 @@ function findAndUpdateUsers() {
 function updateUsers(uids, err, data, response) {
   if (err) {
     if (err.statusCode === 429) {
-      logger.warn('Rate limited. Trying again in 15 minutes.');
-      setTimeout(findAndUpdateUsers, 15 * 60 * 1000);
+      logger.warn('Rate limited.');
     } else {
       logger.error(err);
     }
@@ -56,12 +55,17 @@ function updateUsers(uids, err, data, response) {
   foundUids = {}
   data.forEach(function(twitterUserResponse) {
     storeUser(twitterUserResponse);
-    foundUids[twitterUserResponse.uid] = 1;
+    foundUids[twitterUserResponse.id_str] = 1;
   });
 
   uids.forEach(function(uid) {
-    if (foundUids[uid]) {
-      logger.warn('Did not find uid', uid, 'probably suspended.');
+    if (!foundUids[uid]) {
+      logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
+      TwitterUser.destroy({ uid: uid }).error(function(err) {
+        logger.error(err);
+      }).success(function() {
+        logger.debug('Deleted suspended user', uid);
+      });
     }
   });
 }
