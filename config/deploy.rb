@@ -7,6 +7,9 @@ set :scm, :git
 role :app, "owb"
 set :deploy_to, "/usr/local/blocktogether2"
 
+set :deploy_via, :remote_cache
+set :copy_exclude, [ '.git' ]
+
 # Avoid an error becaues we don't have Rails'
 # public/{images,javascripts,stylesheets} asset structure.
 set :normalize_asset_timestamps, false
