@@ -1,5 +1,11 @@
 Manual tests to run before a release:
 
+## Initial setup
+
+- With @twestact3, visit https://twitter.com/settings/applications and revoke
+  Block Together if present. This ensures that @twestact3 is not enrolled in the
+  production instance of Block Together.
+
 ## Blocking new users.
 
 - Log on with @twestact3.
@@ -30,8 +36,8 @@ Manual tests to run before a release:
 
 - With @twestact3, disable block_new_accounts. Verify "Saved" appears.
 - Reload /settings and verify block_new_accounts is still unchecked.
-- Create another new account, @new2. (Alternately: Purge @twestact3's Unblocks
-     and reuse @new).
+- Create another new account, @new2. Alternately: Purge @twestact3's Unblocks
+     (DELETE FROM UnblockedUsers;) and reuse @new.
 - Use @new2 to mention @twestact3.
 - Visit /actions, verify there is not an additional block of @new.
 - Visit /my-blocks, verify that @new is not listed as blocked.
@@ -46,7 +52,7 @@ Manual tests to run before a release:
 - Verify @twestact5 is on the list.
 - Verify @twestact6 is on the list.
 - Verify @twestact8 is on the list.
-- Right-click -> Copy link location on /show-blocks/XYZ.
+- Visit /settings, right-click -> Copy link location on /show-blocks/XYZ.
 - Log Off from Block Together.
 - Log Off from Twitter.
 - Log On to Twitter with @twestact3.
@@ -60,7 +66,8 @@ Manual tests to run before a release:
 - Click "Block all". Verify popup says "Please log on to block people."
 - Click "Log On" link in header.
 - If prompted, authorize Block Together app for @twestact3.
-- Verify redirected to /settings.
+- Verify redirected to /settings. TODO: Fix this:
+    https://github.com/jsha/blocktogether/issues/26
 - Paste link in URL bar.
 - Verify list of blocks appears.
 - Verify username shows up in header.
@@ -74,4 +81,13 @@ Manual tests to run before a release:
 - Verify the action for @twestact6 is 'cancelled-duplicate'.
 - Verify the action for @twestact8 is 'done'.
 
-## TODO: Find a good way to test cancelled-suspended.
+- TODO: Find a good way to test cancelled-suspended.
+
+## Revoking the app
+
+- Log on with @twestact3
+- Enable 'block new accounts'.
+- Visit https://twitter.com/settings/applications, and revoke Block Together.
+- Verify logs indicate deletion of @twestact3.
+- Verify MySQL BtUsers table no longer contains @twestact3.
+- Reload /settings, verify redirected to /.
