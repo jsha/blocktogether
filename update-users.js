@@ -93,9 +93,9 @@ function storeUser(twitterUserResponse) {
           logger.error(err);
         }).success(function(user) {
           if (created) {
-            logger.debug("Updated user ", user.screen_name);
+            logger.debug('Updated user', user.screen_name);
           } else {
-            logger.debug("Created user ", user.screen_name);
+            logger.debug('Created user', user.screen_name);
           }
         });
     });
