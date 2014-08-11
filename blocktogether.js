@@ -148,7 +148,17 @@ function requireAuthentication(req, res, next) {
   } else if (isAuthenticated(req)) {
     next();
   } else {
-    res.redirect('/');
+    res.format({
+      html: function() {
+        res.redirect('/');
+      },
+      json: function() {
+        res.status(403);
+        res.end(JSON.stringify({
+          error: "Must be logged in."
+        }));
+      }
+    });
   }
 }
 
