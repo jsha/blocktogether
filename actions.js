@@ -56,20 +56,15 @@ function queueBlocks(source_uid, list) {
  */
 function processBlocks() {
   BtUser
-    .findAll({
-      include: [{
-        model: Action,
-        // Out of the available pending block actions on this user,
-        // pick up to 100 with the earliest updatedAt times.
-        where: [ 'status = "pending" and type = "block"' ],
-        order: 'updatedAt ASC',
-        limit: 100
-      },
-      UnblockedUser]
-    }).error(function(err) {
+    .findAll()
+    .error(function(err) {
       logger.error(err);
     }).success(function(btUsers) {
-      btUsers.forEach(processActionsForUser);
+      // Note that we can't call processActionsForUser directly here. We need to
+      // send it through processActionsForUserId to pick up the Actions.
+      btUsers.forEach(function(btUser) {
+        processActionsForUserId(btUser.uid);
+      });
     })
 }
 
@@ -93,7 +88,11 @@ function processActionsForUserId(uid) {
     }).error(function(err) {
       logger.error(err);
     }).success(function(btUser) {
-      processActionsForUser(btUser);
+      // Since we include Actions above, we'll get a null btUser if the uesr we
+      // are looking for has no actions.
+      if (btUser) {
+        processActionsForUser(btUser);
+      }
     })
 }
 
@@ -125,7 +124,7 @@ function processActionsForUser(btUser) {
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
-    logger.error('No more than 100 sinkUids allowed.');
+    logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
   }
   var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
