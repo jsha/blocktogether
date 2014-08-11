@@ -148,7 +148,7 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function (err, results) {
       if (err) {
-        logger.error(err);
+        logger.error('Twitter error for', sourceBtUser, err);
       } else {
         results.forEach(function(friendship) {
           var conns = friendship.connections;
@@ -178,6 +178,7 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
               function(err, results) {
                 if (err) {
                   logger.error("Error blocking: %j", err);
+                  logger.error('Twitter error when blocking with', sourceBtUser, err);
                 } else {
                   logger.info("Blocked " + results.screen_name);
                   setActionsStatus(sink_uid, actions, Action.DONE);
