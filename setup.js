@@ -77,6 +77,8 @@ BtUser.hasOne(TwitterUser);
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING
+}, {
+  timestamps: false
 });
 
 /**
