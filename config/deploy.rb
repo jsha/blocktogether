@@ -5,7 +5,7 @@ set :scm, :git
 
 # Server hostname to deploy to.
 role :app, "owb"
-set :deploy_to, "/usr/local/blocktogether2"
+set :deploy_to, "/usr/local/blocktogether"
 
 set :deploy_via, :remote_cache
 set :copy_exclude, [ '.git' ]
@@ -17,6 +17,11 @@ set :normalize_asset_timestamps, false
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
 end
+
+after "deploy:setup" do
+  sudo "chown -R ubuntu.ubuntu #{deploy_to}"
+end
+
 namespace :deploy do
   task :restart, :roles => :app do
     run "killall run-prod.sh js; #{current_path}/run-prod.sh"
