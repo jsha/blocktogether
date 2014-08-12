@@ -38,47 +38,10 @@ function makeApp() {
   app.use(passport.session());
 
   passport.use(new TwitterStrategy({
-      consumerKey: config.consumerKey,
-      consumerSecret: config.consumerSecret,
-      callbackURL: config.callbackUrl
-    },
-    // Callback on verified success.
-    function(accessToken, accessTokenSecret, profile, done) {
-      var uid = profile._json.id_str;
-      BtUser
-        .findOrCreate({ uid: uid })
-        .error(function(err) {
-          logger.error(err);
-          done(null, undefined);
-        }).success(function(btUser) {
-          TwitterUser
-            .findOrCreate({ uid: uid })
-            .error(function(err) {
-              logger.error(err);
-              done(null, undefined);
-            }).success(function(twitterUser) {
-              _.extend(twitterUser, profile._json);
-              twitterUser.save();
-
-              btUser.screen_name = twitterUser.screen_name;
-              btUser.access_token = accessToken;
-              btUser.access_token_secret = accessTokenSecret;
-              btUser.setTwitterUser(twitterUser);
-              btUser
-                .save()
-                .error(function(err) {
-                  logger.error(err);
-                  done(null, undefined);
-                }).success(function(btUser) {
-                  // When a user logs in, kick off an updated fetch of their
-                  // blocks.
-                  updateBlocks.updateBlocks(btUser);
-                  done(null, btUser);
-                });
-            });
-        });
-    }
-  ));
+    consumerKey: config.consumerKey,
+    consumerSecret: config.consumerSecret,
+    callbackURL: config.callbackUrl
+  }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
   // id instead of the Twitter credentials to save cookie space and reduce risk
@@ -96,21 +59,67 @@ function makeApp() {
   // logged-out path. Logged-out users are handed in requireAuthentication
   // below.
   passport.deserializeUser(function(serialized, done) {
-      var sessionUser = JSON.parse(serialized);
-      BtUser.find({
-        where: {
-          uid: sessionUser.uid,
-          access_token: sessionUser.accessToken,
-          access_token_secret: sessionUser.accessTokenSecret
-        }
-      }).error(function(err) {
-        logger.error(err);
-        done(null, undefined);
-      }).success(function(user) {
-        done(null, user);
-      });
+    var sessionUser = JSON.parse(serialized);
+    BtUser.find({
+      where: {
+        uid: sessionUser.uid,
+        access_token: sessionUser.accessToken,
+        access_token_secret: sessionUser.accessTokenSecret
+      }
+    }).error(function(err) {
+      logger.error(err);
+      done(null, undefined);
+    }).success(function(user) {
+      done(null, user);
+    });
   });
   return app;
+}
+
+
+/**
+ * Callback for Passport to call once a user has authorized with Twitter.
+ * @param {String} accessToken Access Token
+ * @param {String} accessTokenSecret Access Token Secret
+ * @param {Object} profile Passport's profile object, which contains the Twitter
+ *                          user object.
+ * @param {Function} done Function to call with the BtUSer object once it is
+ *                        created.
+ */
+function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
+  var uid = profile._json.id_str;
+  BtUser
+    .findOrCreate({ uid: uid })
+    .error(function(err) {
+      logger.error(err);
+      done(null, undefined);
+    }).success(function(btUser) {
+      TwitterUser
+        .findOrCreate({ uid: uid })
+        .error(function(err) {
+          logger.error(err);
+          done(null, undefined);
+        }).success(function(twitterUser) {
+          _.extend(twitterUser, profile._json);
+          twitterUser.save();
+
+          btUser.screen_name = twitterUser.screen_name;
+          btUser.access_token = accessToken;
+          btUser.access_token_secret = accessTokenSecret;
+          btUser.setTwitterUser(twitterUser);
+          btUser
+            .save()
+            .error(function(err) {
+              logger.error(err);
+              done(null, undefined);
+            }).success(function(btUser) {
+              // When a user logs in, kick off an updated fetch of their
+              // blocks.
+              updateBlocks.updateBlocks(btUser);
+              done(null, btUser);
+            });
+        });
+    });
 }
 
 var app = makeApp();
