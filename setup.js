@@ -1,8 +1,7 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
-    _ = require('sequelize').Utils._
-;
+    _ = require('sequelize').Utils._;
 
 /*
  * Config file should look like this:
@@ -26,7 +25,7 @@ var twitter = new twitterAPI({
 
 var logger = log4js.getLogger({
   appenders: [
-    { type: "console" }
+    { type: 'console' }
   ],
   replaceConsole: true
 });
@@ -37,9 +36,9 @@ var Sequelize = require('sequelize'),
       logging: function(message) {
         logger.debug(message);
       },
-      dialect: "mysql",
+      dialect: 'mysql',
       host: config.dbHost,
-      port: 3306,
+      port: 3306
     });
 sequelize
   .authenticate()
@@ -136,7 +135,7 @@ _.extend(Action, {
  */
 var UnblockedUser = sequelize.define('UnblockedUser', {
   source_uid: Sequelize.STRING,
-  sink_uid: Sequelize.STRING,
+  sink_uid: Sequelize.STRING
 });
 BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
 
@@ -144,7 +143,7 @@ sequelize
   .sync()
     .error(function(err) {
        logger.error(err);
-    })
+    });
 
 module.exports = {
   config: config,

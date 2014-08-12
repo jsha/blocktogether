@@ -64,7 +64,7 @@ function startStreams() {
 }
 
 function deleteIfRevoked(user) {
-  twitter.account("verify_credentials", {}, user.access_token,
+  twitter.account('verify_credentials', {}, user.access_token,
     user.access_token_secret, function(err, results) {
       if (err && err.data) {
         // For some reason the error data is given as a string, so we have to
@@ -72,7 +72,7 @@ function deleteIfRevoked(user) {
         var errJson = JSON.parse(err.data);
         if (errJson.errors &&
             errJson.errors.some(function(e) { return e.code === 89 })) {
-          logger.warn("User", user.screen_name, "revoked app, deleting.");
+          logger.warn('User', user.screen_name, 'revoked app, deleting.');
           user.destroy();
         }
       }
@@ -80,7 +80,7 @@ function deleteIfRevoked(user) {
 }
 
 function endCallback(user) {
-  logger.warn("Ending stream for", user.screen_name);
+  logger.warn('Ending stream for', user.screen_name);
   deleteIfRevoked(user);
   delete streams[user.uid];
 }
@@ -161,7 +161,7 @@ function handleUnblock(data) {
       unblockedUser.save().error(function(err) {
         logger.error(err);
       });
-    })
+    });
   }
 }
 
