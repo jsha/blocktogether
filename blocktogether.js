@@ -142,6 +142,7 @@ app.get('/auth/twitter/callback',
 function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
       req.url == '/logged-out' ||
+      req.url == '/favicon.ico' ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
