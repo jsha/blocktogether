@@ -148,7 +148,7 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function(err, results) {
       if (err) {
-        logger.error('Twitter error for', sourceBtUser, err);
+        logger.error('Twitter error for', sourceBtUser.screen_name, err);
       } else {
         results.forEach(function(friendship) {
           var conns = friendship.connections;
