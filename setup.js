@@ -29,12 +29,12 @@ var logger = log4js.getLogger({
   ],
   replaceConsole: true
 });
-logger.setLevel('DEBUG');
+logger.setLevel('WARN');
 
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
       logging: function(message) {
-        logger.debug(message);
+        logger.trace(message);
       },
       dialect: 'mysql',
       host: config.dbHost,
