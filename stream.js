@@ -76,7 +76,7 @@ function deleteIfRevoked(user) {
           user.destroy();
         }
       } else {
-        console.log('User', user.screen_name, 'has not revoked app.');
+        logger.warn('User', user.screen_name, 'has not revoked app.');
       }
   });
 }
