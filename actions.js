@@ -90,7 +90,14 @@ function processActionsForUserId(uid) {
         btUser.actions = btUser.getActions({
           // Out of the available pending block actions on this user,
           // pick up to 100 with the earliest updatedAt times.
-          where: ['status = "pending" and type = "block"'],
+          // HACK: We also look for actions that were either created just now
+          // (within the last thirty seconds), or close to a multiple of 15 minutes
+          // ago. This means that when an action cannot be completed right now, we
+          // do not keep trying every 10 seconds (see setInterval below) and getting
+          // rate limit responses. Instead, we try again in 15 minutes when the rate
+          // limit window expires.
+          where: ['status = "pending" and type = "block" ' +
+                  'and (now() - createdAt) % (15 * 60) < 30'],
           order: 'updatedAt ASC',
           limit: 100
         }).error(function(err) {
