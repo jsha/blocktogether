@@ -19,7 +19,7 @@ var ONE_DAY_IN_MILLIS = 86400 * 1000;
 function findAndUpdateBlocks() {
   BtUser
     .find({
-      order: 'BtUsers.updatedAt ASC',
+      order: 'BtUsers.updatedAt ASC'
     }).error(function(err) {
       logger.error(err);
     }).success(function(user) {
@@ -62,7 +62,7 @@ function findAndUpdateBlocks() {
 /**
  * For a given BtUser, fetch all current blocks and store in DB.
  *
- * @param{BtUser} user The user whose blocks we want to fetch.
+ * @param {BtUser} user The user whose blocks we want to fetch.
  */
 function updateBlocks(user) {
   BlockBatch.create({
@@ -81,11 +81,11 @@ function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor)
   var getMore = fetchAndStoreBlocks.bind(null,
     blockBatch, accessToken, accessTokenSecret);
   var currentCursor = cursor || -1;
-  twitter.blocks("ids", {
+  twitter.blocks('ids', {
       // Stringify ids is very important, or we'll get back numeric ids that
       // will get subtly mangled by JS.
       stringify_ids: true,
-      cursor: currentCursor,
+      cursor: currentCursor
     },
     accessToken, accessTokenSecret,
     handleIds.bind(null, blockBatch, currentCursor, getMore));

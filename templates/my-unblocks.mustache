@@ -6,7 +6,7 @@
   will not block somebody you are currently following.
   </p>
 
-  <table class='table unblocks'>
+  <table class='table table-condensed unblocks'>
     <thead>
       <tr class='table-header'>
         <th>Uid</th>
@@ -20,7 +20,10 @@
 
   {{#unblocked_users}}
     <tr class='unblock' data-id='{{id}}'>
-      <td>{{sink_uid}}</td>
+      <td>
+        <a href='https://twitter.com/account/redirect_by_id/{{sink_uid}}'
+          >{{sink_uid}}</a>
+      </td>
       <td>{{createdAt}}</td>
     </tr>
   {{/unblocked_users}}

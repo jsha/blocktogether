@@ -32,7 +32,7 @@ function usersNeedingUpdate(callback) {
 function findAndUpdateUsers() {
   usersNeedingUpdate(function(uids) {
     if (uids.length > 0) {
-      twitter.users("lookup", {skip_status: 1, user_id: uids.join(",")},
+      twitter.users('lookup', {skip_status: 1, user_id: uids.join(',')},
         accessToken, accessTokenSecret, updateUsers.bind(null, uids));
     } else {
       updateUsers(null, []);
@@ -40,28 +40,42 @@ function findAndUpdateUsers() {
   });
 }
 
+function deleteUser(uid) {
+  TwitterUser.destroy({ uid: uid }).error(function(err) {
+    logger.error(err);
+  }).success(function() {
+    logger.debug('Deleted suspended user', uid);
+  });
+}
+
 // Given a user lookup API response from Twitter, store the user into the DB.
 function updateUsers(uids, err, data, response) {
   if (err) {
     if (err.statusCode === 429) {
-      logger.warn('Rate limited. Trying again in 15 minutes.');
-      setTimeout(findAndUpdateUsers, 15 * 60 * 1000);
+      logger.warn('Rate limited.');
+    } else if (err.statusCode === 404) {
+      // When none of the users in a lookup are available (i.e. they are all
+      // suspended or deleted), Twitter returns 404. Delete all of them.
+      logger.warn('Twitter returned 404 to /users/lookup, deleting',
+        uids.length, 'users');
+      uids.forEach(deleteUser);
     } else {
       logger.error(err);
     }
     return;
   }
-  logger.info("Got /users/lookup response size", data.length,
-    "for", uids.length, "uids");
-  foundUids = {}
+  logger.info('Got /users/lookup response size', data.length,
+    'for', uids.length, 'uids');
+  foundUids = {};
   data.forEach(function(twitterUserResponse) {
     storeUser(twitterUserResponse);
-    foundUids[twitterUserResponse.uid] = 1;
+    foundUids[twitterUserResponse.id_str] = 1;
   });
 
   uids.forEach(function(uid) {
-    if (foundUids[uid]) {
-      logger.warn('Did not find uid', uid, 'probably suspended.');
+    if (!foundUids[uid]) {
+      logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
+      deleteUser(uid);
     }
   });
 }
@@ -79,9 +93,9 @@ function storeUser(twitterUserResponse) {
           logger.error(err);
         }).success(function(user) {
           if (created) {
-            logger.debug("Updated user ", user.screen_name);
+            logger.debug('Updated user', user.screen_name);
           } else {
-            logger.debug("Created user ", user.screen_name);
+            logger.debug('Created user', user.screen_name);
           }
         });
     });

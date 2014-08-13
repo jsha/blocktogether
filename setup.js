@@ -1,9 +1,7 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
-    Sequelize = require('sequelize'),
-    _ = Sequelize.Utils._
-;
+    _ = Sequelize.Utils._;
 
 /*
  * Config file should look like this:
@@ -29,13 +27,13 @@ var twitter = new twitterAPI({
 
 log4js.configure(configDir + '/log4js.json');
 var logger = log4js.getLogger();
-logger.setLevel('DEBUG');
+logger.setLevel('WARN');
 
 var sequelizeConfig = fs.readFileSync(configDir + '/sequelize.json', 'utf8');
 var sequelize = new Sequelize('blocktogether',
   _.extend(sequelizeConfig, {
       logging: function(message) {
-        logger.debug(message);
+        logger.trace(message);
       },
     }));
 sequelize
@@ -80,6 +78,8 @@ BtUser.hasOne(TwitterUser);
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING
+}, {
+  timestamps: false
 });
 
 /**

@@ -38,44 +38,10 @@ function makeApp() {
   app.use(passport.session());
 
   passport.use(new TwitterStrategy({
-      consumerKey: config.consumerKey,
-      consumerSecret: config.consumerSecret,
-      callbackURL: config.callbackUrl
-    },
-    // Callback on verified success.
-    function(accessToken, accessTokenSecret, profile, done) {
-      var uid = profile._json.id_str;
-      BtUser
-        .findOrCreate({ uid: uid })
-        .error(function(err) {
-          logger.error(err);
-        }).success(function(btUser) {
-          TwitterUser
-            .findOrCreate({ uid: uid })
-            .error(function(err) {
-              logger.error(err);
-            }).success(function(twitterUser) {
-              _.extend(twitterUser, profile._json);
-              twitterUser.save();
-
-              btUser.screen_name = twitterUser.screen_name;
-              btUser.access_token = accessToken;
-              btUser.access_token_secret = accessTokenSecret;
-              btUser.setTwitterUser(twitterUser);
-              btUser
-                .save()
-                .error(function(err) {
-                  logger.error(err);
-                }).success(function(btUser) {
-                  // When a user logs in, kick off an updated fetch of their
-                  // blocks.
-                  updateBlocks.updateBlocks(btUser);
-                });
-              done(null, btUser);
-            });
-        });
-    }
-  ));
+    consumerKey: config.consumerKey,
+    consumerSecret: config.consumerSecret,
+    callbackURL: config.callbackUrl
+  }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
   // id instead of the Twitter credentials to save cookie space and reduce risk
@@ -93,34 +59,80 @@ function makeApp() {
   // logged-out path. Logged-out users are handed in requireAuthentication
   // below.
   passport.deserializeUser(function(serialized, done) {
-      var sessionUser = JSON.parse(serialized);
-      BtUser.find({
-        where: {
-          uid: sessionUser.uid,
-          access_token: sessionUser.accessToken,
-          access_token_secret: sessionUser.accessTokenSecret
-        }
-      }).error(function(err) {
-        logger.error(err);
-        done(null, undefined);
-      }).success(function(user) {
-        done(null, user);
-      })
+    var sessionUser = JSON.parse(serialized);
+    BtUser.find({
+      where: {
+        uid: sessionUser.uid,
+        access_token: sessionUser.accessToken,
+        access_token_secret: sessionUser.accessTokenSecret
+      }
+    }).error(function(err) {
+      logger.error(err);
+      done(null, undefined);
+    }).success(function(user) {
+      done(null, user);
+    });
   });
   return app;
+}
+
+
+/**
+ * Callback for Passport to call once a user has authorized with Twitter.
+ * @param {String} accessToken Access Token
+ * @param {String} accessTokenSecret Access Token Secret
+ * @param {Object} profile Passport's profile object, which contains the Twitter
+ *                          user object.
+ * @param {Function} done Function to call with the BtUSer object once it is
+ *                        created.
+ */
+function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
+  var uid = profile._json.id_str;
+  BtUser
+    .findOrCreate({ uid: uid })
+    .error(function(err) {
+      logger.error(err);
+      done(null, undefined);
+    }).success(function(btUser) {
+      TwitterUser
+        .findOrCreate({ uid: uid })
+        .error(function(err) {
+          logger.error(err);
+          done(null, undefined);
+        }).success(function(twitterUser) {
+          _.extend(twitterUser, profile._json);
+          twitterUser.save();
+
+          btUser.screen_name = twitterUser.screen_name;
+          btUser.access_token = accessToken;
+          btUser.access_token_secret = accessTokenSecret;
+          btUser.setTwitterUser(twitterUser);
+          btUser
+            .save()
+            .error(function(err) {
+              logger.error(err);
+              done(null, undefined);
+            }).success(function(btUser) {
+              // When a user logs in, kick off an updated fetch of their
+              // blocks.
+              updateBlocks.updateBlocks(btUser);
+              done(null, btUser);
+            });
+        });
+    });
 }
 
 var app = makeApp();
 
 /**
- * @returns {Boolean} Whether the user is logged in
+ * @return {Boolean} Whether the user is logged in
  */
 function isAuthenticated(req) {
-  var u = "undefined";
+  var u = 'undefined';
   return typeof(req.user) != u &&
          typeof(req.user.uid) != u &&
          typeof(req.user.access_token) != u &&
-         typeof(req.user.access_token_secret) != u
+         typeof(req.user.access_token_secret) != u;
 }
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
@@ -139,13 +151,24 @@ app.get('/auth/twitter/callback',
 function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
       req.url == '/logged-out' ||
+      req.url == '/favicon.ico' ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
   } else if (isAuthenticated(req)) {
     next();
   } else {
-    res.redirect('/');
+    res.format({
+      html: function() {
+        res.redirect('/');
+      },
+      json: function() {
+        res.status(403);
+        res.end(JSON.stringify({
+          error: 'Must be logged in.'
+        }));
+      }
+    });
   }
 }
 
@@ -162,10 +185,10 @@ app.all('/*', requireAuthentication);
 // The X-Requested-With: XMLHttpRequest is automatically set by jQuery's
 // $.ajax() method.
 app.post('/*', function(req, res, next) {
-  if (req.header('X-Requested-With') !== "XMLHttpRequest") {
+  if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
     res.status(400);
     res.end(JSON.stringify({
-      error: "Must provide X-Requested-With: XMLHttpRequest."
+      error: 'Must provide X-Requested-With: XMLHttpRequest.'
     }));
   } else {
     next();
@@ -254,7 +277,7 @@ app.get('/actions',
         logger.error(err);
       }).success(function(actions) {
         // Decorate the actions with human-friendly times
-        actions = actions.map(function (action) {
+        actions = actions.map(function(action) {
           return _.extend(action, {
             prettyCreated: timeago(new Date(action.createdAt)),
             prettyUpdated: timeago(new Date(action.updatedAt))
@@ -302,7 +325,7 @@ app.get('/show-blocks/:slug',
         } else {
           res.header('Content-Type', 'application/html');
           res.status(404);
-          res.end("<h1>404 Page not found</h1>");
+          res.end('<h1>404 Page not found</h1>');
         }
       });
   });
@@ -312,11 +335,11 @@ app.post('/do-blocks.json',
     res.header('Content-Type', 'application/json');
     if (req.body.list) {
       actions.queueBlocks(req.user.uid, req.body.list);
-      res.end("{}");
+      res.end('{}');
     } else {
       res.status(400);
       res.end(JSON.stringify({
-        error: "Need to supply a list of ids"
+        error: 'Need to supply a list of ids'
       }));
     }
   });
@@ -343,12 +366,12 @@ function showBlocks(req, res, btUser, ownBlocks) {
     limit: 1,
     // We prefer a the most recent complete BlockBatch, but if none is
     // available we will choose the most recent non-complete BlockBatch.
-    order: 'complete desc, createdAt desc',
+    order: 'complete desc, createdAt desc'
   }).error(function(err) {
     logger.error(err);
   }).success(function(blockBatch) {
     if (!blockBatch) {
-      renderHtmlError("No blocks fetched yet. Please try again soon.");
+      renderHtmlError('No blocks fetched yet. Please try again soon.');
     } else {
       blockBatch.getBlocks({
         limit: 5000,
@@ -383,19 +406,19 @@ function showBlocks(req, res, btUser, ownBlocks) {
         };
         res.header('Content-Type', 'text/html');
         mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
-      })
+      });
     }
   });
 }
 
-app.use("/static", express.static(__dirname + '/static'));
-app.use("/", express.static(__dirname + '/static'));
+app.use('/static', express.static(__dirname + '/static'));
+app.use('/', express.static(__dirname + '/static'));
 
 if (process.argv.length > 2) {
   var socket = process.argv[2];
-  logger.info("Starting server on UNIX socket " + socket);
+  logger.info('Starting server on UNIX socket ' + socket);
   app.listen(socket);
 } else {
-  logger.info("Starting server.");
+  logger.info('Starting server.');
   app.listen(config.port);
 }
