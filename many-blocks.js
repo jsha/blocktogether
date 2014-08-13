@@ -13,7 +13,7 @@ var twitter = setup.twitter,
     Block = setup.Block;
 
 if (process.argv.length < 4) {
-  logger.fatal("Usage: js many-blocks.js UID FILE_SCREEN_NAMES");
+  logger.fatal('Usage: js many-blocks.js UID FILE_SCREEN_NAMES');
   process.exit();
 }
 
@@ -27,26 +27,26 @@ BtUser
     var accessToken = user.access_token;
     var accessTokenSecret = user.access_token_secret;
     var targets = fs.readFileSync(filename)
-      .toString().replace(/\n$/, '').split("\n");
+      .toString().replace(/\n$/, '').split('\n');
 
     var blockAndNext = function(targets) {
       if (targets.length > 0) {
         var targetScreenName = targets.pop();
-        logger.info("Blocking " + targetScreenName);
-        twitter.blocks("create", {
+        logger.info('Blocking ' + targetScreenName);
+        twitter.blocks('create', {
           screen_name: targetScreenName,
           skip_status: 1
         }, accessToken, accessTokenSecret,
         function(err, results) {
           if (err) {
-            logger.error("Error blocking: %j", err);
+            logger.error('Error blocking: %j', err);
           } else {
-            logger.info("Blocked " + targetScreenName);
+            logger.info('Blocked ' + targetScreenName);
           }
           // In 100 ms, run this again for the next item.
           setTimeout(blockAndNext.bind(null, targets), 100);
         });
       }
-    }
+    };
     blockAndNext(targets);
   });

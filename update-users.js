@@ -32,7 +32,7 @@ function usersNeedingUpdate(callback) {
 function findAndUpdateUsers() {
   usersNeedingUpdate(function(uids) {
     if (uids.length > 0) {
-      twitter.users("lookup", {skip_status: 1, user_id: uids.join(",")},
+      twitter.users('lookup', {skip_status: 1, user_id: uids.join(',')},
         accessToken, accessTokenSecret, updateUsers.bind(null, uids));
     } else {
       updateUsers(null, []);
@@ -64,9 +64,9 @@ function updateUsers(uids, err, data, response) {
     }
     return;
   }
-  logger.info("Got /users/lookup response size", data.length,
-    "for", uids.length, "uids");
-  foundUids = {}
+  logger.info('Got /users/lookup response size', data.length,
+    'for', uids.length, 'uids');
+  foundUids = {};
   data.forEach(function(twitterUserResponse) {
     storeUser(twitterUserResponse);
     foundUids[twitterUserResponse.id_str] = 1;

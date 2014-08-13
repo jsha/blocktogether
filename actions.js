@@ -18,15 +18,15 @@ var twitter = setup.twitter,
  * TODO: Once all the actions are created, this should kick off a processing run
  * for the triggering user. Need to figure out how to do Promise joins.
  *
- * @param{string} source_uid The user who wants to perform these actions.
- * @param{string[]} list A list of uids to target with the actions.
+ * @param {string} source_uid The user who wants to perform these actions.
+ * @param {string[]} list A list of uids to target with the actions.
  */
 function queueBlocks(source_uid, list) {
   list.map(function(sink_uid) {
     return Action.create({
       source_uid: source_uid,
       sink_uid: sink_uid,
-      type: "block"
+      type: 'block'
     }).error(function(err) {
       logger.error(err);
     });
@@ -46,7 +46,7 @@ function queueBlocks(source_uid, list) {
  * However, friendships/lookup supports bulk querying of up to 100 users at
  * once. So we organize the validation by source_uid. In short: for every BtUser
  * in the database, get up to 100 of their oldest pending blocks, ask Twitter
- * (in bulk) whether the source_uid follows the sink_uid, and if not then 
+ * (in bulk) whether the source_uid follows the sink_uid, and if not then
  * proceed with the blocks. Note that the block endpoint can only block one user
  * at a time, but it does not appear to have a rate limit.
  *
@@ -65,12 +65,12 @@ function processBlocks() {
       btUsers.forEach(function(btUser) {
         processActionsForUserId(btUser.uid);
       });
-    })
+    });
 }
 
 /**
  * For a given user id, fetch and process pending actions.
- * @param{string} uid The uid of the user to process.
+ * @param {string} uid The uid of the user to process.
  */
 function processActionsForUserId(uid) {
   BtUser
@@ -90,7 +90,7 @@ function processActionsForUserId(uid) {
         btUser.actions = btUser.getActions({
           // Out of the available pending block actions on this user,
           // pick up to 100 with the earliest updatedAt times.
-          where: [ 'status = "pending" and type = "block"' ],
+          where: ['status = "pending" and type = "block"'],
           order: 'updatedAt ASC',
           limit: 100
         }).error(function(err) {
@@ -105,13 +105,13 @@ function processActionsForUserId(uid) {
       } else {
         logger.error('User not found', uid);
       }
-    })
+    });
 }
 
 /**
  * Given a BtUser and a subset of that user's pending Actions, process
  * as appropriate.
- * @param{BtUser} btUser The user whose attached Actions we should process.
+ * @param {BtUser} btUser The user whose attached Actions we should process.
  */
 function processActionsForUser(btUser, actions) {
   if (actions.length > 0) {
@@ -119,7 +119,7 @@ function processActionsForUser(btUser, actions) {
     // btUser follows them.
     var sinkUids = actions.map(function(action) {
       return action.sink_uid;
-    })
+    });
     blockUnlessFollowing(btUser, sinkUids, actions);
   }
 }
@@ -129,9 +129,9 @@ function processActionsForUser(btUser, actions) {
  * sourceBtUser and those each sinkUid, and block if there is not an existing
  * follow or block relationship. Then update the Actions provided.
  *
- * @param{BtUser} sourceBtUser The user doing the blocking.
- * @param{integer[]} sinkUids A list of uids to potentially block.
- * @param{Action[]} actions The Actions to be updated based on the results.
+ * @param {BtUser} sourceBtUser The user doing the blocking.
+ * @param {integer[]} sinkUids A list of uids to potentially block.
+ * @param {Action[]} actions The Actions to be updated based on the results.
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
@@ -143,12 +143,12 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   });
   logger.debug('Checking follow status ', sourceBtUser.uid,
     ' --???--> ', sinkUids);
-  twitter.friendships("lookup", {
+  twitter.friendships('lookup', {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
-    function (err, results) {
+    function(err, results) {
       if (err) {
-        logger.error(err);
+        logger.error('Twitter error for', sourceBtUser, err);
       } else {
         results.forEach(function(friendship) {
           var conns = friendship.connections;
@@ -171,15 +171,16 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
             setActionsStatus(sink_uid, actions, newState);
           } else {
             // No obstacles to blocking the sink_uid have been found, block 'em!
-            twitter.blocks("create", {
+            twitter.blocks('create', {
                 user_id: sink_uid,
                 skip_status: 1
               }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
               function(err, results) {
                 if (err) {
-                  logger.error("Error blocking: %j", err);
+                  logger.error('Error blocking: %j', err);
+                  logger.error('Twitter error when blocking with', sourceBtUser, err);
                 } else {
-                  logger.info("Blocked " + results.screen_name);
+                  logger.info('Blocked ' + results.screen_name);
                   setActionsStatus(sink_uid, actions, Action.DONE);
                 }
               });
@@ -197,11 +198,11 @@ function setActionsStatus(sink_uid, actions, newState) {
   actions.forEach(function(action) {
     if (sink_uid === action.sink_uid) {
       action.status = newState;
-      action.save().error(function (err) {
+      action.save().error(function(err) {
         logger.error(err);
       });
     }
-  })
+  });
 }
 
 module.exports = {

@@ -14,7 +14,10 @@
   {{#actions}}
     <tr class='action' data-id='{{id}}'>
       <td>{{type}}</td>
-      <td>{{sink_uid}}</td>
+      <td>
+        <a href='https://twitter.com/account/redirect_by_id/{{sink_uid}}'
+          >{{sink_uid}}</a>
+      </td>
       <td>{{status}}</td>
       <td title="{{createdAt}}">{{prettyCreated}}</td>
       <td title="{{updatedAt}}">{{prettyUpdated}}</td>
