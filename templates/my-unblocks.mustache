@@ -20,7 +20,10 @@
 
   {{#unblocked_users}}
     <tr class='unblock' data-id='{{id}}'>
-      <td>{{sink_uid}}</td>
+      <td>
+        <a href='https://twitter.com/account/redirect_by_id/{{sink_uid}}'
+          >{{sink_uid}}</a>
+      </td>
       <td>{{createdAt}}</td>
     </tr>
   {{/unblocked_users}}
