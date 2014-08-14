@@ -13,8 +13,10 @@
     {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}).
     </p>
     <p>
-    <button class='btn btn-sm' disabled='disabled'>Unblock selected</button>
-    <button class='btn btn-sm' disabled='disabled'>Unblock &amp; mute selected</button>
+    <button class='btn btn-sm unblock' disabled='disabled'
+      >Unblock selected</button>
+    <button class='btn btn-sm unblock-mute' disabled='disabled'
+      >Unblock &amp; mute selected</button>
     </p>
   {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
@@ -59,14 +61,6 @@
        {{#screen_name}}
          {{name}}
        {{/screen_name}}
-      </td>
-      <td class='action'>
-        {{#own_blocks}}
-        <button class='unblock'>Unblock</button>
-        {{/own_blocks}}
-        {{^own_blocks}}
-        <button class='block'>Block</button>
-        {{/own_blocks}}
       </td>
     </tr>
   {{/blocked_users}}

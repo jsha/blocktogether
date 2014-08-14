@@ -26,12 +26,6 @@ body {
 .blocked-user {
   position: relative;
 }
-button.block,
-button.unblock {
-  font-size: 8px;
-  /* The block/unblock functionality is not yet implemented. */
-  display: none;
-}
 .saved {
   display: none;
 }
