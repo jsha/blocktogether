@@ -56,7 +56,11 @@ function queueBlocks(source_uid, list) {
  */
 function processBlocks() {
   BtUser
-    .findAll()
+    .findAll({
+      // HACK: Don't check all the users all the time, only every multiple of 15
+      // minutes after they were created.
+      where: ['(now() - createdAt) % (15 * 60) < 30'],
+    })
     .error(function(err) {
       logger.error(err);
     }).success(function(btUsers) {
