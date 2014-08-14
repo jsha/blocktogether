@@ -1,5 +1,6 @@
   {{>header.mustache}}
   <script defer type='text/javascript' src='/static/show-blocks.js'></script>
+  <script defer type='text/javascript' src='/static/multi-select.js'></script>
   {{^own_blocks}}
     User <span class='screen-name'>@{{subject_screen_name}}</span>
     is blocking {{block_count}}
@@ -7,8 +8,14 @@
     users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
+    <p>
     You are blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}):
+    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}).
+    </p>
+    <p>
+    <button class='btn btn-sm' disabled='disabled'>Unblock selected</button>
+    <button class='btn btn-sm' disabled='disabled'>Unblock &amp; mute selected</button>
+    </p>
   {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
       same ones.  }}
@@ -25,13 +32,17 @@
   <table class='table table-condensed table-hover all-blocks'>
     <thead>
       <tr class='table-header'>
+        <th><input type=checkbox id=check-all></input></th>
         <th>Screen Name</th>
         <th>Name</th>
         <th></th>
       </tr>
     </thead>
   {{#blocked_users}}
-    <tr class='blocked-user' data-uid='{{uid}}'>
+    <tr class='blocked-user'>
+      <td>
+        <input type='checkbox' class='checkbox' data-uid='{{uid}}'></input>
+      </td>
       <td>
        {{#screen_name}} {{! If full user object is available use it. }}
        <a class='screen-name' href='https://mobile.twitter.com/{{screen_name}}'>
