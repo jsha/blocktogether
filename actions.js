@@ -44,10 +44,10 @@ function queueBlocks(source_uid, list) {
  * action.
  *
  * However, friendships/lookup supports bulk querying of up to 100 users at
- * once. So we organize the validation by source_uid. In short: for every BtUser
- * in the database, get up to 100 of their oldest pending blocks, ask Twitter
- * (in bulk) whether the source_uid follows the sink_uid, and if not then
- * proceed with the blocks. Note that the block endpoint can only block one user
+ * once. So we group pending actions by source_uid, then do a second query by
+ * that uid to get up to 100 of their oldest pending actions.
+ *
+ * Note that the block endpoint can only block one user
  * at a time, but it does not appear to have a rate limit.
  *
  * When a block action is completed, set its state to DONE. When a block
@@ -55,17 +55,17 @@ function queueBlocks(source_uid, list) {
  * state to CANCELLED_FOLLOWING.
  */
 function processBlocks() {
-  BtUser
-    .findAll()
-    .error(function(err) {
-      logger.error(err);
-    }).success(function(btUsers) {
-      // Note that we can't call processActionsForUser directly here. We need to
-      // send it through processActionsForUserId to pick up the Actions.
-      btUsers.forEach(function(btUser) {
-        processActionsForUserId(btUser.uid);
-      });
+  Action.findAll({
+    where: ['status = "pending" and type = "block"'],
+    group: 'source_uid',
+    limit: 10
+  }).error(function(err) {
+    console.log(err);
+  }).success(function(actions) {
+    actions.forEach(function(action) {
+      processActionsForUserId(action.source_uid);
     });
+  })
 }
 
 /**
@@ -96,10 +96,9 @@ function processActionsForUserId(uid) {
           // do not keep trying every 10 seconds (see setInterval below) and getting
           // rate limit responses. Instead, we try again in 15 minutes when the rate
           // limit window expires.
-          where: ['status = "pending" and type = "block" ' +
-                  'and (now() - createdAt) % (15 * 60) < 30'],
+          where: ['status = "pending" and type = "block" '],
           order: 'updatedAt ASC',
-          limit: 20
+          limit: 100
         }).error(function(err) {
           logger.error(err);
         }).success(function(actions) {
@@ -151,8 +150,10 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function(err, results) {
+    console.log('Response');
       if (err) {
-        logger.error('Twitter error for', sourceBtUser.screen_name, err);
+        logger.error('Twitter error', err.statusCode, 'for',
+          sourceBtUser.screen_name, err.data);
       } else {
         blockUnlessFollowingWithFriendships(sourceBtUser, actions, results);
       }
