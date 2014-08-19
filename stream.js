@@ -123,12 +123,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       'stream warning message:', data.warning);
   } else if (data.event) {
     logger.info(recipientBtUser.screen_name, 'event', data.event);
-    // When the user blocks or unblocks a user, refresh all their blocks.
-    // We could be more efficient about this by just editing the latest
-    // blockbatch, but this is quick and easy.
-    if (data.event === 'block' || data.event === 'unblock') {
-      updateBlocks.updateBlocks(recipientBtUser);
-    }
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
