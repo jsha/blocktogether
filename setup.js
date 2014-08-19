@@ -1,6 +1,7 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
+    https = require('https'),
     _ = require('sequelize').Utils._;
 
 /*
@@ -29,7 +30,20 @@ var logger = log4js.getLogger({
   ],
   replaceConsole: true
 });
-logger.setLevel('WARN');
+logger.setLevel('TRACE');
+
+// Once a second log how many pending HTTPS requests there are.
+function logPendingRequests() {
+  var requests = https.globalAgent.requests;
+  if (Object.keys(requests).length === 0) {
+    logger.debug('Pending requests: 0');
+  } else {
+    for (host in requests) {
+      logger.debug('Pending requests to', host, ':', requests[host].length);
+    }
+  }
+}
+setInterval(logPendingRequests, 1000);
 
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
