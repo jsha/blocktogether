@@ -36,14 +36,22 @@ logger.setLevel('TRACE');
 function logPendingRequests() {
   var requests = https.globalAgent.requests;
   if (Object.keys(requests).length === 0) {
-    logger.debug('Pending requests: 0');
+    logger.trace('Pending requests: 0');
   } else {
     for (host in requests) {
-      logger.debug('Pending requests to', host, ':', requests[host].length);
+      logger.trace('Pending requests to', host, ':', requests[host].length);
+    }
+  }
+  var sockets = https.globalAgent.sockets;
+  if (Object.keys(sockets).length === 0) {
+    logger.trace('Open sockets: 0');
+  } else {
+    for (host in sockets) {
+      logger.trace('Open sockets to', host, ':', sockets[host].length);
     }
   }
 }
-setInterval(logPendingRequests, 1000);
+setInterval(logPendingRequests, 5000);
 
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
@@ -132,6 +140,10 @@ _.extend(Action, {
   CANCELLED_UNBLOCKED: 'cancelled-unblocked',
   // You cannot block yourself.
   CANCELLED_SELF: 'cancelled-self',
+  // When we find a suspended user, we put it in a deferred state to be tried
+  // later.
+  DEFERRED_SUSPENDED: 'deferred-suspended',
+
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
   UNBLOCK: 'unblock'

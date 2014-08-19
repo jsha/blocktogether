@@ -150,7 +150,6 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function(err, results) {
-    console.log('Response');
       if (err) {
         logger.error('Twitter error', err.statusCode, 'for',
           sourceBtUser.screen_name, err.data);
@@ -175,6 +174,7 @@ function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships)
       undefined, sourceBtUser, actions, friendships.slice(1));
   var conns = friendship.connections;
   var sink_uid = friendship.id_str;
+  var sink_screen_name = friendship.screen_name;
   var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
     return uu.sink_uid;
   });
@@ -200,7 +200,7 @@ function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships)
     // TODO: Don't kick off all these requests to Twitter
     // simultaneously; instead chain them.
     logger.debug('Creating block', sourceBtUser.screen_name,
-      '--block-->', sink_uid);
+      '--block-->', sink_screen_name, sink_uid);
     twitter.blocks('create', {
         user_id: sink_uid,
         skip_status: 1
@@ -212,7 +212,8 @@ function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships)
             sourceBtUser.screen_name, '--block-->', err);
           next();
         } else {
-          logger.info('Blocked ' + results.screen_name);
+          logger.info('Blocked ', sourceBtUser.screen_name, '--block-->',
+            results.screen_name, results.id_str);
           setActionsStatus(sink_uid, actions, Action.DONE);
           next();
         }
