@@ -145,9 +145,6 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
   }
-  var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
-    return uu.sink_uid;
-  });
   logger.debug('Checking follow status ', sourceBtUser.uid,
     ' --???--> ', sinkUids);
   twitter.friendships('lookup', {
@@ -157,54 +154,75 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
       if (err) {
         logger.error('Twitter error for', sourceBtUser.screen_name, err);
       } else {
-        results.forEach(function(friendship) {
-          var conns = friendship.connections;
-          var sink_uid = friendship.id_str;
-          var newState = null;
-          if (_.contains(conns, 'blocking')) {
-            newState = Action.CANCELLED_DUPLICATE;
-          } else if (_.contains(conns, 'following')) {
-            newState = Action.CANCELLED_FOLLOWING;
-          } else if (sourceBtUser.uid === sink_uid) {
-            newState = Action.CANCELLED_SELF;
-          } else if (_.contains(unblockedUids, sink_uid)) {
-            // If the user unblocked the sink_uid in the past, don't re-block.
-            newState = Action.CANCELLED_UNBLOCKED;
-          }
-          // If we're cancelling, update the state of the action. It's
-          // possible to have multiple pending Blocks for the same sink_uid, so
-          // we have to do a forEach across the available Actions.
-          if (newState) {
-            setActionsStatus(sink_uid, actions, newState);
-          } else {
-            // No obstacles to blocking the sink_uid have been found, block 'em!
-            // TODO: Don't kick off all these requests to Twitter
-            // simultaneously; instead chain them.
-            logger.debug('Creating block', sourceBtUser.screen_name,
-              '--block-->', sink_uid);
-            twitter.blocks('create', {
-                user_id: sink_uid,
-                skip_status: 1
-              }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
-              function(err, results) {
-                if (err) {
-                  logger.error('Error blocking: %j', err);
-                  logger.error('Twitter error blocking',
-                    sourceBtUser.screen_name, '--block-->', err);
-                } else {
-                  logger.info('Blocked ' + results.screen_name);
-                  setActionsStatus(sink_uid, actions, Action.DONE);
-                }
-              });
-          }
-        });
+        blockUnlessFollowingWithFriendships(sourceBtUser, actions, results);
       }
     });
 }
 
 /**
+ * After fetching friendships results from the Twitter API, process each one,
+ * one at a time, and block if appropriate. This function calls itself
+ * recursively in the callback from the Twitter API, to avoid making dozens of
+ * simultaneous network calls to Twitter.
+ */
+function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships) {
+  if (!friendships || friendships.length < 1) {
+    return;
+  }
+  var friendship = friendships[0];
+  var next = blockUnlessFollowingWithFriendships.bind(
+      undefined, sourceBtUser, actions, friendships.slice(1));
+  var conns = friendship.connections;
+  var sink_uid = friendship.id_str;
+  var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
+    return uu.sink_uid;
+  });
+  var newState = null;
+  if (_.contains(conns, 'blocking')) {
+    newState = Action.CANCELLED_DUPLICATE;
+  } else if (_.contains(conns, 'following')) {
+    newState = Action.CANCELLED_FOLLOWING;
+  } else if (sourceBtUser.uid === sink_uid) {
+    newState = Action.CANCELLED_SELF;
+  } else if (_.contains(unblockedUids, sink_uid)) {
+    // If the user unblocked the sink_uid in the past, don't re-block.
+    newState = Action.CANCELLED_UNBLOCKED;
+  }
+  // If we're cancelling, update the state of the action. It's
+  // possible to have multiple pending Blocks for the same sink_uid, so
+  // we have to do a forEach across the available Actions.
+  if (newState) {
+    setActionsStatus(sink_uid, actions, newState);
+    next();
+  } else {
+    // No obstacles to blocking the sink_uid have been found, block 'em!
+    // TODO: Don't kick off all these requests to Twitter
+    // simultaneously; instead chain them.
+    logger.debug('Creating block', sourceBtUser.screen_name,
+      '--block-->', sink_uid);
+    twitter.blocks('create', {
+        user_id: sink_uid,
+        skip_status: 1
+      }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
+      function(err, results) {
+        if (err) {
+          logger.error('Error blocking: %j', err);
+          logger.error('Twitter error blocking',
+            sourceBtUser.screen_name, '--block-->', err);
+          next();
+        } else {
+          logger.info('Blocked ' + results.screen_name);
+          setActionsStatus(sink_uid, actions, Action.DONE);
+          next();
+        }
+      });
+  }
+}
+
+/**
  * For every action whose sink_uid matches the provided one, set the action's
- * status to `newState', and save it.
+ * status to `newState', and save it. We do it this way to avoid having to
+ * re-fetch from the database.
  */
 function setActionsStatus(sink_uid, actions, newState) {
   actions.forEach(function(action) {
