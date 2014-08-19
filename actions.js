@@ -58,7 +58,7 @@ function processBlocks() {
   Action.findAll({
     where: ['status = "pending" and type = "block"'],
     group: 'source_uid',
-    limit: 10
+    limit: 40
   }).error(function(err) {
     console.log(err);
   }).success(function(actions) {
