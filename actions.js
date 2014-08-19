@@ -144,8 +144,8 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
   }
-  logger.debug('Checking follow status ', sourceBtUser.uid,
-    ' --???--> ', sinkUids);
+  logger.debug('Checking follow status', sourceBtUser.uid,
+    '--???-->', sinkUids.length, 'users');
   twitter.friendships('lookup', {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
