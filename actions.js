@@ -56,11 +56,7 @@ function queueBlocks(source_uid, list) {
  */
 function processBlocks() {
   BtUser
-    .findAll({
-      // HACK: Don't check all the users all the time, only every multiple of 15
-      // minutes after they were created.
-      where: ['(now() - createdAt) % (15 * 60) < 30'],
-    })
+    .findAll()
     .error(function(err) {
       logger.error(err);
     }).success(function(btUsers) {
@@ -103,7 +99,7 @@ function processActionsForUserId(uid) {
           where: ['status = "pending" and type = "block" ' +
                   'and (now() - createdAt) % (15 * 60) < 30'],
           order: 'updatedAt ASC',
-          limit: 100
+          limit: 20
         }).error(function(err) {
           logger.error(err);
         }).success(function(actions) {
@@ -182,6 +178,10 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
             setActionsStatus(sink_uid, actions, newState);
           } else {
             // No obstacles to blocking the sink_uid have been found, block 'em!
+            // TODO: Don't kick off all these requests to Twitter
+            // simultaneously; instead chain them.
+            logger.debug('Creating block', sourceBtUser.screen_name,
+              '--block-->', sink_uid);
             twitter.blocks('create', {
                 user_id: sink_uid,
                 skip_status: 1
@@ -189,7 +189,8 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
               function(err, results) {
                 if (err) {
                   logger.error('Error blocking: %j', err);
-                  logger.error('Twitter error when blocking with', sourceBtUser, err);
+                  logger.error('Twitter error blocking',
+                    sourceBtUser.screen_name, '--block-->', err);
                 } else {
                   logger.info('Blocked ' + results.screen_name);
                   setActionsStatus(sink_uid, actions, Action.DONE);
