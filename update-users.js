@@ -88,16 +88,20 @@ function storeUser(twitterUserResponse) {
       logger.error(err);
     }).success(function(user, created) {
       user = _.extend(user, twitterUserResponse);
-      user.save()
-        .error(function(err) {
-          logger.error(err);
-        }).success(function(user) {
-          if (created) {
-            logger.debug('Updated user', user.screen_name);
-          } else {
-            logger.debug('Created user', user.screen_name);
-          }
-        });
+      if (user.changed()) {
+        user.save()
+          .error(function(err) {
+            logger.error(err);
+          }).success(function(user) {
+            if (created) {
+              logger.debug('Created user', user.screen_name);
+            } else {
+              logger.debug('Updated user', user.screen_name);
+            }
+          });
+      } else {
+        logger.debug('User', user.screen_name, 'was unchanged');
+      }
     });
 }
 
