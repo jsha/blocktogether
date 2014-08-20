@@ -1,7 +1,8 @@
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
-    _ = Sequelize.Utils._;
+    https = require('https'),
+    _ = require('sequelize').Utils._;
 
 /*
  * Config file should look like this:
@@ -28,6 +29,27 @@ var twitter = new twitterAPI({
 log4js.configure(configDir + '/log4js.json');
 var logger = log4js.getLogger();
 logger.setLevel('WARN');
+
+// Once a second log how many pending HTTPS requests there are.
+function logPendingRequests() {
+  var requests = https.globalAgent.requests;
+  if (Object.keys(requests).length === 0) {
+    logger.trace('Pending requests: 0');
+  } else {
+    for (host in requests) {
+      logger.trace('Pending requests to', host, ':', requests[host].length);
+    }
+  }
+  var sockets = https.globalAgent.sockets;
+  if (Object.keys(sockets).length === 0) {
+    logger.trace('Open sockets: 0');
+  } else {
+    for (host in sockets) {
+      logger.trace('Open sockets to', host, ':', sockets[host].length);
+    }
+  }
+}
+setInterval(logPendingRequests, 5000);
 
 var sequelizeConfig = fs.readFileSync(configDir + '/sequelize.json', 'utf8');
 var sequelize = new Sequelize('blocktogether',
@@ -120,6 +142,10 @@ _.extend(Action, {
   CANCELLED_UNBLOCKED: 'cancelled-unblocked',
   // You cannot block yourself.
   CANCELLED_SELF: 'cancelled-self',
+  // When we find a suspended user, we put it in a deferred state to be tried
+  // later.
+  DEFERRED_SUSPENDED: 'deferred-suspended',
+
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
   UNBLOCK: 'unblock'

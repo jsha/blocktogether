@@ -75,6 +75,8 @@ function deleteIfRevoked(user) {
           logger.warn('User', user.screen_name, 'revoked app, deleting.');
           user.destroy();
         }
+      } else {
+        logger.warn('User', user.screen_name, 'has not revoked app.');
       }
   });
 }
@@ -103,7 +105,17 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     // { code: 6, stream_name:
     //   'twestact4&XXXXXXXXXXXXXXXXXXXXXXXXX-userstream685868461329014147',
     //    reason: 'token revoked for userId 596947990' }
-    if (data.disconnect.code === 6) {
+    // Codes 13 and 14 are for user deleted and suspended, respectively.
+    // TODO: Each of these states (even revocation!) can be undone, and we'd
+    // like the app to resume working normally if that happens. So instead of
+    // deleting the user when we get one of these codes, store a 'deactivatedAt'
+    // timestamp on the user object. Users with a non-null deactivatedAt would
+    // get their credentials retried once per day for 30 days, after which they
+    // would be deleted. Regular operations like checking blocks or streaming
+    // would not be performed while their deactivatedAt was non-null.
+    if (data.disconnect.code === 6 ||
+        data.disconnect.code === 13 ||
+        data.disconnect.code === 14) {
       deleteIfRevoked(recipientBtUser);
     }
   } else if (data.warning) {
@@ -111,12 +123,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       'stream warning message:', data.warning);
   } else if (data.event) {
     logger.info(recipientBtUser.screen_name, 'event', data.event);
-    // When the user blocks or unblocks a user, refresh all their blocks.
-    // We could be more efficient about this by just editing the latest
-    // blockbatch, but this is quick and easy.
-    if (data.event === 'block' || data.event === 'unblock') {
-      updateBlocks.updateBlocks(recipientBtUser);
-    }
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
