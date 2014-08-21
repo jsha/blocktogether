@@ -261,5 +261,5 @@ if (require.main === module) {
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
   processBlocks();
-  setInterval(processBlocks, 10 * 1000);
+  setInterval(processBlocks, 70 * 1000);
 }
