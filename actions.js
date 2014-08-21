@@ -149,12 +149,14 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   twitter.friendships('lookup', {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
-    function(err, results) {
+    function(err, friendships) {
       if (err) {
-        logger.error('Twitter error', err.statusCode, 'for',
+        logger.error('Error /friendships/lookup', err.statusCode, 'for',
           sourceBtUser.screen_name, err.data);
       } else {
-        blockUnlessFollowingWithFriendships(sourceBtUser, actions, results);
+        var indexedFriendships = _.indexBy(friendships, 'id_str');
+        blockUnlessFollowingWithFriendships(
+          sourceBtUser, indexedFriendships, actions);
       }
     });
 }
@@ -162,45 +164,57 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
 /**
  * After fetching friendships results from the Twitter API, process each one,
  * one at a time, and block if appropriate. This function calls itself
- * recursively in the callback from the Twitter API, to avoid making dozens of
- * simultaneous network calls to Twitter.
+ * recursively in the callback from the Twitter API, to avoid queuing up large
+ * numbers of HTTP requests abruptly.
+ *
+ * @param{BtUser} sourceBtUser The user doing the blocking.
+ * @param{Object} indexedFriendships A map from uids to friendship objects as
+ *   returned by the Twitter API.
+ * @param{Action[]} actions The list of actions to be performed or state
+ *   transitioned.
  */
-function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships) {
-  if (!friendships || friendships.length < 1) {
+function blockUnlessFollowingWithFriendships(
+    sourceBtUser, indexedFriendships, actions) {
+  if (!actions || actions.length < 1) {
     return;
   }
-  var friendship = friendships[0];
   var next = blockUnlessFollowingWithFriendships.bind(
-      undefined, sourceBtUser, actions, friendships.slice(1));
-  var conns = friendship.connections;
-  var sink_uid = friendship.id_str;
-  var sink_screen_name = friendship.screen_name;
-  var unblockedUids = sourceBtUser.unblockedUsers.map(function(uu) {
-    return uu.sink_uid;
-  });
+      undefined, sourceBtUser, indexedFriendships, actions.slice(1));
+  var action = actions[0];
+  var sink_uid = action.sink_uid;
+  var friendship = indexedFriendships[sink_uid];
+  // Decide which state to transition the Action into, if it's not going to be
+  // executed.
   var newState = null;
-  if (_.contains(conns, 'blocking')) {
+
+  // If no friendship for this action was returned by /1.1/users/lookup,
+  // that means the sink_uid was suspened or deactivated, so defer the Action.
+  if (!friendship) {
+    newState = Action.DEFERRED_TARGET_SUSPENDED;
+  } else if (_.contains(friendship.connections, 'blocking')) {
+    // If the sourceBtUser already blocks them, don't re-block.
     newState = Action.CANCELLED_DUPLICATE;
-  } else if (_.contains(conns, 'following')) {
+  } else if (_.contains(friendship.connections, 'following')) {
+    // If the sourceBtUser follows them, don't block.
     newState = Action.CANCELLED_FOLLOWING;
-  } else if (sourceBtUser.uid === sink_uid) {
-    newState = Action.CANCELLED_SELF;
-  } else if (_.contains(unblockedUids, sink_uid)) {
+  } else if (_.find(sourceBtUser.unblockedUsers, {sink_uid: sink_uid})) {
     // If the user unblocked the sink_uid in the past, don't re-block.
     newState = Action.CANCELLED_UNBLOCKED;
+  } else if (sourceBtUser.uid === sink_uid) {
+    // You cannot block yourself.
+    newState = Action.CANCELLED_SELF;
   }
   // If we're cancelling, update the state of the action. It's
   // possible to have multiple pending Blocks for the same sink_uid, so
   // we have to do a forEach across the available Actions.
   if (newState) {
-    setActionsStatus(sink_uid, actions, newState);
-    next();
+    setActionStatus(action, newState, next);
   } else {
     // No obstacles to blocking the sink_uid have been found, block 'em!
     // TODO: Don't kick off all these requests to Twitter
     // simultaneously; instead chain them.
     logger.debug('Creating block', sourceBtUser.screen_name,
-      '--block-->', sink_screen_name, sink_uid);
+      '--block-->', friendship.screen_name, sink_uid);
     twitter.blocks('create', {
         user_id: sink_uid,
         skip_status: 1
@@ -208,33 +222,29 @@ function blockUnlessFollowingWithFriendships(sourceBtUser, actions, friendships)
       function(err, results) {
         if (err) {
           logger.error('Error blocking: %j', err);
-          logger.error('Twitter error blocking',
-            sourceBtUser.screen_name, '--block-->', err);
-          next();
+          logger.error('Error /blocks/create', err.statusCode,
+            sourceBtUser.screen_name, sourceBtUser.uid,
+            '--block-->', friendship.screen_name, friendship.id_str,
+            err.data);
         } else {
-          logger.info('Blocked ', sourceBtUser.screen_name, '--block-->',
-            results.screen_name, results.id_str);
-          setActionsStatus(sink_uid, actions, Action.DONE);
-          next();
+          logger.info('Blocked ', sourceBtUser.screen_name, sourceBtUser.uid,
+            '--block-->', results.screen_name, results.id_str);
+          setActionStatus(action, Action.DONE, next);
         }
       });
   }
 }
 
 /**
- * For every action whose sink_uid matches the provided one, set the action's
- * status to `newState', and save it. We do it this way to avoid having to
- * re-fetch from the database.
+ * Set an actions status to newState, save it, and call the `next' callback
+ * regardless of success or error.
  */
-function setActionsStatus(sink_uid, actions, newState) {
-  actions.forEach(function(action) {
-    if (sink_uid === action.sink_uid) {
-      action.status = newState;
-      action.save().error(function(err) {
-        logger.error(err);
-      });
-    }
-  });
+function setActionStatus(action, newState, next) {
+  action.status = newState;
+  action.save().error(function(err) {
+    logger.error(err);
+    next();
+  }).success(next);
 }
 
 module.exports = {
