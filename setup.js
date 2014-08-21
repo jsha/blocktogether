@@ -87,11 +87,28 @@ var BtUser = sequelize.define('BtUser', {
   // Technically we should get the screen name from the linked TwitterUser, but
   // it's much more convenient to have it right on the BtUser object.
   screen_name: Sequelize.STRING,
+  // Twitter credentials
   access_token: Sequelize.STRING,
   access_token_secret: Sequelize.STRING,
+  // If non-null, the slug with which the user's shared blocks can be accessed.
   shared_blocks_key: Sequelize.STRING,
+  // True if the user has elected to block accounts < 7 days old that at-reply.
+  // If this field is true, Block Together will monitor their User Stream to
+  // detect such accounts.
   block_new_accounts: Sequelize.BOOLEAN,
-  follow_blocktogether: Sequelize.BOOLEAN
+  // Whether the user elected to follow @blocktogether from the settings screen.
+  // This doesn't actually track their current following status, but we keep
+  // track of it so that if they re-load the settings page it remembers the
+  // value.
+  follow_blocktogether: Sequelize.BOOLEAN,
+  // When a user revokes the app, deactivates their Twitter account, or gets
+  // suspended, we set deactivatedAt to the time we observed that fact.
+  // Since each of those states can be undone, we periodically retry credentials
+  // for 30 days, and if the user comes back we set deactivatedAt back to NULL.
+  // Otherwise we delete the BtUser and related data.
+  // Users with a non-null deactivatedAt will be skipped when updating blocks,
+  // performing actions, and streaming.
+  deactivatedAt: Sequelize.DATE
 });
 BtUser.hasOne(TwitterUser);
 
@@ -123,7 +140,13 @@ var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING, // block or unblock
-  status: { type: Sequelize.STRING, defaultValue: 'pending' }
+  status: { type: Sequelize.STRING, defaultValue: 'pending' },
+  // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
+  // or 'block-new-accounts'. When the cause is another Block Together user,
+  // e.g. in the bulk-manual-block case, the uid of that user is recorded in
+  // cause_uid.
+  cause: Sequelize.STRING,
+  cause_uid: Sequelize.STRING
 });
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
 _.extend(Action, {
@@ -142,7 +165,10 @@ _.extend(Action, {
   CANCELLED_SELF: 'cancelled-self',
   // When we find a suspended user, we put it in a deferred state to be tried
   // later.
-  DEFERRED_SUSPENDED: 'deferred-suspended',
+  DEFERRED_TARGET_SUSPENDED: 'deferred-target-suspended',
+  // When a user with pending actions is deactivated/suspended/revokes,
+  // defer their actions until that state changes.
+  DEFERRED_SOURCE_DEACTIVATED: 'deferred-source-deactivated',
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
