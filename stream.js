@@ -74,6 +74,9 @@ function deleteIfRevoked(user) {
             errJson.errors.some(function(e) { return e.code === 89 })) {
           logger.warn('User', user.screen_name, 'revoked app, deleting.');
           user.destroy();
+        } else {
+          logger.warn('Unknown error', err.statusCode, 'for', user.screen_name,
+            user.uid, err.data);
         }
       } else {
         logger.warn('User', user.screen_name, 'has not revoked app.');
