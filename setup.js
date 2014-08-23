@@ -59,8 +59,7 @@ var Sequelize = require('sequelize'),
         logger.trace(message);
       },
       dialect: 'mysql',
-      host: config.dbHost,
-      port: 3306
+      host: config.dbHost
     });
 sequelize
   .authenticate()
