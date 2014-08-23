@@ -17,7 +17,6 @@ function usersNeedingUpdate(callback) {
   TwitterUser
     .findAll({
       where: 'screen_name is null',
-      order: 'createdAt DESC',
       limit: 100
     }).error(function(err) {
       logger.error(err);
