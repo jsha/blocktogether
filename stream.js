@@ -38,6 +38,7 @@ function startStreams() {
     .findAll({
       where: {
         uid: { not: Object.keys(streams) },
+        deactivatedAt: null,
         block_new_accounts: true
       },
       limit: 10
@@ -63,7 +64,7 @@ function startStreams() {
     });
 }
 
-function deleteIfRevoked(user) {
+function deactivateIfRevoked(user) {
   twitter.account('verify_credentials', {}, user.access_token,
     user.access_token_secret, function(err, results) {
       if (err && err.data) {
@@ -72,21 +73,31 @@ function deleteIfRevoked(user) {
         var errJson = JSON.parse(err.data);
         if (errJson.errors &&
             errJson.errors.some(function(e) { return e.code === 89 })) {
-          logger.warn('User', user.screen_name, 'revoked app, deleting.');
-          user.destroy();
+          logger.warn('User', user.screen_name, 'revoked app.');
+          user.deactivatedAt = new Date();
+          user.save().error(function(err) {
+            logger.error(err);
+          });
+        } else if (err.statusCode === 404) {
+          logger.warn('User', user.screen_name, user.uid,
+            'deactivated or suspended.')
+          user.deactivatedAt = new Date();
+          user.save().error(function(err) {
+            logger.error(err);
+          });
         } else {
           logger.warn('Unknown error', err.statusCode, 'for', user.screen_name,
             user.uid, err.data);
         }
       } else {
-        logger.warn('User', user.screen_name, 'has not revoked app.');
+        logger.warn('User', user.screen_name, user.uid, 'has not revoked app.');
       }
   });
 }
 
 function endCallback(user) {
   logger.warn('Ending stream for', user.screen_name);
-  deleteIfRevoked(user);
+  deactivateIfRevoked(user);
   delete streams[user.uid];
 }
 
@@ -119,7 +130,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     if (data.disconnect.code === 6 ||
         data.disconnect.code === 13 ||
         data.disconnect.code === 14) {
-      deleteIfRevoked(recipientBtUser);
+      deactivateIfRevoked(recipientBtUser);
     }
   } else if (data.warning) {
     logger.warn(recipientBtUser.screen_name,
