@@ -198,5 +198,11 @@ function enqueueBlock(recipientBtUser, targetUser) {
   }, 500);
 }
 
+// HACK: Sometimes we get an ECONNRESET that is not caught in the OAuth code
+// like it should be. Catch it globally. TODO: Narrow scope.
+process.on('uncaughtException', function(err) {
+  logger.error(err);
+});
+
 startStreams();
 setInterval(startStreams, 5 * 1000);
