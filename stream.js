@@ -32,7 +32,7 @@ https.globalAgent.maxSockets = 10000;
  * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
-  logger.info('Active streams:', Object.keys(streams).length);
+  logger.info('Active streams:', Object.keys(streams).length - 1);
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
@@ -58,6 +58,12 @@ function startStreams() {
           // Only get user-related events, not all tweets in timeline.
           'with': 'user'
         }, accessToken, accessTokenSecret, boundDataCallback, boundEndCallback);
+
+        // Sometimes we get an ECONNRESET that is not caught in the OAuth code
+        // like it should be. Catch it here as a backup.
+        req.on('error', function(err) {
+          logger.error('Error for', user.screen_name, user.uid, err);
+        });
 
         streams[user.uid] = req;
       });
@@ -197,12 +203,6 @@ function enqueueBlock(recipientBtUser, targetUser) {
     actions.processActionsForUserId(recipientBtUser.uid);
   }, 500);
 }
-
-// HACK: Sometimes we get an ECONNRESET that is not caught in the OAuth code
-// like it should be. Catch it globally. TODO: Narrow scope.
-process.on('uncaughtException', function(err) {
-  logger.error(err);
-});
 
 startStreams();
 setInterval(startStreams, 5 * 1000);
