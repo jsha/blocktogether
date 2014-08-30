@@ -108,6 +108,51 @@ var BtUser = sequelize.define('BtUser', {
   // Users with a non-null deactivatedAt will be skipped when updating blocks,
   // performing actions, and streaming.
   deactivatedAt: Sequelize.DATE
+}, {
+  instanceMethods: {
+    /**
+     * When logging a BtUser object, output just its screen name and uid.
+     * To log all values, specify user.dataValues.
+     */
+    inspect: function() {
+      return [this.screen_name, this.uid].join(" ");
+    },
+
+    /**
+     * Ask Twitter to verify a user's credentials. If they not valid,
+     * store the current time in user's deactivatedAt. If they are valid, clear
+     * the user's deactivatedAt. Save the user to DB if it's changed.
+     */
+    verifyCredentials: function() {
+      var user = this;
+      twitter.account('verify_credentials', {}, user.access_token,
+        user.access_token_secret, function(err, results) {
+          if (err && err.data) {
+            // For some reason the error data is given as a string, so we have to
+            // parse it.
+            var errJson = JSON.parse(err.data);
+            if (errJson.errors &&
+                errJson.errors.some(function(e) { return e.code === 89 })) {
+              logger.warn('User', user, 'revoked app.');
+              user.deactivatedAt = new Date();
+            } else if (err.statusCode === 404) {
+              logger.warn('User', user, 'deactivated or suspended.')
+              user.deactivatedAt = new Date();
+            } else {
+              logger.warn('Unknown error', err.statusCode, 'for', user, err.data);
+            }
+          } else {
+            logger.warn('User', user, 'has not revoked app.');
+            user.deactivatedAt = null;
+          }
+          if (user.changed()) {
+            user.save().error(function(err) {
+              logger.error(err);
+            });
+          }
+      });
+    }
+  }
 });
 BtUser.hasOne(TwitterUser);
 

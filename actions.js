@@ -164,13 +164,15 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
   }
-  logger.debug('Checking follow status', sourceBtUser.uid,
+  logger.debug('Checking follow status', sourceBtUser,
     '--???-->', sinkUids.length, 'users');
   twitter.friendships('lookup', {
       user_id: sinkUids.join(',')
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
     function(err, friendships) {
-      if (err) {
+      if (err && err.statusCode === 401) {
+        sourceBtUser.verifyCredentials();
+      } else if (err) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
           sourceBtUser.screen_name, err.data);
       } else {
