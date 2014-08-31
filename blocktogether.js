@@ -101,12 +101,15 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
           done(null, undefined);
         }).success(function(twitterUser) {
           _.extend(twitterUser, profile._json);
-          twitterUser.save();
+          twitterUser.save().error(function(err) {
+            logger.error(err);
+          });
 
           btUser.screen_name = twitterUser.screen_name;
           btUser.access_token = accessToken;
           btUser.access_token_secret = accessTokenSecret;
           btUser.setTwitterUser(twitterUser);
+          btUser.deactivatedAt = null;
           btUser
             .save()
             .error(function(err) {
