@@ -1,0 +1,30 @@
+<p>
+  <input id=block_new_accounts name=block_new_accounts type=checkbox
+    {{#block_new_accounts}}checked{{/block_new_accounts}} />
+  <label for='block_new_accounts'>
+    Block young accounts (&lt; 7 days old) that mention you.
+  </label>
+</p>
+
+<p>
+  <input id=share_blocks name=share_blocks type=checkbox
+    {{#shared_blocks_key}}checked{{/shared_blocks_key}} />
+  <label for='share_blocks'>
+    Generate an unlisted URL to share your block list with friends.
+  </label>
+  {{#shared_blocks_key}}
+  <p>
+  Use this URL to share your block list:<br/>
+  <a href='/show-blocks/{{shared_blocks_key}}'>/show-blocks/{{shared_blocks_key}}</a>
+  </p>
+  {{/shared_blocks_key}}
+</p>
+
+<p>
+  <input id=follow_blocktogether name=follow_blocktogether type=checkbox
+    {{#follow_blocktogether}}checked{{/follow_blocktogether}} />
+  <label for='follow_blocktogether'>
+  Follow <a href='https://mobile.twitter.com/blocktogether'>@blocktogether</a>
+  for news and updates.
+  </label>
+</p>
