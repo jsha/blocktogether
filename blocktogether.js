@@ -326,7 +326,7 @@ app.get('/show-blocks/:slug',
         if (user) {
           showBlocks(req, res, user, false /* ownBlocks */);
         } else {
-          res.header('Content-Type', 'application/html');
+          res.header('Content-Type', 'text/html');
           res.status(404);
           res.end('<h1>404 Page not found</h1>');
         }
