@@ -11,9 +11,10 @@ var config = setup.config,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block;
 
-// Find a list of uids that haven't been updated recently, and pass them to the
-// callback as an array of strings.
-function usersNeedingUpdate(callback) {
+/**
+ * Find uids needing update, look them up on Twitter, and store in database.
+ */
+function findAndUpdateUsers() {
   TwitterUser
     .findAll({
       where: 'screen_name is null',
@@ -21,24 +22,22 @@ function usersNeedingUpdate(callback) {
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
-      callback(users.map(function(user) {
-        return user.uid;
-      }));
+      if (users.length > 0) {
+        var uids = _.pluck(users, 'uid');
+        twitter.users('lookup', {
+            skip_status: 1,
+            user_id: uids.join(',')
+          },
+          accessToken, accessTokenSecret,
+          updateUsers.bind(null, uids));
+      }
     });
 }
 
-// Find uids needing update, look them up on Twitter, and store in database.
-function findAndUpdateUsers() {
-  usersNeedingUpdate(function(uids) {
-    if (uids.length > 0) {
-      twitter.users('lookup', {skip_status: 1, user_id: uids.join(',')},
-        accessToken, accessTokenSecret, updateUsers.bind(null, uids));
-    } else {
-      updateUsers(null, []);
-    }
-  });
-}
-
+/**
+ * Delete the user with the given uid.
+ * @param {string} uid User to delete.
+ */
 function deleteUser(uid) {
   TwitterUser.destroy({ uid: uid }).error(function(err) {
     logger.error(err);
@@ -47,8 +46,14 @@ function deleteUser(uid) {
   });
 }
 
-// Given a user lookup API response from Twitter, store the user into the DB.
-function updateUsers(uids, err, data, response) {
+/**
+ * Given a user lookup API response from Twitter, store the user into the DB.
+ * @param {string[]} uids Array of uids that were requested.
+ * @param {Object} err Error return by Twitter API, if any.
+ * @param {Object[]} response List of JSON User objects as defined by the
+ *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
+ */
+function updateUsers(uids, err, response) {
   if (err) {
     if (err.statusCode === 429) {
       logger.warn('Rate limited.');
@@ -63,23 +68,26 @@ function updateUsers(uids, err, data, response) {
     }
     return;
   }
-  logger.info('Got /users/lookup response size', data.length,
+  logger.info('Got /users/lookup response size', response.length,
     'for', uids.length, 'uids');
-  foundUids = {};
-  data.forEach(function(twitterUserResponse) {
-    storeUser(twitterUserResponse);
-    foundUids[twitterUserResponse.id_str] = 1;
-  });
 
+  // When a user is suspended, deactivated, or deleted, Twitter will simply not
+  // return that user object in the response. Delete those users so they don't
+  // clog future lookup attempts.
+  var indexedResponses = _.indexBy(response, 'id_str');
   uids.forEach(function(uid) {
-    if (!foundUids[uid]) {
+    if (!indexedResponses[uid]) {
       logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
       deleteUser(uid);
     }
   });
 }
 
-// Store a single user into the DB.
+/**
+ * Store a single user into the DB.
+ * @param {Object} twitterUserResponse A JSON User object as defined by the
+ *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
+ */
 function storeUser(twitterUserResponse) {
   TwitterUser
     .findOrCreate({ uid: twitterUserResponse.id_str })
@@ -111,13 +119,6 @@ module.exports = {
 
 if (require.main === module) {
   findAndUpdateUsers();
-  // Poll for more users to update every 20 seconds. This just barely maxes out our
-  // rate limit for /users/lookup. TODO: If we use credentials from a few
-  // different users we could significantly increase our rate.
-  // TODO: When we know there are still pending users, we should go faster. E.g.
-  // when a user with very many blocks signs in, we want to look up each of
-  // their blocked users very quickly so we can display screen names.
-  // However, this runs into issues with suspended users, because they will
-  // always 404 and so always remain pending.
+  // Poll for more users to update every 2 seconds.
   setInterval(findAndUpdateUsers, 2000);
 }
