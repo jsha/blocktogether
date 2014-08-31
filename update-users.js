@@ -35,6 +35,23 @@ function findAndUpdateUsers() {
 }
 
 /**
+ * Find deactivated BtUsers and re-verify their credentials to see if they've
+ * been reactivated.
+ */
+function reactivateUsers() {
+  BtUser
+    .findAll({
+      where: 'deactivatedAt is not null',
+    }).error(function(err) {
+      logger.error(err);
+    }).success(function(btUsers) {
+      btUsers.forEach(function (btUser) {
+        btUser.verifyCredentials();
+      });
+    });
+}
+
+/**
  * Delete the user with the given uid.
  * @param {string} uid User to delete.
  */
@@ -121,4 +138,6 @@ if (require.main === module) {
   findAndUpdateUsers();
   // Poll for more users to update every 2 seconds.
   setInterval(findAndUpdateUsers, 2000);
+  // Poll for reactivated users every hour.
+  setInterval(reactivateUsers, 60 * 60 * 1000);
 }
