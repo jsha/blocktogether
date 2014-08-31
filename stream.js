@@ -45,31 +45,70 @@ function startStreams() {
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
-      users.forEach(function(user) {
-        var accessToken = user.access_token;
-        var accessTokenSecret = user.access_token_secret;
-        var boundDataCallback = dataCallback.bind(undefined, user);
-        var boundEndCallback = endCallback.bind(undefined, user);
-
-        logger.info('Starting stream for user', user.screen_name, user.uid);
-        var req = twitter.getStream('user', {
-          // Get events for all replies, not just people the user follows.
-          'replies': 'all',
-          // Only get user-related events, not all tweets in timeline.
-          'with': 'user'
-        }, accessToken, accessTokenSecret, boundDataCallback, boundEndCallback);
-
-        // Sometimes we get an ECONNRESET that is not caught in the OAuth code
-        // like it should be. Catch it here as a backup.
-        req.on('error', function(err) {
-          logger.error('Error for', user.screen_name, user.uid, err);
-        });
-
-        streams[user.uid] = req;
-      });
+      users.forEach(startStream);
     });
 }
 
+/**
+ * For a given user, connect to the Twitter Streaming API, start receiving
+ * updates, and record that connection in the streams map. Also retroactively
+ * check the REST API for any mentions we might have missed during downtime.
+ * @param {BtUser} User to receive streaming events for.
+ */
+function startStream(user) {
+  var accessToken = user.access_token;
+  var accessTokenSecret = user.access_token_secret;
+  var boundDataCallback = dataCallback.bind(undefined, user);
+  var boundEndCallback = endCallback.bind(undefined, user);
+
+  logger.info('Starting stream for user', user.screen_name, user.uid);
+  var req = twitter.getStream('user', {
+    // Get events for all replies, not just people the user follows.
+    'replies': 'all',
+    // Only get user-related events, not all tweets in timeline.
+    'with': 'user'
+  }, accessToken, accessTokenSecret, boundDataCallback, boundEndCallback);
+
+  // Sometimes we get an ECONNRESET that is not caught in the OAuth code
+  // like it should be. Catch it here as a backup.
+  req.on('error', function(err) {
+    logger.error('Error for', user.screen_name, user.uid, err);
+  });
+
+  streams[user.uid] = req;
+
+  // When restarting the service or experiencing downtime, there's a gap in
+  // streaming coverage. Make sure we cover any tweets we may have missed.
+  checkPastMentions(user);
+};
+
+/**
+ * Fetch a user's mentions from the Twitter REST API, in case we missed any
+ * streaming events during downtime. All mentions will get processed the same
+ * way as if they had been received through the streaming API. Note that the
+ * '< 7 days' criterion will be based on the current time.
+ * @param {BtUser} user User to fetch mentions for.
+ */
+function checkPastMentions(user) {
+  twitter.getTimeline('mentions', {count: 50},
+    user.access_token, user.access_token_secret,
+    function(err, mentions) {
+      if (err) {
+        logger.error('Error /statuses/mentions_timeline', err, err.statusCode,
+          'for', user);
+      } else {
+        logger.debug('Replaying', mentions.length, 'past mentions for', user);
+        mentions.forEach(checkReplyAndBlock.bind(undefined, user));
+      }
+    });
+}
+
+/**
+ * Called when a stream ends for any reason. Verify the user's credentials to
+ * mark them as deactivated if necessary, and remove them from the active
+ * streams map.
+ * @param {BtUser} user The user whose stream ended.
+ */
 function endCallback(user) {
   logger.warn('Ending stream for', user.screen_name);
   user.verifyCredentials();
@@ -120,23 +159,42 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
 
     handleUnblock(data);
   } else if (data.text) {
-    // If present, data.user is the user who sent the at-reply.
-    if (data.user && data.user.created_at &&
-        data.user.id_str !== recipientUid) {
-      var ageInDays = (new Date() - Date.parse(data.user.created_at)) / 86400 / 1000;
-      logger.info(recipientBtUser.screen_name, 'got at reply from',
-        data.user.screen_name, ' (age ', ageInDays, ')');
+    checkReplyAndBlock(recipientBtUser, data);
+  }
+}
+
+/**
+ * Given a status object from either the streaming API or the REST API,
+ * check whether that status should trigger a block, i.e. whether they are less
+ * than seven days old. If so, enqueue a block.
+ * @param {BtUser} recipientBtUser User who might be doing the blocking.
+ * @param {Object} status A JSON Tweet object as specified by the Twitter API
+ *   https://dev.twitter.com/docs/platform-objects/tweets
+ */
+function checkReplyAndBlock(recipientBtUser, status) {
+  // If present, data.user is the user who sent the at-reply.
+  if (status.user && status.user.created_at &&
+      status.user.id_str !== recipientBtUser.uid) {
+    var ageInDays = (new Date() - Date.parse(status.user.created_at)) / 86400 / 1000;
+    logger.info(recipientBtUser.screen_name, 'got at reply from',
+      status.user.screen_name, ' (age ', ageInDays, ')');
+    if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
-      recipientBtUser.reload().success(function() {
-        if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
-          enqueueBlock(recipientBtUser, data.user);
+      recipientBtUser.reload().success(function(user) {
+        if (user.block_new_accounts) {
+          enqueueBlock(recipientBtUser, status.user);
         }
       });
     }
   }
 }
 
+/**
+ * Given an unblock event from the streaming API,
+ * record that unblock so we know not to re-block that user in the future.
+ * @param {Object} data A JSON unblock event from the Twitter streaming API.
+ */
 function handleUnblock(data) {
   if (data.event === 'unblock') {
     UnblockedUser.find({
