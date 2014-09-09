@@ -16,6 +16,7 @@ var express = require('express'), // Web framework
 var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
+    userToFollow = setup.userToFollow,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -328,18 +329,29 @@ function updateSettings(user, settings, callback) {
   // Setting: Follow @blocktogether
   var new_follow = settings.follow_blocktogether;
   var old_follow = user.follow_blocktogether;
-  user.follow_blocktogether = new_follow;
-  var blocktogether = 'blocktogether';
-  // Unfollow blocktogether.
+  user.follow_blocktogether = !!new_follow;
+  var friendship = function(action, source, sink) {
+    logger.debug('/friendships/' + action, user, '-->', userToFollow);
+    twitter.friendships(action, { user_id: sink.uid },
+      source.access_token, source.access_token_secret,
+      function (err, results) {
+        if (err) {
+          logger.error(err);
+        }
+      });
+  }
+  // Box unchecked: Unfollow @blocktogether.
   if (old_follow && !new_follow) {
-    twitter.friendships('destroy', { screen_name: blocktogether },
-      user.access_token, user.access_token_secret,
-      function() {});
+    // UserToFollow is a BtUser object representing @blocktogether, except
+    // in test environment where it is a different user.
+    friendship('destroy', user, userToFollow);
+    // Unfollow back with the @blocktogether user.
+    friendship('destroy', userToFollow, user);
   } else if (!old_follow && new_follow) {
-    // Follow blocktogether
-    twitter.friendships('create', { screen_name: blocktogether },
-      user.access_token, user.access_token_secret,
-      function() {});
+    // Box checked: Follow @blocktogether.
+    friendship('create', user, userToFollow);
+    // Follow back with the @blocktogether user.
+    friendship('create', userToFollow, user);
   }
 
   user
