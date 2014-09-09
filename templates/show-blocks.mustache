@@ -1,7 +1,8 @@
   {{>header.mustache}}
   <script defer type='text/javascript' src='/static/show-blocks.js'></script>
   {{^own_blocks}}
-    User <span class='screen-name'>@{{subject_screen_name}}</span>
+    User <a href='https://mobile.twitter.com/{{subject_screen_name}}' class='screen-name'
+      >@{{subject_screen_name}}</a>
     is blocking {{block_count}}
     {{#theres_more}}+{{/theres_more}}
     users on Twitter (updated {{updated}}):
