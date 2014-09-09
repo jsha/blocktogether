@@ -241,11 +241,27 @@ sequelize
        logger.error(err);
     });
 
+// User to follow from settings page. In prod this is @blocktogether.
+// Initially blank, and loaded asynchronously. It's unlikely the
+// variable will be referenced before it is initialized.
+var userToFollow = BtUser.build();
+BtUser.find({
+  where: {
+    screen_name: config.userToFollow
+  }
+}).error(function(err) {
+  logger.error(err);
+}).success(function(user) {
+  _.assign(userToFollow, user);
+  logger.info("ok", user);
+});
+
 module.exports = {
   config: config,
   twitter: twitter,
   sequelize: sequelize,
   logger: logger,
+  userToFollow: userToFollow,
   TwitterUser: TwitterUser,
   BtUser: BtUser,
   Block: Block,
