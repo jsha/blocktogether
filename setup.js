@@ -192,7 +192,11 @@ var Action = sequelize.define('Action', {
   cause: Sequelize.STRING,
   cause_uid: Sequelize.STRING
 });
+// From a BtUser we want to get a list of Actions.
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
+// And from an Action we want to get a TwitterUser (to show screen name).
+Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+
 _.extend(Action, {
   // Constants for the valid values of `status'.
   PENDING: 'pending',
@@ -253,7 +257,6 @@ BtUser.find({
   logger.error(err);
 }).success(function(user) {
   _.assign(userToFollow, user);
-  logger.info("ok", user);
 });
 
 module.exports = {
