@@ -1,25 +1,43 @@
-body {
+.navbar {
   padding: 2em;
 }
 
-.signin-prompt,
-.description {
+.description,
+.signup-prompt,
+.development,
+.log-on-prompt {
   margin-top: 2em;
   margin-left: auto;
   margin-right: auto;
-  width: 30em;
+  max-width: 35em;
 }
 
-.navbar > a,
-.navbar > span {
+#log-on-form {
+  display: inline;
+}
+
+.signup-prompt,
+.log-on-prompt {
+  padding: 0.5em;
+  border: 1px solid lightgrey;
+}
+
+.example-block-list {
+  padding-left: 2em;
+}
+
+.navbar a,
+.navbar span {
   padding: 1em;
   text-decoration: none;
 
 }
 .navbar {
   height: 46px;
+  padding-top: 2em;
   font-size: 13px;
 }
+
 .all-blocks {
   width: 30em;
 }

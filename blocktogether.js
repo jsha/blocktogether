@@ -1,5 +1,4 @@
 // TODO: Add CSRF protection on POSTs
-// TODO: Login using GET allows session fixation, fix that
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var express = require('express'), // Web framework
     bodyParser = require('body-parser'),
@@ -30,12 +29,21 @@ function makeApp() {
   // Create the server
   var app = express();
   app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: false }));
   app.use(cookieSession({
     keys: [config.cookieSecret],
     secureProxy: config.secureProxy
   }));
   app.use(passport.initialize());
   app.use(passport.session());
+  app.use('/static', express.static(__dirname + '/static'));
+  app.use('/', express.static(__dirname + '/static'));
+
+  // Error handler.
+  app.use(function(err, req, res, next){
+    logger.error(err.stack);
+    res.status(500).send('Something broke!');
+  });
 
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
@@ -68,6 +76,7 @@ function makeApp() {
       }
     }).error(function(err) {
       logger.error(err);
+      // User not found in DB. Leave the user object undefined.
       done(null, undefined);
     }).success(function(user) {
       done(null, user);
@@ -101,20 +110,22 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
           done(null, undefined);
         }).success(function(twitterUser) {
           _.extend(twitterUser, profile._json);
-          twitterUser.save();
+          twitterUser.save().error(function(err) {
+            logger.error(err);
+          });
 
           btUser.screen_name = twitterUser.screen_name;
           btUser.access_token = accessToken;
           btUser.access_token_secret = accessTokenSecret;
           btUser.setTwitterUser(twitterUser);
+          btUser.deactivatedAt = null;
           btUser
             .save()
             .error(function(err) {
               logger.error(err);
               done(null, undefined);
             }).success(function(btUser) {
-              // When a user logs in, kick off an updated fetch of their
-              // blocks.
+              // When a user logs in, begin an fetch of their latest blocks.
               updateBlocks.updateBlocks(btUser);
               done(null, btUser);
             });
@@ -138,15 +149,55 @@ function isAuthenticated(req) {
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
-app.get('/auth/twitter', passport.authenticate('twitter'));
+var passportAuthenticate = passport.authenticate('twitter');
+app.post('/auth/twitter', function(req, res, next) {
+  // If this was a Sign Up (vs a Log On), store any settings in the session, to
+  // be applied to the BtUser after successful Twitter authentication.
+  if (req.body.signup) {
+    req.session.signUpSettings = {
+      block_new_accounts: req.body.block_new_accounts,
+      share_blocks: req.body.share_blocks,
+      follow_blocktogether: req.body.follow_blocktogether
+    };
+  }
+  passportAuthenticate(req, res, next);
+});
 
 // Twitter will redirect the user to this URL after approval.  Finish the
 // authentication process by attempting to obtain an access token.  If
 // access was granted, the user will be logged in.  Otherwise,
 // authentication has failed.
-app.get('/auth/twitter/callback',
-  passport.authenticate('twitter', { successRedirect: '/settings',
-                                     failureRedirect: '/failed' }));
+// If this was a Sign Up (vs a Log On), there will be a signUpSettings in the
+// session field, so apply those settings and then remove them from the session.
+app.get('/auth/twitter/callback', function(req, res, next) {
+  var passportCallbackAuthenticate =
+    passport.authenticate('twitter', function(err, user, info) {
+      if (err) {
+        return next(err);
+      } else if (!user) {
+        return next(new Error('Declined app authorization.'));
+      } else {
+        // If this was a signup (vs a log on), set settings based on what the user
+        // selected on the main page.
+        if (req.session.signUpSettings) {
+          updateSettings(user, req.session.signUpSettings, function(user) {
+            delete req.session.signUpSettings;
+            req.logIn(user, function(err) {
+              if (err) {
+                return next(err);
+              } else {
+                return res.redirect('/settings');
+              }
+            });
+          });
+        } else {
+          // If this was a log on, don't set signUpSettings.
+          return res.redirect('/settings');
+        }
+      }
+    });
+  passportCallbackAuthenticate(req, res, next);
+});
 
 function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
@@ -172,12 +223,14 @@ function requireAuthentication(req, res, next) {
   }
 }
 
-// First, set some default security headers for every request.
+// Set some default security headers for every request.
 app.get('/*', function(req, res, next) {
   res.header('X-Frame-Options', 'SAMEORIGIN');
   res.header('Content-Security-Policy', "default-src 'self';");
   next();
 });
+// All requests get passed to the requireAuthentication function; Some are
+// exempted from authentication checks there.
 app.all('/*', requireAuthentication);
 // Check that POSTs were made via XMLHttpRequest, as a simple form of CSRF
 // protection. This form of CSRF protection is somewhat more fragile than
@@ -194,6 +247,18 @@ app.post('/*', function(req, res, next) {
     next();
   }
 });
+
+app.get('/',
+  function(req, res) {
+    var stream = mu.compileAndRender('index.mustache', {
+      // Show the navbar only when logged in, since logged-out users can't
+      // access the other pages (with the expection of shared block pages).
+      hide_navbar: !req.user,
+      follow_blocktogether: true
+    });
+    res.header('Content-Type', 'text/html');
+    stream.pipe(res);
+  });
 
 app.get('/logout',
   function(req, res) {
@@ -224,49 +289,65 @@ app.get('/settings',
 app.post('/settings.json',
   function(req, res) {
     var user = req.user;
-    if (typeof req.body.block_new_accounts !== 'undefined') {
-      user.block_new_accounts = req.body.block_new_accounts;
-    }
-    if (typeof req.body.share_blocks !== 'undefined') {
-      var new_share_blocks = req.body.share_blocks;
-      var old_share_blocks = user.shared_blocks_key != null;
-      // Disable sharing blocks
-      if (old_share_blocks && !new_share_blocks) {
-        user.shared_blocks_key = null;
-      }
-      // Enable sharing blocks
-      if (!old_share_blocks && new_share_blocks) {
-        user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
-      }
-    }
-    if (typeof req.body.follow_blocktogether !== 'undefined') {
-      var new_follow = req.body.follow_blocktogether;
-      var old_follow = user.follow_blocktogether;
-      user.follow_blocktogether = new_follow;
-      var blocktogether = 'blocktogether';
-      // Unfollow blocktogether.
-      if (old_follow && !new_follow) {
-        twitter.friendships('destroy', { screen_name: blocktogether },
-          user.access_token, user.access_token_secret,
-          function() {});
-      } else if (!old_follow && new_follow) {
-        // Follow blocktogether
-        twitter.friendships('create', { screen_name: blocktogether },
-          user.access_token, user.access_token_secret,
-          function() {});
-      }
-    }
-    user
-      .save()
-      .success(function(user) {
-        res.header('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          share_blocks: true,
-          shared_blocks_key: user.shared_blocks_key,
-          block_new_accounts: true
-        }));
-      });
+    updateSettings(user, req.body, function(user) {
+      res.header('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        share_blocks: !!user.shared_blocks_key,
+        shared_blocks_key: user.shared_blocks_key,
+        block_new_accounts: user.block_new_accounts,
+        follow_blocktogether: user.follow_blocktogether
+      }));
+    });
   });
+
+/**
+ * Store the given settings on a BtUser, triggering any necessary side effects
+ * (like generating a shared_blocks_key).
+ * @param {BtUser} user User to modify.
+ * @param {Object} settings JSON object with fields block_new_accounts,
+ *   share_blocks, and follow_blocktogether. Absent fields will be treated as
+ *   false.
+ * @param {Function} callback
+ */
+function updateSettings(user, settings, callback) {
+  // Setting: Block new accounts
+  user.block_new_accounts = !!settings.block_new_accounts;
+
+  // Setting: Share blocks
+  var new_share_blocks = settings.share_blocks;
+  var old_share_blocks = user.shared_blocks_key != null;
+  // Disable sharing blocks
+  if (old_share_blocks && !new_share_blocks) {
+    user.shared_blocks_key = null;
+  }
+  // Enable sharing blocks
+  if (!old_share_blocks && new_share_blocks) {
+    user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+  }
+
+  // Setting: Follow @blocktogether
+  var new_follow = settings.follow_blocktogether;
+  var old_follow = user.follow_blocktogether;
+  user.follow_blocktogether = new_follow;
+  var blocktogether = 'blocktogether';
+  // Unfollow blocktogether.
+  if (old_follow && !new_follow) {
+    twitter.friendships('destroy', { screen_name: blocktogether },
+      user.access_token, user.access_token_secret,
+      function() {});
+  } else if (!old_follow && new_follow) {
+    // Follow blocktogether
+    twitter.friendships('create', { screen_name: blocktogether },
+      user.access_token, user.access_token_secret,
+      function() {});
+  }
+
+  user
+    .save()
+    .error(function(err) {
+      logger.error(err);
+    }).success(callback);
+}
 
 app.get('/actions',
   function(req, res) {
@@ -323,7 +404,7 @@ app.get('/show-blocks/:slug',
         if (user) {
           showBlocks(req, res, user, false /* ownBlocks */);
         } else {
-          res.header('Content-Type', 'application/html');
+          res.header('Content-Type', 'text/html');
           res.status(404);
           res.end('<h1>404 Page not found</h1>');
         }
@@ -410,9 +491,6 @@ function showBlocks(req, res, btUser, ownBlocks) {
     }
   });
 }
-
-app.use('/static', express.static(__dirname + '/static'));
-app.use('/', express.static(__dirname + '/static'));
 
 if (process.argv.length > 2) {
   var socket = process.argv[2];

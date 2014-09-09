@@ -2,7 +2,7 @@
 cd $(dirname $0)
 run() {
   (while :; do
-     js ${1}.js >> /tmp/bt.${1}.log 2>&1
+     js ${1}.js >> /data/logs/${1}.log 2>&1
    done) &
 }
 

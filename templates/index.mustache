@@ -1,0 +1,71 @@
+{{>header.mustache}}
+<div class="index">
+  <div class="description">
+    <h1>Block Together</h1>
+    <p>
+    An app intended to help cope with harassers and abusers on
+    Twitter. When you sign up for Block Together, you can view a list of your
+    own blocks. You can also use the auto-block and block sharing options
+    listed below.
+    </p>
+  </div>
+  <div class="signup-prompt">
+    <form action="/auth/twitter" method="POST">
+      <input type="hidden" name="signup" value="true"></input>
+      {{>settings_include.mustache}}
+      <button type="submit" class="btn">Sign up using Twitter</button>
+    </form>
+    <br>
+    <div>
+    Block Together will not tweet on your behalf, but it needs read/write
+    access to your account in order to block people when you ask it to.
+    Twitter describes that permission as 'Post tweets for you.'
+    </div>
+  </div>
+  <div class="log-on-prompt">
+    <b>Already using Block Together?</b>
+    <form action="/auth/twitter" method="POST">
+      <button type="submit" class="submit btn primary-btn flex-table-btn js-submit">Log on using Twitter</button>
+    </form>
+  </div>
+  <div class="development">
+    <h2>Details</h2>
+    <p>
+    When you share your list of blocks with friends, they will have the option
+    to sign up for Block Together and block some or all of the people on your
+    list. In the future, Block Together will also allow you to subscribe to
+    friends' block lists so that you automatically block any new users they
+    add.
+    </p>
+    <p>
+    Block Together records all actions it takes on your behalf and lists them
+    under the 'Actions' tab, so you can figure out why someone is blocked.
+    Block Together will not block someone you are already following, even if
+    they are included in a friend's block list that you block. It will also
+    not re-block someone if it blocked them through the 'block new accounts'
+    feature and you then unblocked them.
+    </p>
+    <p>
+    This is very much beta software. My hope is to provide something useful
+    enough to be interesting, and build a community to help develop it.
+    Everyone is welcome. Skills especially needed: Graphic design, UX design,
+    HTML, CSS, and Javascript coding (the backend is in Node), and Ops.
+    </p>
+    <p>
+    Code is <a href="https://github.com/jsha/blocktogether">here</a>.
+    To get involved:
+    <ul>
+      <li>Visit the
+        <a href="https://github.com/jsha/blocktogether/issues">issues list</a>
+          and report a bug or request a feature.</li>
+      <li>Join the
+        <a href="https://lists.riseup.net/www/arc/blocktogether">mailing list</a>.</li>
+      <li>Email <a href="mailto:blocktogether@lists.riseup.net"
+          >blocktogether@lists.riseup.net</a> (no signup required)</li>
+      <li>Tweet feedback and feature requests to @<a
+        href="https://twitter.com/intent/tweet?text=@j4cob">j4cob</a>.
+      <li>Submit a pull request!</li>
+    </p>
+  </div>
+</div>
+{{>footer.mustache}}

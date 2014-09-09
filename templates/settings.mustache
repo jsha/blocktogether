@@ -2,36 +2,7 @@
   <script defer type='text/javascript' src='/static/settings.js'></script>
   <h1>Settings</h1>
 
-  <p>
-    <label for='block_new_accounts'>
-      Block young accounts (&lt; 7 days old) that mention you?
-    </label>
-    <input id=block_new_accounts name=block_new_accounts type=checkbox
-      {{#block_new_accounts}}checked{{/block_new_accounts}} />
-  </p>
-
-  <p>
-    <label for='share_blocks'>
-      Generate an unlisted URL to share your block list with friends?
-    </label>
-    <input id=share_blocks name=share_blocks type=checkbox
-      {{#shared_blocks_key}}checked{{/shared_blocks_key}} />
-    {{#shared_blocks_key}}
-    <p>
-    Use this URL to share your block list:<br/>
-    <a href='/show-blocks/{{shared_blocks_key}}'>/show-blocks/{{shared_blocks_key}}</a>
-    </p>
-    {{/shared_blocks_key}}
-  </p>
-
-  <p>
-    <label for='follow_blocktogether'>
-    Follow <a href='https://mobile.twitter.com/blocktogether'>@blocktogether</a>
-    for news and updates?
-    </label>
-    <input id=follow_blocktogether name=follow_blocktogether type=checkbox
-      {{#follow_blocktogether}}checked{{/follow_blocktogether}} />
-  </p>
+  {{>settings_include.mustache}}
 
   <p>
     <span class=saved>Saved</span>

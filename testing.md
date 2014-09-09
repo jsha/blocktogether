@@ -6,6 +6,23 @@ Manual tests to run before a release:
   Block Together if present. This ensures that @twestact3 is not enrolled in the
   production instance of Block Together.
 
+## Sign up and log on
+
+- Sign up for Block Together using @twestact3 and the default settings. Visit
+  settings page and ensure those settings are there.
+- Enable block_new_accounts.
+- Visit https://mobile.twitter.com/blocktogether and ensure @twestact3 follows
+  @blocktogether (default 'follow @blocktogether' setting).
+- Log Off from Block Together.
+- From the home page, Log On to Block together.
+- Visit settings page and ensure settings are: block_new_accounts=true,
+  follow_blocktogether=true, share_blocks=false.
+- Log Off from Block Together.
+- From the home page, select share_blocks=true and click 'Sign Up'.
+- Visit /settings and verify share_blocks is enabled, and there is a valid
+  show-blocks URL.
+
+
 ## Blocking new users.
 
 - Log on with @twestact3.
