@@ -220,14 +220,18 @@ function handleUnblock(data) {
 
 /**
  * Put a block on the Actions list for this user and process it.
+ * @param {BtUser} sourceUser User who received a mention from a new account
+ *   and will block that new account.
+ * @param {sinkUser} sinkUser Author of the mention. Will be blocked.
  */
-function enqueueBlock(recipientBtUser, targetUser) {
-  actions.queueBlocks(recipientBtUser.uid, [targetUser.id_str]);
+function enqueueBlock(sourceUser, sinkUser) {
+  actions.queueBlocks(
+    sourceUser.uid, [sinkUser.id_str], Action.NEW_ACCOUNT);
   // HACK: Wait 500 ms and then process actions for the user. The ideal thing
   // here would be for queueBlocks to automatically kick off a processing run
   // for its source_uid.
   setTimeout(function() {
-    actions.processActionsForUserId(recipientBtUser.uid);
+    actions.processActionsForUserId(sourceUser.uid);
   }, 500);
 }
 

@@ -1,8 +1,8 @@
   {{>header.mustache}}
   <script defer type='text/javascript' src='/static/show-blocks.js'></script>
   {{^own_blocks}}
-    User <a href='https://mobile.twitter.com/{{subject_screen_name}}' class='screen-name'
-      >@{{subject_screen_name}}</a>
+    User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
+      >@{{author_screen_name}}</a>
     is blocking {{block_count}}
     {{#theres_more}}+{{/theres_more}}
     users on Twitter (updated {{updated}}):
@@ -23,7 +23,8 @@
     </div>
   </div>
   {{/own_blocks}}
-  <table class='table table-condensed table-hover all-blocks'>
+  <table data-author-uid='{{author_uid}}'
+    class='table table-condensed table-hover all-blocks'>
     <thead>
       <tr class='table-header'>
         <th>Screen Name</th>
