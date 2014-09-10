@@ -204,6 +204,7 @@ function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
       req.url == '/logged-out' ||
       req.url == '/favicon.ico' ||
+      req.url == '/robots.txt' ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
