@@ -423,11 +423,19 @@ app.get('/show-blocks/:slug',
       });
   });
 
+/**
+ * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
+ */
 app.post('/do-blocks.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
-    if (req.body.list) {
-      actions.queueBlocks(req.user.uid, req.body.list);
+    if (req.body.list && req.body.list.length &&
+        req.body.list.length < 5000 &&
+        req.body.cause_uid &&
+        req.body.cause_uid.match(/[0-9]{1,20}/)) {
+      actions.queueBlocks(
+        req.user.uid, req.body.list, Action.BULK_MANUAL_BLOCK,
+          req.body.cause_uid);
       res.end('{}');
     } else {
       res.status(400);
@@ -489,7 +497,9 @@ function showBlocks(req, res, btUser, ownBlocks) {
           // The name of the logged-in user, for the nav bar.
           logged_in_screen_name: logged_in_screen_name,
           // The name of the user whose blocks we are viewing.
-          subject_screen_name: btUser.screen_name,
+          author_screen_name: btUser.screen_name,
+          // The uid of the user whose blocks we are viewing.
+          author_uid: btUser.uid,
           // TODO: We could get the full count even when we are only displaying
           // 5000.
           block_count: blocks.length,
