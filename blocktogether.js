@@ -336,7 +336,7 @@ function updateSettings(user, settings, callback) {
   var old_follow = user.follow_blocktogether;
   user.follow_blocktogether = !!new_follow;
   var friendship = function(action, source, sink) {
-    logger.debug('/friendships/' + action, user, '-->', userToFollow);
+    logger.debug('/friendships/' + action, source, '-->', sink);
     twitter.friendships(action, { user_id: sink.uid },
       source.access_token, source.access_token_secret,
       function (err, results) {
