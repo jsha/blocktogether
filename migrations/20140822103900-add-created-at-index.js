@@ -4,7 +4,7 @@ module.exports = {
     done()
   },
   down: function(migration, DataTypes, done) {
-    migration.removeIndex('TwitterUsers', ['createdAtAt']);
+    migration.removeIndex('TwitterUsers', ['createdAt']);
     done()
   }
 }
