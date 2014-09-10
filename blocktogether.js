@@ -73,7 +73,8 @@ function makeApp() {
       where: {
         uid: sessionUser.uid,
         access_token: sessionUser.accessToken,
-        access_token_secret: sessionUser.accessTokenSecret
+        access_token_secret: sessionUser.accessTokenSecret,
+        deactivatedAt: null
       }
     }).error(function(err) {
       logger.error(err);
@@ -136,17 +137,6 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
 
 var app = makeApp();
 
-/**
- * @return {Boolean} Whether the user is logged in
- */
-function isAuthenticated(req) {
-  var u = 'undefined';
-  return typeof(req.user) != u &&
-         typeof(req.user.uid) != u &&
-         typeof(req.user.access_token) != u &&
-         typeof(req.user.access_token_secret) != u;
-}
-
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -163,6 +153,16 @@ app.post('/auth/twitter', function(req, res, next) {
   }
   passportAuthenticate(req, res, next);
 });
+
+function logInAndRedirect(req, res, next, user) {
+  req.logIn(user, function(err) {
+    if (err) {
+      return next(err);
+    } else {
+      return res.redirect('/settings');
+    }
+  });
+}
 
 // Twitter will redirect the user to this URL after approval.  Finish the
 // authentication process by attempting to obtain an access token.  If
@@ -183,17 +183,11 @@ app.get('/auth/twitter/callback', function(req, res, next) {
         if (req.session.signUpSettings) {
           updateSettings(user, req.session.signUpSettings, function(user) {
             delete req.session.signUpSettings;
-            req.logIn(user, function(err) {
-              if (err) {
-                return next(err);
-              } else {
-                return res.redirect('/settings');
-              }
-            });
+            logInAndRedirect(req, res, next, user);
           });
         } else {
           // If this was a log on, don't set signUpSettings.
-          return res.redirect('/settings');
+          logInAndRedirect(req, res, next, user);
         }
       }
     });
@@ -208,9 +202,10 @@ function requireAuthentication(req, res, next) {
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (isAuthenticated(req)) {
+  } else if (req.user) {
     next();
   } else {
+    // Not authenticated, but should be.
     res.format({
       html: function() {
         res.redirect('/');
@@ -332,7 +327,7 @@ function updateSettings(user, settings, callback) {
   var old_follow = user.follow_blocktogether;
   user.follow_blocktogether = !!new_follow;
   var friendship = function(action, source, sink) {
-    logger.debug('/friendships/' + action, user, '-->', userToFollow);
+    logger.debug('/friendships/' + action, source, '-->', sink);
     twitter.friendships(action, { user_id: sink.uid },
       source.access_token, source.access_token_secret,
       function (err, results) {

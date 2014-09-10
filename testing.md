@@ -11,17 +11,20 @@ Manual tests to run before a release:
 - Sign up for Block Together using @twestact3 and the default settings. Visit
   settings page and ensure those settings are there.
 - Enable block_new_accounts.
-- Visit https://mobile.twitter.com/blocktogether and ensure @twestact3 follows
-  @blocktogether (default 'follow @blocktogether' setting).
+- Default settings should include 'follow @blocktogether' = true.
+- Visit https://mobile.twitter.com/twestact3 and ensure @twestact3 follows
+  @blocktogether or the configured userToFollow, and vice versa.
 - Log Off from Block Together.
 - From the home page, Log On to Block together.
 - Visit settings page and ensure settings are: block_new_accounts=true,
   follow_blocktogether=true, share_blocks=false.
 - Log Off from Block Together.
-- From the home page, select share_blocks=true and click 'Sign Up'.
-- Visit /settings and verify share_blocks is enabled, and there is a valid
+- From the home page, select share_blocks=true, leave "block young
+  accounts"=false, and click 'Sign Up'.
+- Visit /settings.
+- Verify share_blocks is enabled, and there is a valid
   show-blocks URL.
-
+- Verify "block young accounts" = false.
 
 ## Blocking new users.
 
@@ -106,5 +109,5 @@ Manual tests to run before a release:
 - Enable 'block new accounts'.
 - Visit https://twitter.com/settings/applications, and revoke Block Together.
 - Verify logs indicate deletion of @twestact3.
-- Verify MySQL BtUsers table no longer contains @twestact3.
+- Verify MySQL BtUsers table lists @twestact3 with deactivatedAt=current date.
 - Reload /settings, verify redirected to /.

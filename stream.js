@@ -183,7 +183,9 @@ function checkReplyAndBlock(recipientBtUser, status) {
       // get the latest setting.
       recipientBtUser.reload().success(function(user) {
         if (user.block_new_accounts) {
-          enqueueBlock(recipientBtUser, status.user);
+          logger.info('Queuing block', recipientBtUser, '-->',
+            status.user.screen_name, status.user.id_str);
+          enqueueBlock(recipientBtUser, status.user.id_str);
         }
       });
     }
@@ -222,11 +224,12 @@ function handleUnblock(data) {
  * Put a block on the Actions list for this user and process it.
  * @param {BtUser} sourceUser User who received a mention from a new account
  *   and will block that new account.
- * @param {sinkUser} sinkUser Author of the mention. Will be blocked.
+ * @param {string} sinkUserId String-form UID of the author of the mention.
+ *   Will be blocked.
  */
-function enqueueBlock(sourceUser, sinkUser) {
+function enqueueBlock(sourceUser, sinkUserId) {
   actions.queueBlocks(
-    sourceUser.uid, [sinkUser.id_str], Action.NEW_ACCOUNT);
+    sourceUser.uid, [sinkUserId], Action.NEW_ACCOUNT);
   // HACK: Wait 500 ms and then process actions for the user. The ideal thing
   // here would be for queueBlocks to automatically kick off a processing run
   // for its source_uid.

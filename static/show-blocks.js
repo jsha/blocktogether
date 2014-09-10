@@ -32,7 +32,7 @@ $(function(){
     });
   }
   $('.block-all').click(function(ev) {
-    if ($('.logon').length > 0) {
+    if ($('#log-on-form').length > 0) {
       alert('Please log on in order to block people.');
     } else {
       blockAll();

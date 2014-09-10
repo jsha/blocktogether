@@ -93,7 +93,9 @@ function updateUsers(uids, err, response) {
   // clog future lookup attempts.
   var indexedResponses = _.indexBy(response, 'id_str');
   uids.forEach(function(uid) {
-    if (!indexedResponses[uid]) {
+    if (indexedResponses[uid]) {
+      storeUser(indexedResponses[uid]);
+    } else {
       logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
       deleteUser(uid);
     }
