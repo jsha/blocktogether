@@ -15,8 +15,16 @@
     <tr class='action' data-id='{{id}}'>
       <td>{{type}}</td>
       <td>
+      {{! If TwitterUser is available and has a screen name, use that. }}
+      {{#twitterUser.screen_name}}
+        <a href='https://mobile.twitter.com/{{twitterUser.screen_name}}'
+           class='screen-name'>{{twitterUser.screen_name}}</a>
+      {{/twitterUser.screen_name}}
+      {{^twitterUser.screen_name}}
+        {{! Otherwise, use uid. }}
         <a href='https://twitter.com/intent/user?user_id={{sink_uid}}'
           >{{sink_uid}}</a>
+      {{/twitterUser.screen_name}}
       </td>
       <td>{{status}}</td>
       <td title="{{createdAt}}">{{prettyCreated}}</td>

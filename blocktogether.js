@@ -366,7 +366,12 @@ app.get('/actions',
   function(req, res) {
     req.user
       .getActions({
-        order: 'updatedAt DESC'
+        order: 'updatedAt DESC',
+        // Get the associated TwitterUser so we can display screen names.
+        include: [{
+          model: TwitterUser,
+          required: false
+        }]
       }).error(function(err) {
         logger.error(err);
       }).success(function(actions) {
