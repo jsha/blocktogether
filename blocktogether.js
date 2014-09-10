@@ -73,7 +73,8 @@ function makeApp() {
       where: {
         uid: sessionUser.uid,
         access_token: sessionUser.accessToken,
-        access_token_secret: sessionUser.accessTokenSecret
+        access_token_secret: sessionUser.accessTokenSecret,
+        deactivatedAt: null
       }
     }).error(function(err) {
       logger.error(err);
@@ -135,17 +136,6 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
 }
 
 var app = makeApp();
-
-/**
- * @return {Boolean} Whether the user is logged in
- */
-function isAuthenticated(req) {
-  var u = 'undefined';
-  return typeof(req.user) != u &&
-         typeof(req.user.uid) != u &&
-         typeof(req.user.access_token) != u &&
-         typeof(req.user.access_token_secret) != u;
-}
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
@@ -212,9 +202,10 @@ function requireAuthentication(req, res, next) {
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (isAuthenticated(req)) {
+  } else if (req.user) {
     next();
   } else {
+    // Not authenticated, but should be.
     res.format({
       html: function() {
         res.redirect('/');
