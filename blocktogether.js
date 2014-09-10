@@ -37,8 +37,8 @@ function makeApp() {
   }));
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use('/static', express.static(__dirname + '/static'));
-  app.use('/', express.static(__dirname + '/static'));
+  app.use('/static', express["static"](__dirname + '/static'));
+  app.use('/', express["static"](__dirname + '/static'));
 
   // Error handler.
   app.use(function(err, req, res, next){
