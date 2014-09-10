@@ -164,6 +164,16 @@ app.post('/auth/twitter', function(req, res, next) {
   passportAuthenticate(req, res, next);
 });
 
+function logInAndRedirect(req, res, next, user) {
+  req.logIn(user, function(err) {
+    if (err) {
+      return next(err);
+    } else {
+      return res.redirect('/settings');
+    }
+  });
+}
+
 // Twitter will redirect the user to this URL after approval.  Finish the
 // authentication process by attempting to obtain an access token.  If
 // access was granted, the user will be logged in.  Otherwise,
@@ -183,17 +193,11 @@ app.get('/auth/twitter/callback', function(req, res, next) {
         if (req.session.signUpSettings) {
           updateSettings(user, req.session.signUpSettings, function(user) {
             delete req.session.signUpSettings;
-            req.logIn(user, function(err) {
-              if (err) {
-                return next(err);
-              } else {
-                return res.redirect('/settings');
-              }
-            });
+            logInAndRedirect(req, res, next, user);
           });
         } else {
           // If this was a log on, don't set signUpSettings.
-          return res.redirect('/settings');
+          logInAndRedirect(req, res, next, user);
         }
       }
     });

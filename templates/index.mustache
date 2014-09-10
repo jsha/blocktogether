@@ -1,7 +1,7 @@
 {{>header.mustache}}
 <div class="index">
   <div class="description">
-    <h1>Block Together</h1>
+    <h1>Block Together (beta)</h1>
     <p>
     An app intended to help cope with harassers and abusers on
     Twitter. When you sign up for Block Together, you can view a list of your
@@ -13,7 +13,7 @@
     <form action="/auth/twitter" method="POST">
       <input type="hidden" name="signup" value="true"></input>
       {{>settings_include.mustache}}
-      <button type="submit" class="btn">Sign up using Twitter</button>
+      <button type="submit" class="btn btn-primary">Sign up using Twitter</button>
     </form>
     <br>
     <div>
@@ -25,7 +25,8 @@
   <div class="log-on-prompt">
     <b>Already using Block Together?</b>
     <form action="/auth/twitter" method="POST">
-      <button type="submit" class="submit btn primary-btn flex-table-btn js-submit">Log on using Twitter</button>
+      <button type="submit" class="submit btn btn-primary flex-table-btn js-submit"
+        >Log on using Twitter</button>
     </form>
   </div>
   <div class="development">
