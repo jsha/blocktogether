@@ -10,5 +10,6 @@
   "dbPass": "AAAAAAAAAAAAA",
   "dbHost": "localhost",
   "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-  "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+  "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+  "userToFollow": "test_account"
 }

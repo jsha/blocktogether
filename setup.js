@@ -186,13 +186,17 @@ var Action = sequelize.define('Action', {
   type: Sequelize.STRING, // block or unblock
   status: { type: Sequelize.STRING, defaultValue: 'pending' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
-  // or 'block-new-accounts'. When the cause is another Block Together user,
+  // or 'new-account'. When the cause is another Block Together user,
   // e.g. in the bulk-manual-block case, the uid of that user is recorded in
-  // cause_uid.
+  // cause_uid. When cause is 'new-account,' the cause_uid is empty.
   cause: Sequelize.STRING,
   cause_uid: Sequelize.STRING
 });
+// From a BtUser we want to get a list of Actions.
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
+// And from an Action we want to get a TwitterUser (to show screen name).
+Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+
 _.extend(Action, {
   // Constants for the valid values of `status'.
   PENDING: 'pending',
@@ -216,7 +220,11 @@ _.extend(Action, {
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
-  UNBLOCK: 'unblock'
+  UNBLOCK: 'unblock',
+
+  // Constants for the valid values of 'cause'
+  BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
+  NEW_ACCOUNT: 'new-account' // "Block new accounts" blocked this user.
 });
 
 /**
@@ -241,11 +249,26 @@ sequelize
        logger.error(err);
     });
 
+// User to follow from settings page. In prod this is @blocktogether.
+// Initially blank, and loaded asynchronously. It's unlikely the
+// variable will be referenced before it is initialized.
+var userToFollow = BtUser.build();
+BtUser.find({
+  where: {
+    screen_name: config.userToFollow
+  }
+}).error(function(err) {
+  logger.error(err);
+}).success(function(user) {
+  _.assign(userToFollow, user);
+});
+
 module.exports = {
   config: config,
   twitter: twitter,
   sequelize: sequelize,
   logger: logger,
+  userToFollow: userToFollow,
   TwitterUser: TwitterUser,
   BtUser: BtUser,
   Block: Block,

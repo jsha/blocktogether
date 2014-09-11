@@ -16,6 +16,7 @@ var express = require('express'), // Web framework
 var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
+    userToFollow = setup.userToFollow,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -72,7 +73,8 @@ function makeApp() {
       where: {
         uid: sessionUser.uid,
         access_token: sessionUser.accessToken,
-        access_token_secret: sessionUser.accessTokenSecret
+        access_token_secret: sessionUser.accessTokenSecret,
+        deactivatedAt: null
       }
     }).error(function(err) {
       logger.error(err);
@@ -135,17 +137,6 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
 
 var app = makeApp();
 
-/**
- * @return {Boolean} Whether the user is logged in
- */
-function isAuthenticated(req) {
-  var u = 'undefined';
-  return typeof(req.user) != u &&
-         typeof(req.user.uid) != u &&
-         typeof(req.user.access_token) != u &&
-         typeof(req.user.access_token_secret) != u;
-}
-
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -162,6 +153,16 @@ app.post('/auth/twitter', function(req, res, next) {
   }
   passportAuthenticate(req, res, next);
 });
+
+function logInAndRedirect(req, res, next, user) {
+  req.logIn(user, function(err) {
+    if (err) {
+      return next(err);
+    } else {
+      return res.redirect('/settings');
+    }
+  });
+}
 
 // Twitter will redirect the user to this URL after approval.  Finish the
 // authentication process by attempting to obtain an access token.  If
@@ -182,17 +183,11 @@ app.get('/auth/twitter/callback', function(req, res, next) {
         if (req.session.signUpSettings) {
           updateSettings(user, req.session.signUpSettings, function(user) {
             delete req.session.signUpSettings;
-            req.logIn(user, function(err) {
-              if (err) {
-                return next(err);
-              } else {
-                return res.redirect('/settings');
-              }
-            });
+            logInAndRedirect(req, res, next, user);
           });
         } else {
           // If this was a log on, don't set signUpSettings.
-          return res.redirect('/settings');
+          logInAndRedirect(req, res, next, user);
         }
       }
     });
@@ -203,12 +198,14 @@ function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
       req.url == '/logged-out' ||
       req.url == '/favicon.ico' ||
+      req.url == '/robots.txt' ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (isAuthenticated(req)) {
+  } else if (req.user) {
     next();
   } else {
+    // Not authenticated, but should be.
     res.format({
       html: function() {
         res.redirect('/');
@@ -328,18 +325,29 @@ function updateSettings(user, settings, callback) {
   // Setting: Follow @blocktogether
   var new_follow = settings.follow_blocktogether;
   var old_follow = user.follow_blocktogether;
-  user.follow_blocktogether = new_follow;
-  var blocktogether = 'blocktogether';
-  // Unfollow blocktogether.
+  user.follow_blocktogether = !!new_follow;
+  var friendship = function(action, source, sink) {
+    logger.debug('/friendships/' + action, source, '-->', sink);
+    twitter.friendships(action, { user_id: sink.uid },
+      source.access_token, source.access_token_secret,
+      function (err, results) {
+        if (err) {
+          logger.error(err);
+        }
+      });
+  }
+  // Box unchecked: Unfollow @blocktogether.
   if (old_follow && !new_follow) {
-    twitter.friendships('destroy', { screen_name: blocktogether },
-      user.access_token, user.access_token_secret,
-      function() {});
+    // UserToFollow is a BtUser object representing @blocktogether, except
+    // in test environment where it is a different user.
+    friendship('destroy', user, userToFollow);
+    // Unfollow back with the @blocktogether user.
+    friendship('destroy', userToFollow, user);
   } else if (!old_follow && new_follow) {
-    // Follow blocktogether
-    twitter.friendships('create', { screen_name: blocktogether },
-      user.access_token, user.access_token_secret,
-      function() {});
+    // Box checked: Follow @blocktogether.
+    friendship('create', user, userToFollow);
+    // Follow back with the @blocktogether user.
+    friendship('create', userToFollow, user);
   }
 
   user
@@ -353,7 +361,12 @@ app.get('/actions',
   function(req, res) {
     req.user
       .getActions({
-        order: 'updatedAt DESC'
+        order: 'updatedAt DESC',
+        // Get the associated TwitterUser so we can display screen names.
+        include: [{
+          model: TwitterUser,
+          required: false
+        }]
       }).error(function(err) {
         logger.error(err);
       }).success(function(actions) {
@@ -411,16 +424,24 @@ app.get('/show-blocks/:slug',
       });
   });
 
+/**
+ * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
+ */
 app.post('/do-blocks.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
-    if (req.body.list) {
-      actions.queueBlocks(req.user.uid, req.body.list);
+    if (req.body.list && req.body.list.length &&
+        req.body.list.length < 5000 &&
+        req.body.cause_uid &&
+        req.body.cause_uid.match(/[0-9]{1,20}/)) {
+      actions.queueBlocks(
+        req.user.uid, req.body.list, Action.BULK_MANUAL_BLOCK,
+          req.body.cause_uid);
       res.end('{}');
     } else {
       res.status(400);
       res.end(JSON.stringify({
-        error: 'Need to supply a list of ids'
+        error: 'Need to supply a list of ids and a source user id.'
       }));
     }
   });
@@ -477,7 +498,9 @@ function showBlocks(req, res, btUser, ownBlocks) {
           // The name of the logged-in user, for the nav bar.
           logged_in_screen_name: logged_in_screen_name,
           // The name of the user whose blocks we are viewing.
-          subject_screen_name: btUser.screen_name,
+          author_screen_name: btUser.screen_name,
+          // The uid of the user whose blocks we are viewing.
+          author_uid: btUser.uid,
           // TODO: We could get the full count even when we are only displaying
           // 5000.
           block_count: blocks.length,

@@ -20,13 +20,18 @@ var twitter = setup.twitter,
  *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {string[]} list A list of uids to target with the actions.
+ * @param {string} cause The cause to be recorded on the Actions.
+ * @param {string} cause_uid Uid of the user who caused the actions, e.g.
+ *    the author of a shared block list if cause is 'bulk-manual-block.'
  */
-function queueBlocks(source_uid, list) {
+function queueBlocks(source_uid, list, cause, cause_uid) {
   list.map(function(sink_uid) {
     return Action.create({
       source_uid: source_uid,
       sink_uid: sink_uid,
-      type: 'block'
+      type: 'block',
+      cause: cause,
+      cause_uid: cause_uid
     }).error(function(err) {
       logger.error(err);
     });
@@ -94,12 +99,6 @@ function processActionsForUserId(uid) {
         btUser.actions = btUser.getActions({
           // Out of the available pending block actions on this user,
           // pick up to 100 with the earliest updatedAt times.
-          // HACK: We also look for actions that were either created just now
-          // (within the last thirty seconds), or close to a multiple of 15 minutes
-          // ago. This means that when an action cannot be completed right now, we
-          // do not keep trying every 10 seconds (see setInterval below) and getting
-          // rate limit responses. Instead, we try again in 15 minutes when the rate
-          // limit window expires.
           where: ['status = "pending" and type = "block" '],
           order: 'updatedAt ASC',
           limit: 100

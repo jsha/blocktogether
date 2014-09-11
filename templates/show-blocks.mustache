@@ -2,8 +2,8 @@
   <script defer type='text/javascript' src='/static/show-blocks.js'></script>
   <script defer type='text/javascript' src='/static/multi-select.js'></script>
   {{^own_blocks}}
-    User <a href='https://mobile.twitter.com/{{subject_screen_name}}' class='screen-name'
-      >@{{subject_screen_name}}</a>
+    User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
+      >@{{author_screen_name}}</a>
     is blocking {{block_count}}
     {{#theres_more}}+{{/theres_more}}
     users on Twitter (updated {{updated}}):
@@ -24,7 +24,7 @@
       same ones.  }}
   {{^own_blocks}}
   <div>
-    <button class='block-all'>Block All</button>
+    <button class='btn btn-primary block-all'>Block All</button>
     <div class='block-all-processing'>
       Block Together will now block {{block_count}} users using your account
       @{{logged_in_screen_name}}. This may take some time. You can check
@@ -32,7 +32,8 @@
     </div>
   </div>
   {{/own_blocks}}
-  <table class='table table-condensed table-hover all-blocks'>
+  <table data-author-uid='{{author_uid}}'
+    class='table table-condensed table-hover all-blocks'>
     <thead>
       <tr class='table-header'>
         <th><input type=checkbox id=check-all></input></th>
