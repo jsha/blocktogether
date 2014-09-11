@@ -441,7 +441,7 @@ app.post('/do-blocks.json',
     } else {
       res.status(400);
       res.end(JSON.stringify({
-        error: 'Need to supply a list of ids'
+        error: 'Need to supply a list of ids and a source user id.'
       }));
     }
   });
