@@ -27,8 +27,12 @@ $(function(){
         list: $.makeArray(checkedUids)
       }),
       success: function(data, textStatus, jqXHR) {
-        $('.block-all-processing').show();
-        $('.block-all').hide();
+        if (type === 'block') {
+          $('.block-all-processing').show();
+          $('.block-all').hide();
+        } else if (type === 'unblock' || type === 'unblock-mute') {
+          // XXX TODO
+        }
       },
       error: function(jqXHR, textStatus, errorThrown) {
         alert('Error: ' + textStatus + errorThrown);
