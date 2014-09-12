@@ -26,17 +26,18 @@ var twitter = setup.twitter,
  *    the author of a shared block list if cause is 'bulk-manual-block.'
  */
 function queueActions(source_uid, list, type, cause, cause_uid) {
-  list.map(function(sink_uid) {
-    return Action.create({
-      source_uid: source_uid,
-      sink_uid: sink_uid,
-      type: type,
-      cause: cause,
-      cause_uid: cause_uid
-    }).error(function(err) {
+  Action.bulkCreate(
+    list.map(function(sink_uid) {
+      return {
+        source_uid: source_uid,
+        sink_uid: sink_uid,
+        type: type,
+        cause: cause,
+        cause_uid: cause_uid
+      }
+    })).error(function(err) {
       logger.error(err);
     });
-  });
 }
 
 /**
