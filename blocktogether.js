@@ -250,6 +250,7 @@ app.get('/',
     var stream = mu.compileAndRender('index.mustache', {
       // Show the navbar only when logged in, since logged-out users can't
       // access the other pages (with the expection of shared block pages).
+      logged_in_screen_name: req.user ? req.user.screen_name : null,
       hide_navbar: !req.user,
       follow_blocktogether: true
     });
