@@ -228,8 +228,8 @@ function handleUnblock(data) {
  *   Will be blocked.
  */
 function enqueueBlock(sourceUser, sinkUserId) {
-  actions.queueBlocks(
-    sourceUser.uid, [sinkUserId], Action.NEW_ACCOUNT);
+  actions.queueActions(
+    sourceUser.uid, [sinkUserId], Action.BLOCK, Action.NEW_ACCOUNT);
   // HACK: Wait 500 ms and then process actions for the user. The ideal thing
   // here would be for queueBlocks to automatically kick off a processing run
   // for its source_uid.

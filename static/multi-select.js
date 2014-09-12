@@ -1,11 +1,11 @@
 $(function() {
   function disableButtons() {
-    $('button').each(function(i, el) {
+    $('button.needs-selection').each(function(i, el) {
       $(el).prop('disabled', true);
     });
   }
   function enableButtons() {
-    $('button').each(function(i, el) {
+    $('button.needs-selection').each(function(i, el) {
       $(el).prop('disabled', false);
     });
   }

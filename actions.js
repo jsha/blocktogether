@@ -20,16 +20,17 @@ var twitter = setup.twitter,
  *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {string[]} list A list of uids to target with the actions.
+ * @param {type} type The type of action, e.g block/unblock.
  * @param {string} cause The cause to be recorded on the Actions.
  * @param {string} cause_uid Uid of the user who caused the actions, e.g.
  *    the author of a shared block list if cause is 'bulk-manual-block.'
  */
-function queueBlocks(source_uid, list, cause, cause_uid) {
+function queueActions(source_uid, list, type, cause, cause_uid) {
   list.map(function(sink_uid) {
     return Action.create({
       source_uid: source_uid,
       sink_uid: sink_uid,
-      type: 'block',
+      type: type,
       cause: cause,
       cause_uid: cause_uid
     }).error(function(err) {
@@ -269,7 +270,7 @@ function setActionStatus(action, newState, next) {
 }
 
 module.exports = {
-  queueBlocks: queueBlocks,
+  queueActions: queueActions,
   processActionsForUserId: processActionsForUserId
 };
 

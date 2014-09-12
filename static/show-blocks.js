@@ -1,3 +1,6 @@
+/**
+ * Handle events for /show-blocks/:slug and /my-blocks.
+ */
 $(function(){
   function doAction(type) {
     var checkedUids = $('.checkbox:checked').map(function (el) {
@@ -15,12 +18,13 @@ $(function(){
     });
     $.ajax({
       type: 'POST',
-      url: '/do-blocks.json',
+      url: '/do-actions.json',
       contentType: "application/json",
       dataType: "json",
       data: JSON.stringify({
+        type: type,
         cause_uid: $(".all-blocks").data('author-uid').toString(),
-        list: $.makeArray(uids)
+        list: $.makeArray(checkedUids)
       }),
       success: function(data, textStatus, jqXHR) {
         $('.block-all-processing').show();
@@ -38,8 +42,8 @@ $(function(){
       doAction('unblock')
     } else if ($(ev.target).hasClass('unblock-mute')) {
       doAction('unblock-mute')
-    } else if ($(ev.target).hasClass('block')) {
-      doAction('unblock-mute')
+    } else if ($(ev.target).hasClass('block-all')) {
+      doAction('block')
     } else {
       console.log(ev.target);
     }
