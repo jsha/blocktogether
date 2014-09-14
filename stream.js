@@ -158,7 +158,12 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     }
 
     handleUnblock(data);
-  } else if (data.text) {
+  } else if (data.text && !data.retweeted_status) {
+    // If user A tweets "@foo hi" and user B retweets it, that should not count
+    // as a mention of @foo for the purposes of blocking. That retweet would
+    // show up in the streaming API with text: "@foo hi", as if user B had
+    // tweeted it. The way we would tell it was actually a retweet is because
+    // it also has the retweeted_status field set.
     checkReplyAndBlock(recipientBtUser, data);
   }
 }
