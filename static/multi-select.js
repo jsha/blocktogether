@@ -1,4 +1,6 @@
 $(function() {
+  // BUG: On back button navigation, the state of the checkboxes is remembered,
+  // but the enabled / disabled state of the buttons doesn't correctly match.
   function disableButtons() {
     $('button.needs-selection').each(function(i, el) {
       $(el).prop('disabled', true);
