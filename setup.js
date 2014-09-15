@@ -95,7 +95,7 @@ var BtUser = sequelize.define('BtUser', {
   // If this field is true, Block Together will monitor their User Stream to
   // detect such accounts.
   block_new_accounts: Sequelize.BOOLEAN,
-  // True if the user has elected to block accounts with < 50 followers that at-reply.
+  // True if the user has elected to block accounts with < 15 followers that at-reply.
   // If this field is true, Block Together will monitor their User Stream to
   // detect such accounts.
   block_low_followers: Sequelize.BOOLEAN,

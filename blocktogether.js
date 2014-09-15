@@ -306,7 +306,7 @@ app.post('/settings.json',
  * @param {BtUser} user User to modify.
  * @param {Object} settings JSON object with fields block_new_accounts,
  *   share_blocks, block_low_followers and follow_blocktogether.
- *   Absent fields will be treated as false
+ *   Absent fields will be treated as false.
  * @param {Function} callback
  */
 function updateSettings(user, settings, callback) {

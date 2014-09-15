@@ -189,23 +189,15 @@ function checkReplyAndBlock(recipientBtUser, status) {
     logger.info(recipientBtUser.screen_name, 'got at reply from',
       status.user.screen_name, ' (age ', ageInDays, ' / followers ',
       status.user.followers_count, ')');
-    if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+    if (ageInDays < 7 || status.user.followers_count < 15) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
       recipientBtUser.reload().success(function(user) {
-        if (user.block_new_accounts) {
+        if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
             status.user.screen_name, status.user.id_str);
           enqueueBlock(recipientBtUser, status.user.id_str, Action.NEW_ACCOUNT);
-        }
-      });
-    }
-    // TODO: D.R.Y.
-    else if (status.user.followers_count < 15 && recipientBtUser.block_low_followers) {
-      // The user may have changed settings since we started the stream. Reload to
-      // get the latest setting.
-      recipientBtUser.reload().success(function(user) {
-        if (user.block_low_followers) {
+        } else if (status.user.followers_count < 15 && recipientBtUser.block_low_followers) {
           logger.info('Queuing block', recipientBtUser, '-->',
             status.user.screen_name, status.user.id_str);
           enqueueBlock(recipientBtUser, status.user.id_str, Action.LOW_FOLLOWERS);
