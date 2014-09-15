@@ -96,12 +96,8 @@ function processActionsForUserId(uid) {
         deferSourceDeactivated(uid);
       } else {
         getActions(btUser, 'block', processBlocksForUser);
-        getActions(btUser, 'unblock', function() {
-          logger.info('unblock action');
-        });
-        getActions(btUser, 'unblock-mute', function(btUser, actions) {
-          logger.info('unblock-mute action', actions);
-        });
+        getActions(btUser, 'unblock', processUnblocksForUser);
+        getActions(btUser, 'mute', processMutesForUser);
       }
     });
 }
@@ -174,26 +170,54 @@ function unBlock(sourceBtUser, sinkUid, callback) {
 }
 
 function mute(sourceBtUser, sinkUid, callback) {
-  // TODO: node-twitter-api doesn't support mute yet, call directly?
-  // or fix node-twitter-api?
+  twitter.mutes('users/create', {
+      user_id: sinkUid,
+      skip_status: 1
+    }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
+    callback);
 }
 
 function processUnblocksForUser(btUser, actions) {
+  // NOTE: We do not bother looking up friendships before unblocking or muting,
+  // because there's no special treatment for people you follow the way there is
+  // for blocks. This also means that we miss a few of the less common
+  // transitions, like cancelled-duplicate, but these are probably not super
+  // important.
+  // Also NOTE: We kick off all unblock requests simultaneously rather than
+  // sequentially in callbacks the way we do for blocks. This is probably fine.
+  // The https library should simply queue the requests until there is an
+  // available socket for them. We may want to simplify the blocks code to do
+  // the same.
   actions.forEach(function(action) {
     if (action.type != 'unblock') {
-      logger.error("Shouldn't happen: non-unblock action", sourceBtUser);
+      logger.error("Shouldn't happen: non-unblock action", btUser);
     }
-    unBlock(btUser, actions);
+    unBlock(btUser, action.sink_uid, function(err, results) {
+      if (err) {
+        logger.error('Error /blocks/destroy', err.statusCode, btUser,
+          '-->', action.sink_uid);
+      } else {
+        logger.info('Unblocked', btUser, '-->', action.sink_uid);
+        setActionStatus(action, Action.DONE);
+      }
+    });
   });
 }
 
-function processUnblockMutesForUser(btUser, actions) {
+function processMutesForUser(btUser, actions) {
   actions.forEach(function(action) {
-    if (action.type != 'unblock-mute') {
-      logger.error("Shouldn't happen: non-unblock-mute action", sourceBtUser);
+    if (action.type != 'mute') {
+      logger.error("Shouldn't happen: non-mute action", btUser);
     }
-    unBlock(btUser, action.sink_uid);
-    mute(btUser, action.sink_uid);
+    mute(btUser, action.sink_uid, function(err, results) {
+      if (err) {
+        logger.error('Error /mutes/users/create', err.statusCode, btUser,
+          '-->', action.sink_uid);
+      } else {
+        logger.info('Muted', btUser, '-->', action.sink_uid);
+        setActionStatus(action, Action.DONE);
+      }
+    });
   });
 }
 
@@ -309,7 +333,6 @@ function blockUnlessFollowingWithFriendships(
       '--block-->', friendship.screen_name, sink_uid);
     block(sourceBtUser, sink_uid, function(err, results) {
       if (err) {
-        logger.error('Error blocking: %j', err);
         logger.error('Error /blocks/create', err.statusCode,
           sourceBtUser.screen_name, sourceBtUser.uid,
           '--block-->', friendship.screen_name, friendship.id_str,
@@ -323,11 +346,15 @@ function blockUnlessFollowingWithFriendships(
   }
 }
 
+function nothing() {
+}
+
 /**
  * Set an actions status to newState, save it, and call the `next' callback
  * regardless of success or error.
  */
 function setActionStatus(action, newState, next) {
+  next = next || nothing;
   action.status = newState;
   action.save().error(function(err) {
     logger.error(err);

@@ -46,7 +46,8 @@
 .saved {
   display: none;
 }
-.block-all-processing {
+.block-all-processing,
+.unblock-processing {
   display: none;
 }
 th, td {

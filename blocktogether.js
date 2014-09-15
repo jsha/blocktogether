@@ -430,7 +430,7 @@ app.get('/show-blocks/:slug',
 app.post('/do-actions.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
-    validTypes = {'block': 1, 'unblock': 1, 'unblock-mute': 1};
+    validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     if (req.body.list &&
         req.body.list.length &&
         req.body.list.length < 5000 &&

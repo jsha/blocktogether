@@ -31,7 +31,7 @@ $(function(){
           $('.block-all-processing').show();
           $('.block-all').hide();
         } else if (type === 'unblock' || type === 'unblock-mute') {
-          // XXX TODO
+          $('.unblock-processing').show();
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
@@ -43,11 +43,12 @@ $(function(){
     if ($('#log-on-form').length > 0) {
       alert('Please log on to do that.');
     } else if ($(ev.target).hasClass('unblock')) {
-      doAction('unblock')
+      doAction('unblock');
     } else if ($(ev.target).hasClass('unblock-mute')) {
-      doAction('unblock-mute')
+      doAction('unblock');
+      doAction('mute');
     } else if ($(ev.target).hasClass('block-all')) {
-      doAction('block')
+      doAction('block');
     } else {
       console.log(ev.target);
     }
