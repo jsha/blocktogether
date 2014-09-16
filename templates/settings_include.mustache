@@ -7,6 +7,14 @@
 </p>
 
 <p>
+  <input id=block_low_followers name=block_low_followers type=checkbox
+    {{#block_low_followers}}checked{{/block_low_followers}} />
+  <label for='block_low_followers'>
+    Block accounts with &lt; 15 followers that mention you.
+  </label>
+</p>
+
+<p>
   <input id=share_blocks name=share_blocks type=checkbox
     {{#shared_blocks_key}}checked{{/shared_blocks_key}} />
   <label for='share_blocks'>
