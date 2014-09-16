@@ -4,6 +4,7 @@
 
 .description,
 .signup-prompt,
+.index-logged-in,
 .development,
 .log-on-prompt {
   margin-left: auto;
@@ -16,6 +17,7 @@
 }
 
 .signup-prompt,
+.index-logged-in,
 .log-on-prompt {
   padding: 0.5em;
   border: 1px solid lightgrey;
