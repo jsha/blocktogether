@@ -41,7 +41,7 @@ function findAndUpdateUsers() {
 function reactivateUsers() {
   BtUser
     .findAll({
-      where: 'deactivatedAt is not null',
+      where: 'deactivatedAt is not null'
     }).error(function(err) {
       logger.error(err);
     }).success(function(btUsers) {

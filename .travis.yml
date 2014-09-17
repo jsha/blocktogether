@@ -1,0 +1,9 @@
+# Build config for travis-ci.org
+language: node_js
+node_js:
+  - 0.10
+install:
+  - "wget http://dl.google.com/closure-compiler/compiler-latest.zip"
+  - "unzip -n compiler-latest.zip"
+script:
+  - "java -jar compiler.jar *.js > /dev/null"
