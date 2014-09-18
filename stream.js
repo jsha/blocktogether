@@ -39,7 +39,7 @@ function startStreams() {
       where: sequelize.and(
         {
           uid: { not: Object.keys(streams) },
-          deactivatedAt: null,
+          deactivatedAt: null
         },
         // Check for any option that monitors stream for autoblock criteria
         sequelize.or(
