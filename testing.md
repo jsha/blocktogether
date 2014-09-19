@@ -62,6 +62,13 @@ Manual tests to run before a release:
 - Visit /actions, verify there is not an additional block of @new.
 - Visit /my-blocks, verify that @new is not listed as blocked.
 
+## Blocking low follower users
+
+- Log on with @twestact3, enable block_low_followers.
+- Ensure @twestact6 has < 15 followers.
+- Using @twestact6, @-mention @twestact3.
+- Verify that @twestact3 blocks @twestact6.
+
 ## Sharing blocks
 
 - Log on with @blocksAlot.
