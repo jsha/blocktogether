@@ -95,6 +95,10 @@ var BtUser = sequelize.define('BtUser', {
   // If this field is true, Block Together will monitor their User Stream to
   // detect such accounts.
   block_new_accounts: Sequelize.BOOLEAN,
+  // True if the user has elected to block accounts with < 15 followers that at-reply.
+  // If this field is true, Block Together will monitor their User Stream to
+  // detect such accounts.
+  block_low_followers: Sequelize.BOOLEAN,
   // Whether the user elected to follow @blocktogether from the settings screen.
   // This doesn't actually track their current following status, but we keep
   // track of it so that if they re-load the settings page it remembers the
@@ -188,7 +192,8 @@ var Action = sequelize.define('Action', {
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
   // or 'new-account'. When the cause is another Block Together user,
   // e.g. in the bulk-manual-block case, the uid of that user is recorded in
-  // cause_uid. When cause is 'new-account,' the cause_uid is empty.
+  // cause_uid. When cause is 'new-account' or 'low-followers'
+  // the cause_uid is empty.
   cause: Sequelize.STRING,
   cause_uid: Sequelize.STRING
 });
@@ -224,7 +229,8 @@ _.extend(Action, {
 
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
-  NEW_ACCOUNT: 'new-account' // "Block new accounts" blocked this user.
+  NEW_ACCOUNT: 'new-account', // "Block new accounts" blocked this user.
+  LOW_FOLLOWERS: 'low-followers' // "Block unpopular accounts" block this user.
 });
 
 /**

@@ -9,6 +9,7 @@
     listed below.
     </p>
   </div>
+  {{^logged_in_screen_name}}
   <div class="signup-prompt">
     <form action="/auth/twitter" method="POST">
       <input type="hidden" name="signup" value="true"></input>
@@ -29,6 +30,7 @@
         >Log on using Twitter</button>
     </form>
   </div>
+  {{/logged_in_screen_name}}
   <div class="development">
     <h2>Details</h2>
     <p>

@@ -37,8 +37,8 @@ function makeApp() {
   }));
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use('/static', express.static(__dirname + '/static'));
-  app.use('/', express.static(__dirname + '/static'));
+  app.use('/static', express["static"](__dirname + '/static'));
+  app.use('/', express["static"](__dirname + '/static'));
 
   // Error handler.
   app.use(function(err, req, res, next){
@@ -147,6 +147,7 @@ app.post('/auth/twitter', function(req, res, next) {
   if (req.body.signup) {
     req.session.signUpSettings = {
       block_new_accounts: req.body.block_new_accounts,
+      block_low_followers: req.body.block_low_followers,
       share_blocks: req.body.share_blocks,
       follow_blocktogether: req.body.follow_blocktogether
     };
@@ -250,6 +251,7 @@ app.get('/',
     var stream = mu.compileAndRender('index.mustache', {
       // Show the navbar only when logged in, since logged-out users can't
       // access the other pages (with the expection of shared block pages).
+      logged_in_screen_name: req.user ? req.user.screen_name : null,
       hide_navbar: !req.user,
       follow_blocktogether: true
     });
@@ -276,6 +278,7 @@ app.get('/settings',
     var stream = mu.compileAndRender('settings.mustache', {
       logged_in_screen_name: req.user.screen_name,
       block_new_accounts: req.user.block_new_accounts,
+      block_low_followers: req.user.block_low_followers,
       shared_blocks_key: req.user.shared_blocks_key,
       follow_blocktogether: req.user.follow_blocktogether
     });
@@ -292,6 +295,7 @@ app.post('/settings.json',
         share_blocks: !!user.shared_blocks_key,
         shared_blocks_key: user.shared_blocks_key,
         block_new_accounts: user.block_new_accounts,
+        block_low_followers: user.block_low_followers,
         follow_blocktogether: user.follow_blocktogether
       }));
     });
@@ -302,13 +306,15 @@ app.post('/settings.json',
  * (like generating a shared_blocks_key).
  * @param {BtUser} user User to modify.
  * @param {Object} settings JSON object with fields block_new_accounts,
- *   share_blocks, and follow_blocktogether. Absent fields will be treated as
- *   false.
+ *   share_blocks, block_low_followers and follow_blocktogether.
+ *   Absent fields will be treated as false.
  * @param {Function} callback
  */
 function updateSettings(user, settings, callback) {
   // Setting: Block new accounts
   user.block_new_accounts = !!settings.block_new_accounts;
+  // Setting: Block low followers
+  user.block_low_followers = !!settings.block_low_followers;
 
   // Setting: Share blocks
   var new_share_blocks = settings.share_blocks;

@@ -8,6 +8,7 @@ var twitterAPI = require('node-twitter-api'),
 
 var twitter = setup.twitter,
     logger = setup.logger,
+    sequelize = setup.sequelize,
     Action = setup.Action,
     UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
@@ -20,13 +21,12 @@ var streams = {
 // Set the maximum number of sockets higher so we can have a reasonable number
 // of streams going.
 // TODO: Request Site Streams access.
-// TODO: Only start streams for users who have block_new_accounts = true.
 https.globalAgent.maxSockets = 10000;
 
 /**
  * For each user with stored credentials, start receiving their Twitter user
  * stream, in order to be able to insta-block any new users (< 7 days old)
- * who @-reply one of our users.
+ * or unpopular accounts (< 15 followers) who @-reply one of our users.
  *
  * TODO: Also collect block and unblock events.
  * TODO: Test that streams are restarted after network down events.
@@ -36,11 +36,21 @@ function startStreams() {
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
-      where: {
-        uid: { not: Object.keys(streams) },
-        deactivatedAt: null,
-        block_new_accounts: true
-      },
+      where: sequelize.and(
+        {
+          uid: { not: Object.keys(streams) },
+          deactivatedAt: null
+        },
+        // Check for any option that monitors stream for autoblock criteria
+        sequelize.or(
+          {
+            block_new_accounts: true
+          },
+          {
+            block_low_followers: true
+          }
+        )
+      ),
       limit: 10
     }).error(function(err) {
       logger.error(err);
@@ -158,7 +168,12 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     }
 
     handleUnblock(data);
-  } else if (data.text) {
+  } else if (data.text && !data.retweeted_status) {
+    // If user A tweets "@foo hi" and user B retweets it, that should not count
+    // as a mention of @foo for the purposes of blocking. That retweet would
+    // show up in the streaming API with text: "@foo hi", as if user B had
+    // tweeted it. The way we would tell it was actually a retweet is because
+    // it also has the retweeted_status field set.
     checkReplyAndBlock(recipientBtUser, data);
   }
 }
@@ -166,26 +181,33 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
 /**
  * Given a status object from either the streaming API or the REST API,
  * check whether that status should trigger a block, i.e. whether they are less
- * than seven days old. If so, enqueue a block.
+ * than 7 days old or have fewer than 15 followers. If so, enqueue a block.
  * @param {BtUser} recipientBtUser User who might be doing the blocking.
  * @param {Object} status A JSON Tweet object as specified by the Twitter API
  *   https://dev.twitter.com/docs/platform-objects/tweets
  */
+var MIN_AGE = 7;
+var MIN_FOLLOWERS = 15;
 function checkReplyAndBlock(recipientBtUser, status) {
   // If present, data.user is the user who sent the at-reply.
   if (status.user && status.user.created_at &&
       status.user.id_str !== recipientBtUser.uid) {
     var ageInDays = (new Date() - Date.parse(status.user.created_at)) / 86400 / 1000;
-    logger.info(recipientBtUser.screen_name, 'got at reply from',
-      status.user.screen_name, ' (age ', ageInDays, ')');
-    if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+    logger.info('User', recipientBtUser, 'got at reply from',
+      status.user.screen_name, status.user.id_str, '(age', ageInDays, '/ followers',
+      status.user.followers_count, ')');
+    if (ageInDays < MIN_AGE || status.user.followers_count < MIN_FOLLOWERS) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
       recipientBtUser.reload().success(function(user) {
-        if (user.block_new_accounts) {
+        if (ageInDays < MIN_AGE && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
             status.user.screen_name, status.user.id_str);
-          enqueueBlock(recipientBtUser, status.user.id_str);
+          enqueueBlock(recipientBtUser, status.user.id_str, Action.NEW_ACCOUNT);
+        } else if (status.user.followers_count < MIN_FOLLOWERS && recipientBtUser.block_low_followers) {
+          logger.info('Queuing block', recipientBtUser, '-->',
+            status.user.screen_name, status.user.id_str);
+          enqueueBlock(recipientBtUser, status.user.id_str, Action.LOW_FOLLOWERS);
         }
       });
     }
@@ -226,10 +248,11 @@ function handleUnblock(data) {
  *   and will block that new account.
  * @param {string} sinkUserId String-form UID of the author of the mention.
  *   Will be blocked.
+ * @param {string} cause One of the valid cause types from Action object
  */
-function enqueueBlock(sourceUser, sinkUserId) {
+function enqueueBlock(sourceUser, sinkUserId, cause) {
   actions.queueActions(
-    sourceUser.uid, [sinkUserId], Action.BLOCK, Action.NEW_ACCOUNT);
+    sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
   // HACK: Wait 500 ms and then process actions for the user. The ideal thing
   // here would be for queueBlocks to automatically kick off a processing run
   // for its source_uid.
