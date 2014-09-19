@@ -186,23 +186,25 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
  * @param {Object} status A JSON Tweet object as specified by the Twitter API
  *   https://dev.twitter.com/docs/platform-objects/tweets
  */
+var MIN_AGE = 7;
+var MIN_FOLLOWERS = 15;
 function checkReplyAndBlock(recipientBtUser, status) {
   // If present, data.user is the user who sent the at-reply.
   if (status.user && status.user.created_at &&
       status.user.id_str !== recipientBtUser.uid) {
     var ageInDays = (new Date() - Date.parse(status.user.created_at)) / 86400 / 1000;
-    logger.info(recipientBtUser.screen_name, 'got at reply from',
-      status.user.screen_name, ' (age ', ageInDays, ' / followers ',
+    logger.info(recipientBtUser, 'got at reply from',
+      status.user.screen_name, status.user.id_str, '(age', ageInDays, '/ followers',
       status.user.followers_count, ')');
-    if (ageInDays < 7 || status.user.followers_count < 15) {
+    if (ageInDays < MIN_AGE || status.user.followers_count < MIN_FOLLOWERS) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
       recipientBtUser.reload().success(function(user) {
-        if (ageInDays < 7 && recipientBtUser.block_new_accounts) {
+        if (ageInDays < MIN_AGE && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
             status.user.screen_name, status.user.id_str);
           enqueueBlock(recipientBtUser, status.user.id_str, Action.NEW_ACCOUNT);
-        } else if (status.user.followers_count < 15 && recipientBtUser.block_low_followers) {
+        } else if (status.user.followers_count < MIN_FOLLOWERS && recipientBtUser.block_low_followers) {
           logger.info('Queuing block', recipientBtUser, '-->',
             status.user.screen_name, status.user.id_str);
           enqueueBlock(recipientBtUser, status.user.id_str, Action.LOW_FOLLOWERS);
