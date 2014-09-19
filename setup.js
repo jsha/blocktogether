@@ -59,6 +59,9 @@ var Sequelize = require('sequelize'),
         logger.trace(message);
       },
       dialect: 'mysql',
+      dialectOptions: {
+        charset: 'utf8mb4'
+      },
       host: config.dbHost
     });
 sequelize
