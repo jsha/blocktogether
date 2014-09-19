@@ -193,7 +193,7 @@ function checkReplyAndBlock(recipientBtUser, status) {
   if (status.user && status.user.created_at &&
       status.user.id_str !== recipientBtUser.uid) {
     var ageInDays = (new Date() - Date.parse(status.user.created_at)) / 86400 / 1000;
-    logger.info(recipientBtUser, 'got at reply from',
+    logger.info('User', recipientBtUser, 'got at reply from',
       status.user.screen_name, status.user.id_str, '(age', ageInDays, '/ followers',
       status.user.followers_count, ')');
     if (ageInDays < MIN_AGE || status.user.followers_count < MIN_FOLLOWERS) {
