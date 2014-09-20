@@ -16,6 +16,7 @@ set :normalize_asset_timestamps, false
 
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
+  run "cd #{current_path}; js ./node_modules/.bin/sequelize --config /etc/blocktogether/sequelize.json -m"
 end
 
 after "deploy:setup" do
