@@ -40,7 +40,11 @@
   </div>
   {{/own_blocks}}
   <table data-author-uid='{{author_uid}}'
-    class='table table-condensed table-hover all-blocks'>
+    class='table table-condensed table-hover all-blocks
+      {{#own_blocks}}
+      own-blocks
+      {{/own_blocks}}
+    '>
     <thead>
       <tr class='table-header'>
         <th><input type=checkbox id=check-all></input></th>

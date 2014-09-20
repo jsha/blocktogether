@@ -60,3 +60,11 @@ th, td {
 .screen-name {
   font-family: serif;
 }
+
+/* For now, hide checkboxes when viewing someone else's blocks. */
+.all-blocks input[type=checkbox] {
+  display: none;
+}
+.all-blocks.own-blocks input[type=checkbox] {
+  display: block;
+}

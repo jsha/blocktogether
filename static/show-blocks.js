@@ -53,4 +53,13 @@ $(function(){
       console.log(ev.target);
     }
   });
+
+  // When viewing someone else's blocks, the only action is 'Block All', so
+  // check all the (hidden) checkboxes to reflect that. In future we may unhide
+  // the checkboxes and allow selective blocking from someone else's blocklist.
+  if ($('.own-blocks').length === 0) {
+    $('input[type=checkbox]').map(function (el) {
+      $(this).prop('checked', true);
+    });
+  }
 });
