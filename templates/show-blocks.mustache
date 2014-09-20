@@ -3,13 +3,10 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}}
-    users on Twitter (updated {{updated}}):
+    is blocking {{block_count}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
-    You are blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}):
+    You are blocking {{block_count}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
       same ones.  }}
@@ -23,6 +20,9 @@
     </div>
   </div>
   {{/own_blocks}}
+  <div id='pagination-bar'>
+  {{>pagination.mustache}}
+  </div>
   <table data-author-uid='{{author_uid}}'
     class='table table-condensed table-hover all-blocks'>
     <thead>

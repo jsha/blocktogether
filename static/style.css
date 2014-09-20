@@ -65,3 +65,12 @@ th, td {
 .screen-name {
   font-family: serif;
 }
+
+/* Numbering for pagination, since our templating is logicless */
+ol.pagination {
+  counter-reset: page-number
+}
+ol.pagination > li > a.page-link::before {
+  counter-increment: page-number;
+  content: counter(page-number);
+}

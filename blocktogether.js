@@ -466,6 +466,13 @@ function renderHtmlError(message) {
 function showBlocks(req, res, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
+  // For pagination
+  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
+  var currentPage = req.query.page || 1,
+      perPage = 500;
+  if (currentPage < 1) {
+    currentPage = 1;
+  }
   if (req.user) {
     logged_in_screen_name = req.user.screen_name;
   }
@@ -481,8 +488,12 @@ function showBlocks(req, res, btUser, ownBlocks) {
     if (!blockBatch) {
       renderHtmlError('No blocks fetched yet. Please try again soon.');
     } else {
-      blockBatch.getBlocks({
-        limit: 5000,
+      Block.findAndCountAll({
+        where: {
+          blockBatchId: blockBatch.id
+        },
+        limit: perPage,
+        offset: perPage * (currentPage - 1),
         include: [{
           model: TwitterUser,
           required: false
@@ -492,7 +503,9 @@ function showBlocks(req, res, btUser, ownBlocks) {
       }).success(function(blocks) {
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
-        var blockedUsersList = blocks.map(function(block) {
+        var blocksCount = blocks.count,
+            blocksRows = blocks.rows;
+        var blockedUsersList = blocksRows.map(function(block) {
           if (block.twitterUser) {
             return block.twitterUser;
           } else {
@@ -507,10 +520,10 @@ function showBlocks(req, res, btUser, ownBlocks) {
           author_screen_name: btUser.screen_name,
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
-          // TODO: We could get the full count even when we are only displaying
-          // 5000.
-          block_count: blocks.length,
-          theres_more: blocks.length === 5000,
+          block_count: blocksCount,
+          // 1-indexed array of numbers for use in pagination template.
+          pages: _.range(1, Math.ceil(blocksCount / perPage) + 1),
+          currentPage: currentPage,
           blocked_users: blockedUsersList,
           own_blocks: ownBlocks
         };
