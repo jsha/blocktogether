@@ -523,6 +523,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
           block_count: blocksCount,
+          paginate: pageCount > 1,
           // Array of objects (1-indexed) for use in pagination template.
           pages: _.range(1, pageCount + 1).map(function(pageNum) {
             return {
