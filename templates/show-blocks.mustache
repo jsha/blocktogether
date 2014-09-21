@@ -7,8 +7,18 @@
     is blocking {{block_count}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
+  <p>
     You are blocking {{block_count}} users on Twitter (updated {{updated}}):
-    <p>
+  </p>
+  {{/own_blocks}}
+
+  {{#paginate}}
+  <div id='pagination-bar'>
+    {{>pagination.mustache}}
+  </div>
+  {{/paginate}}
+
+  {{#own_blocks}}
     <button class='btn btn-info btn-sm unblock needs-selection'
       disabled='disabled'
       >Unblock selected</button>
@@ -22,6 +32,7 @@
       <a href='/actions'>the Actions page</a>.
     </div>
   {{/own_blocks}}
+
   {{! When displaying someone else's blocks, give an option to block all the
       same ones on this page.  }}
   {{^own_blocks}}
@@ -34,11 +45,7 @@
     </div>
   </div>
   {{/own_blocks}}
-  {{#paginate}}
-  <div id='pagination-bar'>
-  {{>pagination.mustache}}
-  </div>
-  {{/paginate}}
+
   <table data-author-uid='{{author_uid}}'
     class='table table-condensed table-hover all-blocks
       {{#own_blocks}}
