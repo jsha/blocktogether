@@ -1,3 +1,4 @@
+(function() {
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var express = require('express'), // Web framework
@@ -409,19 +410,19 @@ app.get('/my-unblocks',
   });
 
 app.get('/my-blocks',
-  function(req, res) {
-    showBlocks(req, res, req.user, true /* ownBlocks */);
+  function(req, res, next) {
+    showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
 app.get('/show-blocks/:slug',
-  function(req, res) {
+  function(req, res, next) {
     BtUser
       .find({ where: { shared_blocks_key: req.params.slug } })
       .error(function(err) {
         logger.error(err);
       }).success(function(user) {
         if (user) {
-          showBlocks(req, res, user, false /* ownBlocks */);
+          showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
           res.header('Content-Type', 'text/html');
           res.status(404);
@@ -452,18 +453,10 @@ app.post('/do-blocks.json',
     }
   });
 
-function renderHtmlError(message) {
-  var stream = mu.compileAndRender('error.mustache', {
-    error: message
-  });
-  res.header('Content-Type', 'text/html');
-  stream.pipe(res);
-}
-
 /**
  * Render the block list for a given BtUser as HTML.
  */
-function showBlocks(req, res, btUser, ownBlocks) {
+function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
   if (req.user) {
@@ -479,7 +472,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
     logger.error(err);
   }).success(function(blockBatch) {
     if (!blockBatch) {
-      renderHtmlError('No blocks fetched yet. Please try again soon.');
+      next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
       blockBatch.getBlocks({
         limit: 5000,
@@ -529,3 +522,4 @@ if (process.argv.length > 2) {
   logger.info('Starting server.');
   app.listen(config.port);
 }
+})();

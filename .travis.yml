@@ -6,4 +6,5 @@ install:
   - "wget http://dl.google.com/closure-compiler/compiler-latest.zip"
   - "unzip -n compiler-latest.zip"
 script:
-  - "java -jar compiler.jar *.js > /dev/null"
+  # TODO: Enable checkTypes after adding more types to externs.js
+  - "java -jar compiler.jar --warning_level=VERBOSE *.js --jscomp_off=checkTypes --externs=externs/externs.js  > /dev/null
