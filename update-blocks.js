@@ -1,3 +1,4 @@
+(function() {
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     timeago = require('timeago'),
@@ -157,3 +158,4 @@ if (require.main === module) {
   findAndUpdateBlocks();
   setInterval(findAndUpdateBlocks, 1000);
 }
+})();
