@@ -1,3 +1,5 @@
+(function() {
+
 /**
  * Script to block a list of screen names using credentials for a given user id
  */
@@ -19,7 +21,7 @@ var twitter = setup.twitter,
  * for the triggering user. Need to figure out how to do Promise joins.
  *
  * @param {string} source_uid The user who wants to perform these actions.
- * @param {string[]} list A list of uids to target with the actions.
+ * @param {Array.<string>} list A list of uids to target with the actions.
  * @param {string} cause The cause to be recorded on the Actions.
  * @param {string} cause_uid Uid of the user who caused the actions, e.g.
  *    the author of a shared block list if cause is 'bulk-manual-block.'
@@ -65,7 +67,7 @@ function processBlocks() {
     group: 'source_uid',
     limit: 300
   }).error(function(err) {
-    console.log(err);
+    logger.error(err);
   }).success(function(actions) {
     actions.forEach(function(action) {
       processActionsForUserId(action.source_uid);
@@ -136,7 +138,7 @@ function deferSourceDeactivated(uid) {
  * as appropriate.
  *
  * @param {BtUser} btUser The user whose Actions we should process.
- * @param {Action[]} actions Actions to process.
+ * @param {Array.<Action>} actions Actions to process.
  */
 function processActionsForUser(btUser, actions) {
   if (actions.length > 0) {
@@ -155,8 +157,8 @@ function processActionsForUser(btUser, actions) {
  * follow or block relationship. Then update the Actions provided.
  *
  * @param {BtUser} sourceBtUser The user doing the blocking.
- * @param {integer[]} sinkUids A list of uids to potentially block.
- * @param {Action[]} actions The Actions to be updated based on the results.
+ * @param {Array.<integer>} sinkUids A list of uids to potentially block.
+ * @param {Array.<Action>} actions The Actions to be updated based on the results.
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
@@ -191,7 +193,7 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
  * @param{BtUser} sourceBtUser The user doing the blocking.
  * @param{Object} indexedFriendships A map from uids to friendship objects as
  *   returned by the Twitter API.
- * @param{Action[]} actions The list of actions to be performed or state
+ * @param{Array.<Action>} actions The list of actions to be performed or state
  *   transitioned.
  */
 function blockUnlessFollowingWithFriendships(
@@ -284,3 +286,4 @@ if (require.main === module) {
   processBlocks();
   setInterval(processBlocks, 70 * 1000);
 }
+})();

@@ -1,3 +1,4 @@
+(function() {
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
@@ -38,7 +39,7 @@ function logPendingRequests() {
   if (Object.keys(requests).length === 0) {
     logger.trace('Pending requests: 0');
   } else {
-    for (host in requests) {
+    for (var host in requests) {
       logger.trace('Pending requests to', host, ':', requests[host].length);
     }
   }
@@ -59,6 +60,9 @@ var Sequelize = require('sequelize'),
         logger.trace(message);
       },
       dialect: 'mysql',
+      dialectOptions: {
+        charset: 'utf8mb4'
+      },
       host: config.dbHost
     });
 sequelize
@@ -283,3 +287,4 @@ module.exports = {
   UnblockedUser: UnblockedUser,
   Action: Action
 };
+})();
