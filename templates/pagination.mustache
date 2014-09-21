@@ -1,0 +1,18 @@
+<script defer type='text/javascript' src='/static/pagination.js'></script>
+<ol class="pagination">
+  {{#previous_page}}
+  <li class="nav-previous">
+    <a class="page-link" href="{{path_name}}?page={{previous_page}}">&laquo;</a>
+  </li>
+  {{/previous_page}}
+  {{#pages}}
+  <li class="nav-page{{#active}} active{{/active}}">
+    <a class="page-link" href="{{path_name}}?page={{page_num}}">{{page_num}}</a>
+  </li>
+  {{/pages}}
+  {{#next_page}}
+  <li class="nav-next">
+    <a class="page-link" href="{{path_name}}?page={{next_page}}">&raquo;</a>
+  </li>
+  {{/next_page}}
+</ol>
