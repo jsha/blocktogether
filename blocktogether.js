@@ -1,6 +1,7 @@
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var express = require('express'), // Web framework
+    url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
     crypto = require('crypto'),
@@ -468,7 +469,7 @@ function showBlocks(req, res, btUser, ownBlocks) {
   var logged_in_screen_name = undefined;
   // For pagination
   // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
-  var currentPage = req.query.page || 1,
+  var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
@@ -504,7 +505,8 @@ function showBlocks(req, res, btUser, ownBlocks) {
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
         var blocksCount = blocks.count,
-            blocksRows = blocks.rows;
+            blocksRows = blocks.rows,
+            pageCount = Math.ceil(blocksCount / perPage);
         var blockedUsersList = blocksRows.map(function(block) {
           if (block.twitterUser) {
             return block.twitterUser;
@@ -521,9 +523,18 @@ function showBlocks(req, res, btUser, ownBlocks) {
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
           block_count: blocksCount,
-          // 1-indexed array of numbers for use in pagination template.
-          pages: _.range(1, Math.ceil(blocksCount / perPage) + 1),
-          currentPage: currentPage,
+          // Array of objects (1-indexed) for use in pagination template.
+          pages: _.range(1, pageCount + 1).map(function(pageNum) {
+            return {
+              page_num: pageNum,
+              active: pageNum === currentPage
+            };
+          }),
+          // Previous/next page indices for use in pagination template.
+          previous_page: currentPage - 1 || false,
+          next_page: currentPage === pageCount ? false : currentPage + 1,
+          // Base URL for appending pagination querystring.
+          path_name: url.parse(req.url).pathname,
           blocked_users: blockedUsersList,
           own_blocks: ownBlocks
         };
