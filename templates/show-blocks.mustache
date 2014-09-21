@@ -4,15 +4,10 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}}
-    users on Twitter (updated {{updated}}):
+    is blocking {{block_count}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
-    <p>
-    You are blocking {{block_count}}
-    {{#theres_more}}+{{/theres_more}} users on Twitter (updated {{updated}}).
-    </p>
+    You are blocking {{block_count}} users on Twitter (updated {{updated}}):
     <p>
     <button class='btn btn-info btn-sm unblock needs-selection'
       disabled='disabled'
@@ -28,10 +23,10 @@
     </div>
   {{/own_blocks}}
   {{! When displaying someone else's blocks, give an option to block all the
-      same ones.  }}
+      same ones on this page.  }}
   {{^own_blocks}}
   <div>
-    <button class='btn btn-primary block-all'>Block All</button>
+    <button class='btn btn-primary block-all'>Block All{{#paginate}} on Page{{/paginate}}</button>
     <div class='block-all-processing'>
       Block Together will now block {{block_count}} users using your account
       @{{logged_in_screen_name}}. This may take some time. You can check
@@ -39,6 +34,11 @@
     </div>
   </div>
   {{/own_blocks}}
+  {{#paginate}}
+  <div id='pagination-bar'>
+  {{>pagination.mustache}}
+  </div>
+  {{/paginate}}
   <table data-author-uid='{{author_uid}}'
     class='table table-condensed table-hover all-blocks
       {{#own_blocks}}

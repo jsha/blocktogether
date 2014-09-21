@@ -1,6 +1,8 @@
+(function() {
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var express = require('express'), // Web framework
+    url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
     crypto = require('crypto'),
@@ -409,19 +411,19 @@ app.get('/my-unblocks',
   });
 
 app.get('/my-blocks',
-  function(req, res) {
-    showBlocks(req, res, req.user, true /* ownBlocks */);
+  function(req, res, next) {
+    showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
 app.get('/show-blocks/:slug',
-  function(req, res) {
+  function(req, res, next) {
     BtUser
       .find({ where: { shared_blocks_key: req.params.slug } })
       .error(function(err) {
         logger.error(err);
       }).success(function(user) {
         if (user) {
-          showBlocks(req, res, user, false /* ownBlocks */);
+          showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
           res.header('Content-Type', 'text/html');
           res.status(404);
@@ -455,20 +457,19 @@ app.post('/do-actions.json',
     }
   });
 
-function renderHtmlError(message) {
-  var stream = mu.compileAndRender('error.mustache', {
-    error: message
-  });
-  res.header('Content-Type', 'text/html');
-  stream.pipe(res);
-}
-
 /**
  * Render the block list for a given BtUser as HTML.
  */
-function showBlocks(req, res, btUser, ownBlocks) {
+function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
+  // For pagination
+  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
+  var currentPage = parseInt(req.query.page, 10) || 1,
+      perPage = 500;
+  if (currentPage < 1) {
+    currentPage = 1;
+  }
   if (req.user) {
     logged_in_screen_name = req.user.screen_name;
   }
@@ -482,10 +483,14 @@ function showBlocks(req, res, btUser, ownBlocks) {
     logger.error(err);
   }).success(function(blockBatch) {
     if (!blockBatch) {
-      renderHtmlError('No blocks fetched yet. Please try again soon.');
+      next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
-      blockBatch.getBlocks({
-        limit: 5000,
+      Block.findAndCountAll({
+        where: {
+          blockBatchId: blockBatch.id
+        },
+        limit: perPage,
+        offset: perPage * (currentPage - 1),
         include: [{
           model: TwitterUser,
           required: false
@@ -495,7 +500,10 @@ function showBlocks(req, res, btUser, ownBlocks) {
       }).success(function(blocks) {
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
-        var blockedUsersList = blocks.map(function(block) {
+        var blocksCount = blocks.count,
+            blocksRows = blocks.rows,
+            pageCount = Math.ceil(blocksCount / perPage);
+        var blockedUsersList = blocksRows.map(function(block) {
           if (block.twitterUser) {
             return block.twitterUser;
           } else {
@@ -510,10 +518,20 @@ function showBlocks(req, res, btUser, ownBlocks) {
           author_screen_name: btUser.screen_name,
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
-          // TODO: We could get the full count even when we are only displaying
-          // 5000.
-          block_count: blocks.length,
-          theres_more: blocks.length === 5000,
+          block_count: blocksCount,
+          paginate: pageCount > 1,
+          // Array of objects (1-indexed) for use in pagination template.
+          pages: _.range(1, pageCount + 1).map(function(pageNum) {
+            return {
+              page_num: pageNum,
+              active: pageNum === currentPage
+            };
+          }),
+          // Previous/next page indices for use in pagination template.
+          previous_page: currentPage - 1 || false,
+          next_page: currentPage === pageCount ? false : currentPage + 1,
+          // Base URL for appending pagination querystring.
+          path_name: url.parse(req.url).pathname,
           blocked_users: blockedUsersList,
           own_blocks: ownBlocks
         };
@@ -532,3 +550,4 @@ if (process.argv.length > 2) {
   logger.info('Starting server.');
   app.listen(config.port);
 }
+})();

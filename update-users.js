@@ -1,3 +1,4 @@
+(function() {
 var setup = require('./setup'),
     _ = require('sequelize').Utils._;
 
@@ -65,9 +66,9 @@ function deleteUser(uid) {
 
 /**
  * Given a user lookup API response from Twitter, store the user into the DB.
- * @param {string[]} uids Array of uids that were requested.
+ * @param {Array.<string>} uids Array of uids that were requested.
  * @param {Object} err Error return by Twitter API, if any.
- * @param {Object[]} response List of JSON User objects as defined by the
+ * @param {Array.<Object>} response List of JSON User objects as defined by the
  *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
  */
 function updateUsers(uids, err, response) {
@@ -143,3 +144,4 @@ if (require.main === module) {
   // Poll for reactivated users every hour.
   setInterval(reactivateUsers, 60 * 60 * 1000);
 }
+})();

@@ -1,3 +1,5 @@
+(function() {
+
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     actions = require('./actions'),
@@ -263,3 +265,4 @@ function enqueueBlock(sourceUser, sinkUserId, cause) {
 
 startStreams();
 setInterval(startStreams, 5 * 1000);
+})();
