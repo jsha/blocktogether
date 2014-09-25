@@ -14,8 +14,8 @@ if [ ! -f /usr/sbin/mysqld ] ; then
   echo
   echo "*********************** IMPORTANT ***********************"
   echo "*********************** IMPORTANT ***********************"
-  sudo debconf-set-selections <<<'mysql-server mysql-server/root_password password $DB_ROOT_PASS'
-  sudo debconf-set-selections <<<'mysql-server mysql-server/root_password_again password $DB_ROOT_PASS'
+  sudo debconf-set-selections <<<"mysql-server mysql-server/root_password password $DB_ROOT_PASS"
+  sudo debconf-set-selections <<<"mysql-server mysql-server/root_password_again password $DB_ROOT_PASS"
 fi
 
 DB_PASS=$(openssl rand -hex 20)
@@ -31,7 +31,7 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
 EOSQL
 fi
 if ! crontab -l >/dev/null; then
-  crontab <<EOCRON
+  crontab - <<EOCRON
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     MAILTO=ubuntu
     23 10 * * * bash /usr/local/blocktogether/current/util/backup-db.sh
