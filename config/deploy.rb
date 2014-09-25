@@ -34,7 +34,15 @@ end
 
 namespace :deploy do
   task :restart do
-    run "sudo service blocktogether-instance restart"
+    %w{
+        blocktogether
+        stream
+        actions
+        update-users
+        update-blocks
+    }.each do |name|
+      sudo "service blocktogether-instance restart NAME=#{name}"
+      end
   end
 end
 
