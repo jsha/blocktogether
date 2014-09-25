@@ -27,7 +27,6 @@ module.exports = {
       access_token_secret: DataTypes.STRING,
       shared_blocks_key: DataTypes.STRING,
       block_new_accounts: DataTypes.BOOLEAN,
-      follow_blocktogether: DataTypes.BOOLEAN,
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
