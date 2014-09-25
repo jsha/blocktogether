@@ -12,9 +12,6 @@ var fs = require('fs'),
  *    "consumerKey": "...",
  *    "consumerSecret": "...",
  *    "cookieSecret": "...",
- *    "dbUser": "...",
- *    "dbPass": "...",
- *    "dbHost": "..."
  *  }
  */
 var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
@@ -54,17 +51,16 @@ function logPendingRequests() {
 }
 setInterval(logPendingRequests, 5000);
 
+var sequelizeConfigData = fs.readFileSync(
+  '/etc/blocktogether/sequelize.json', 'utf8');
+var env = process.env['NODE_ENV'] || 'development';
+var c = JSON.parse(sequelizeConfigData)[env];
 var Sequelize = require('sequelize'),
-    sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
+    sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
       logging: function(message) {
         logger.trace(message);
-      },
-      dialect: 'mysql',
-      dialectOptions: {
-        charset: 'utf8mb4'
-      },
-      host: config.dbHost
-    });
+      }
+    }));
 sequelize
   .authenticate()
   .error(function(err) {

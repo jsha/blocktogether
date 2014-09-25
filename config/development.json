@@ -1,14 +1,10 @@
 {
   "port": 3000,
   "callbackUrl": "http://localhost:3000/auth/twitter/callback",
-  "sequelizeLogging": true,
   "secureProxy": false,
   "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
   "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
   "cookieSecret": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
-  "dbUser": "blocktogether",
-  "dbPass": "AAAAAAAAAAAAA",
-  "dbHost": "localhost",
   "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
   "userToFollow": "test_account"

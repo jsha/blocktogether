@@ -6,9 +6,6 @@
   "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
   "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
   "cookieSecret": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
-  "dbUser": "blocktogether",
-  "dbPass": "AAAAAAAAAAA",
-  "dbHost": "localhost",
   "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
   "userToFollow": "blocktogether"
