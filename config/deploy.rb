@@ -5,6 +5,7 @@ set :scm, :git
 
 # Server hostname to deploy to.
 role :app, "owb"
+role :staging, "blocktogether-staging"
 set :deploy_to, "/usr/local/blocktogether"
 
 set :deploy_via, :remote_cache
@@ -17,6 +18,8 @@ set :normalize_asset_timestamps, false
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
   run "cd #{current_path}; js ./node_modules/.bin/sequelize --config /etc/blocktogether/sequelize.json -m"
+  run "sudo ln -sf #{current_path}/config/production/upstart/*.conf /etc/init.d/"
+  run "sudo service blocktogether restart"
 end
 
 after "deploy:setup" do
@@ -24,7 +27,7 @@ after "deploy:setup" do
 end
 
 namespace :deploy do
-  task :restart, :roles => :app do
+  task :restart do
     run "killall run-prod.sh js; #{current_path}/run-prod.sh"
   end
 end
