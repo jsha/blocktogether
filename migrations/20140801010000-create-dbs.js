@@ -52,6 +52,7 @@ module.exports = {
     migration.createTable( 'Blocks', {
       source_uid: DataTypes.STRING,
       type: DataTypes.STRING,
+      BlockBatchId: DataTypes.INTEGER,
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
