@@ -48,10 +48,11 @@ function findAndUpdateBlocks() {
           logger.error(err);
         });
         if (batches && batches.length > 0) {
+          var batch = batches[0];
           logger.debug('User', user.uid, 'has updated blocks from',
-            timeago(new Date(batches[0].createdAt)));
-          if ((new Date() - new Date(batches[0].createdAt)) > ONE_DAY_IN_MILLIS) {
-            updateBlocks(user);
+            timeago(new Date(batch.createdAt)));
+          if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
+            updateBlocks(user, batch.id);
           }
         } else {
           logger.warn('User', user.uid, 'has no updated blocks ever.');
@@ -64,23 +65,25 @@ function findAndUpdateBlocks() {
  * For a given BtUser, fetch all current blocks and store in DB.
  *
  * @param {BtUser} user The user whose blocks we want to fetch.
+ * @param {number} prevBlockBatchId The id of the most recent previous block
+ *   batch.
  */
-function updateBlocks(user) {
+function updateBlocks(user, prevBlockBatchId) {
   BlockBatch.create({
     source_uid: user.uid
   }).error(function(err) {
     logger.error(err);
   }).success(function(blockBatch) {
-    fetchAndStoreBlocks(blockBatch, user.access_token, user.access_token_secret);
+    fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId);
   });
 }
 
-function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor) {
+function fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId, cursor) {
   logger.info('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
-  // update cursor.
+  // updated cursor.
   var getMore = fetchAndStoreBlocks.bind(null,
-    blockBatch, accessToken, accessTokenSecret);
+    user, blockBatch, prevBlockBatchId);
   var currentCursor = cursor || -1;
   twitter.blocks('ids', {
       // Stringify ids is very important, or we'll get back numeric ids that
@@ -88,7 +91,7 @@ function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor)
       stringify_ids: true,
       cursor: currentCursor
     },
-    accessToken, accessTokenSecret,
+    user.access_token, user.access_token_secret,
     handleIds.bind(null, blockBatch, currentCursor, getMore));
 }
 
