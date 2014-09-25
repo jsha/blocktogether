@@ -83,8 +83,9 @@ module.exports = {
     }, {
       charset: 'utf8mb4'
     });
+    done();
   },
   down: function(migration, DataTypes, done) {
-    done()
+    done();
   }
 }
