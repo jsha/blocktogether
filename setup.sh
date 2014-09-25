@@ -19,7 +19,6 @@ if [ ! -f /usr/sbin/mysqld ] ; then
 fi
 
 DB_PASS=$(openssl rand -hex 20)
-COOKIE_SECRET=$(openssl rand -hex 20)
 sudo apt-get update
 sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
@@ -30,6 +29,10 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
     GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
 EOSQL
 fi
+
+COOKIE_SECRET=$(openssl rand -hex 20)
+sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
+
 if ! crontab -l >/dev/null; then
   crontab - <<EOCRON
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games

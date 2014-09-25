@@ -28,12 +28,13 @@ after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
   run "cd #{current_path}; ls -l migrations/"
   run "cd #{current_path}; js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
-  run "sudo ln -sf #{current_path}/config/production/upstart/*.conf /etc/init.d/"
+  # Note: Have to cp instead of symlink since these must be root-owned.
+  run "sudo cp #{current_path}/config/production/upstart/*.conf /etc/init/"
 end
 
 namespace :deploy do
   task :restart do
-    run "sudo service blocktogether restart"
+    run "sudo service blocktogether-instance restart"
   end
 end
 
@@ -49,10 +50,12 @@ before "deploy:setup" do
     sudo "mkdir -p #{dir} -m 0700"
     sudo "chown ubuntu.ubuntu #{dir}"
   end
+  ETC_BLOCKTOGETHER="/etc/blocktogether"
   upload "config/sequelize.json", "/tmp/sequelize.json", :mode => 0600
-  run "cp -n /tmp/sequelize.json #{sequelize_config}"
-  upload "setup.sh", "/etc/blocktogether/setup.sh", :mode => 0700
-  run "/etc/blocktogether/setup.sh"
+  upload "config/production.json", "/tmp/config.json", :mode => 0600
+  run "cp -n /tmp/sequelize.json /tmp/config.json #{ETC_BLOCKTOGETHER}"
+  upload "setup.sh", "#{ETC_BLOCKTOGETHER}/setup.sh", :mode => 0700
+  run "#{ETC_BLOCKTOGETHER}/setup.sh"
 end
 
 after "deploy:setup" do
