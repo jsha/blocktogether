@@ -50,7 +50,10 @@ module.exports = {
       charset: 'utf8mb4'
     });
     migration.createTable( 'Blocks', {
-      source_uid: DataTypes.STRING
+      source_uid: DataTypes.STRING,
+      type: DataTypes.STRING,
+      createdAt: DataTypes.DATE,
+      updatedAt: DataTypes.DATE
     }, {
       charset: 'utf8mb4'
     });
