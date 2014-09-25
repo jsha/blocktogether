@@ -38,7 +38,7 @@ module.exports = {
         primaryKey: true,
         autoIncrement: true
       },
-      uid: {
+      source_uid: {
         type: 'VARCHAR(20)',
         primaryKey: true
       },
