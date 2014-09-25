@@ -1,0 +1,18 @@
+{
+  "development": {
+    "username": "blocktogether",
+    "password": "XXXXXXXXXX",
+    "database": "blocktogether",
+    "host": "localhost",
+    "dialect": "mysql",
+    "dialectOptions": {"charset": "utf8mb4"}
+  },
+  "production": {
+    "username": "blocktogether",
+    "password": "XXXXXXXXXX",
+    "database": "blocktogether",
+    "host": "localhost",
+    "dialect": "mysql",
+    "dialectOptions": {"charset": "utf8mb4"}
+  }
+}
