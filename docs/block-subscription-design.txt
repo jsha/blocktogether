@@ -11,6 +11,12 @@ An author can add and remove accounts from their list.
 By default, when an author blocks accounts on Twitter, those accounts are added
 to the author's shared block list.
 
+When an author unblocks accounts on Twitter, those accounts are removed from the
+author's shared block list.
+
+An author can manually remove an account from their shared block list even though
+they still block that account.
+
 A subscriber can subscribe to shared block lists, up to a limit of 10
 subscriptions. An author can have any number of subscribers.
 
@@ -57,6 +63,6 @@ which they are deleted, unless the author has been unsuspended or reactivated
 in the meantime.
 
 If a subscriber is suspended, deactivated, or deleted, no auto-blocks are
-attempted on their account until they are unsuspended or reactivated. If the
+attempted on their account until they are unsuspended or reactivated. When the
 subscriber is unsuspended or reactivated, Block Together will retroactively
 apply any auto-blocks that would have been applied.
