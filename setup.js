@@ -78,7 +78,8 @@ var TwitterUser = sequelize.define('TwitterUser', {
   followers_count: Sequelize.INTEGER,
   profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
-  name: Sequelize.STRING
+  name: Sequelize.STRING,
+  deactivatedAt: Sequelize.DATE
 });
 
 /**
