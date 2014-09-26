@@ -26,7 +26,6 @@ end
 
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
-  run "cd #{current_path}; ls -l migrations/"
   run "cd #{current_path}; js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
   # Note: Have to cp instead of symlink since these must be root-owned.
   run "sudo cp #{current_path}/config/production/upstart/*.conf /etc/init/"
