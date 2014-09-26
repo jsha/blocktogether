@@ -1,0 +1,16 @@
+# Provide status on port 80, only to localhost
+server {
+    listen 80;
+    root /usr/share/nginx/www;
+    server_name localhost;
+
+    location /nginx-status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+    }
+    location / {
+        return 403;
+    }
+}
