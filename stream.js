@@ -253,8 +253,8 @@ function handleUnblock(data) {
  * @param {string} cause One of the valid cause types from Action object
  */
 function enqueueBlock(sourceUser, sinkUserId, cause) {
-  actions.queueBlocks(
-    sourceUser.uid, [sinkUserId], cause);
+  actions.queueActions(
+    sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
   // HACK: Wait 500 ms and then process actions for the user. The ideal thing
   // here would be for queueBlocks to automatically kick off a processing run
   // for its source_uid.

@@ -1,0 +1,17 @@
+These are a set of possible use cases for Block Together that help motivate and
+reason about changes and new features. They are by no means exhaustive, and it
+will be useful to add new cases.
+
+Pat has a stalker who persistently creates new accounts and @-mentions Pat. Pat
+blocks the new accounts, but the stalker creates more new ones.
+
+Tracy and Jamie write frequently about controversial topics and are often
+attacked by a large community of people who wish to see them stop writing.
+The attacker community changes over time but if someone attacks Tracy, they
+are likely to attack Jamie as well.
+
+Jordan is currently the subject of a temporary pileon. Many users from across
+Twitter are suddenly attacking Jordan with @-mentions. The attacking mentions are
+preventing Jordan from seeing friendly mentions, and Jordan is being driven off
+Twitter by the abuse. Jordan has a community that would like to help mitigate the
+attack.

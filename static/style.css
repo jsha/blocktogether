@@ -45,16 +45,11 @@
 .blocked-user {
   position: relative;
 }
-button.block,
-button.unblock {
-  font-size: 8px;
-  /* The block/unblock functionality is not yet implemented. */
-  display: none;
-}
 .saved {
   display: none;
 }
-.block-all-processing {
+.block-all-processing,
+.unblock-processing {
   display: none;
 }
 th, td {
@@ -64,4 +59,12 @@ th, td {
  * like oolon vs ooIon easier to distinguish. */
 .screen-name {
   font-family: serif;
+}
+
+/* For now, hide checkboxes when viewing someone else's blocks. */
+.all-blocks input[type=checkbox] {
+  display: none;
+}
+.all-blocks.own-blocks input[type=checkbox] {
+  display: block;
 }

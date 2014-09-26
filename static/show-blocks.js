@@ -1,6 +1,9 @@
+/**
+ * Handle events for /show-blocks/:slug and /my-blocks.
+ */
 $(function(){
-  function blockAll() {
-    var uids = $('.blocked-user').map(function (el) {
+  function doAction(type) {
+    var checkedUids = $('.checkbox:checked').map(function (el) {
       // jQuery's .data() will make every attempt to convert to a
       // JavaScript object (https://api.jquery.com/data/), which means turning
       // uids into Numbers. Since uids are 64 bits, they can't be representing
@@ -15,27 +18,48 @@ $(function(){
     });
     $.ajax({
       type: 'POST',
-      url: '/do-blocks.json',
+      url: '/do-actions.json',
       contentType: "application/json",
       dataType: "json",
       data: JSON.stringify({
+        type: type,
         cause_uid: $(".all-blocks").data('author-uid').toString(),
-        list: $.makeArray(uids)
+        list: $.makeArray(checkedUids)
       }),
       success: function(data, textStatus, jqXHR) {
-        $('.block-all-processing').show();
-        $('.block-all').hide();
+        if (type === 'block') {
+          $('.block-all-processing').show();
+          $('.block-all').hide();
+        } else if (type === 'unblock' || type === 'unblock-mute') {
+          $('.unblock-processing').show();
+        }
       },
       error: function(jqXHR, textStatus, errorThrown) {
         alert('Error: ' + textStatus + errorThrown);
       }
     });
   }
-  $('.block-all').click(function(ev) {
+  $('button').click(function(ev) {
     if ($('#log-on-form').length > 0) {
-      alert('Please log on in order to block people.');
+      alert('Please log on to do that.');
+    } else if ($(ev.target).hasClass('unblock')) {
+      doAction('unblock');
+    } else if ($(ev.target).hasClass('unblock-mute')) {
+      doAction('unblock');
+      doAction('mute');
+    } else if ($(ev.target).hasClass('block-all')) {
+      doAction('block');
     } else {
-      blockAll();
+      console.log(ev.target);
     }
   });
+
+  // When viewing someone else's blocks, the only action is 'Block All', so
+  // check all the (hidden) checkboxes to reflect that. In future we may unhide
+  // the checkboxes and allow selective blocking from someone else's blocklist.
+  if ($('.own-blocks').length === 0) {
+    $('input[type=checkbox]').map(function (el) {
+      $(this).prop('checked', true);
+    });
+  }
 });
