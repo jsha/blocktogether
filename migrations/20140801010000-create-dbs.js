@@ -55,7 +55,7 @@ module.exports = {
         primaryKey: true,
         autoIncrement: true
       },
-      source_uid: DataTypes.STRING,
+      sink_uid: DataTypes.STRING,
       type: DataTypes.STRING,
       BlockBatchId: DataTypes.INTEGER,
       createdAt: DataTypes.DATE,
