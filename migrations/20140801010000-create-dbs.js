@@ -50,6 +50,11 @@ module.exports = {
       charset: 'utf8mb4'
     });
     migration.createTable( 'Blocks', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+      },
       source_uid: DataTypes.STRING,
       type: DataTypes.STRING,
       BlockBatchId: DataTypes.INTEGER,
