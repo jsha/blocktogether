@@ -412,6 +412,11 @@ app.get('/my-unblocks',
 
 app.get('/my-blocks',
   function(req, res, next) {
+    // HACK: Each time a user reloads their own blocks page, fetch an updated
+    // copy of their blocks. This won't show up on the first render, since we
+    // don't want to wait for results if it's a multi-page response, but it
+    // means subsequent reloads will get the correct results.
+    updateBlocks.updateBlocks(req.user);
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
@@ -466,7 +471,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
   // For pagination
   // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
   var currentPage = parseInt(req.query.page, 10) || 1,
-      perPage = 500;
+      perPage = 5000;
   if (currentPage < 1) {
     currentPage = 1;
   }
