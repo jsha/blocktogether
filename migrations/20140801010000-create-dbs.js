@@ -14,7 +14,8 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
     migration.createTable(
       'BtUsers', {
@@ -30,7 +31,8 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
     migration.createTable('BlockBatches', {
       id: {
@@ -47,9 +49,10 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
-    migration.createTable( 'Blocks', {
+    migration.createTable('Blocks', {
       id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -61,7 +64,8 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
     migration.createTable('Actions', {
       id: {
@@ -76,7 +80,8 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
     migration.createTable('UnblockedUsers', {
       id: {
@@ -89,7 +94,8 @@ module.exports = {
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     }, {
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      collation: 'utf8_unicode_ci'
     });
     done();
   },
