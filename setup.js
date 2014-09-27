@@ -159,7 +159,7 @@ var BtUser = sequelize.define('BtUser', {
     }
   }
 });
-BtUser.hasOne(TwitterUser);
+BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
 
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
