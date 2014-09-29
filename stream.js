@@ -60,7 +60,7 @@ function startStreams() {
           }
         )
       ),
-      limit: 1,
+      limit: 10,
       // Note: This is inefficient for large tables but for the current ~4k
       // users it's fine.
       order: 'RAND()'
