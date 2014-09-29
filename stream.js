@@ -27,11 +27,13 @@ var streams = {
 https.globalAgent.maxSockets = 10000;
 
 /**
- * For a random user with stored credentials, start receiving their Twitter user
+ * For some random users with stored credentials, start receiving their Twitter user
  * stream, in order to be able to insta-block any new users (< 7 days old)
  * or unpopular accounts (< 15 followers) who @-reply one of our users.
+ * Once their stream is started we will record that so we don't repeatedly try
+ * to start the same streams.
  *
- * We pick a random user because sometimes the setInterval calls that trigger
+ * We pick random users because sometimes the setInterval calls that trigger
  * this function get stacked up. That means that we query for users to add many
  * times in succession and get the same users each time, because they are not
  * yet in the active set. That, in turn, means we try to connect to streaming
