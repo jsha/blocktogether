@@ -49,7 +49,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
  * Find all pending block actions in the queue, validate and execute them.
  *
  * Validation is a little tricky.  We want to check whether a given
- * user is blocking the target. The relevant endpoint is friendships/lookup,
+ * user is following the target. The relevant endpoint is friendships/lookup,
  * https://dev.twitter.com/docs/api/1.1/get/friendships/lookup.
  * That endpoint has a rate limit of 15 requests per 15 minutes, which means
  * bulk blocking would proceed very slowly if we called it once per block
@@ -57,14 +57,13 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
  *
  * However, friendships/lookup supports bulk querying of up to 100 users at
  * once. So we group pending actions by source_uid, then do a second query by
- * that uid to get up to 100 of their oldest pending actions.
+ * that uid to get up to 100 of their oldest pending actions. To make sure this
+ * query never gets jammed up with unprocessable actions, it's important that
+ * each action queried gets moved out of pending state in one way or
+ * another.
  *
  * Note that the block endpoint can only block one user
  * at a time, but it does not appear to have a rate limit.
- *
- * When a block action is completed, set its state to DONE. When a block
- * action is cancelled because the source_uid follows the sink_uid, set its
- * state to CANCELLED_FOLLOWING.
  */
 function processActions() {
   Action.findAll({
@@ -238,7 +237,7 @@ function processBlocksForUser(btUser, actions) {
 }
 
 /**
- * Given fewer that 100 sinkUids, check the following relationship between
+ * Given fewer than 100 sinkUids, check the following relationship between
  * sourceBtUser and those each sinkUid, and block if there is not an existing
  * follow or block relationship. Then update the Actions provided.
  *
