@@ -126,7 +126,7 @@ function checkPastMentions(user) {
         // It's common to have a large number of mentions from each user,
         // because of back-and-forth conversations. De-dupe users before
         // checking for block criteria.
-        mentioningUsers = _.indexBy(mentions.map(function(status) {
+        var mentioningUsers = _.indexBy(mentions.map(function(status) {
           return status.user;
         }), 'id_str');
         Object.keys(mentioningUsers).forEach(function(id_str) {
