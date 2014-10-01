@@ -6,8 +6,8 @@
     "host": "127.0.0.1",
     "dialect": "mysql",
     "dialectOptions": {
-      charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci'
+      "charset": "utf8mb4",
+      "collate": "utf8mb4_unicode_ci"
     }
   },
   "production": {
@@ -17,8 +17,8 @@
     "host": "127.0.0.1",
     "dialect": "mysql",
     "dialectOptions": {
-      charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci'
+      "charset": "utf8mb4",
+      "collate": "utf8mb4_unicode_ci"
     }
   }
 }
