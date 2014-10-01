@@ -45,7 +45,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
       // which is not ideal. TODO: Keep track in memory of which users have had
       // a very recent processing run, and don't add additional ones.
       setTimeout(function() {
-        actions.processActionsForUserId(sourceUser.uid);
+        processActionsForUserId(source_uid);
       }, 1000);
     });
 }
