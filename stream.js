@@ -21,14 +21,23 @@ var streams = {
 };
 
 // Set the maximum number of sockets higher so we can have a reasonable number
-// of streams going.
-// TODO: Request Site Streams access.
+// of streams going. Note: Currently we use User Streams. According to the
+// Twitter API docs, an app like this would be better suited for Site Streams,
+// but (contrary to the docs) they are not accepting new apps for Site Streams.
 https.globalAgent.maxSockets = 10000;
 
 /**
- * For each user with stored credentials, start receiving their Twitter user
+ * For some random users with stored credentials, start receiving their Twitter user
  * stream, in order to be able to insta-block any new users (< 7 days old)
  * or unpopular accounts (< 15 followers) who @-reply one of our users.
+ * Once their stream is started we will record that so we don't repeatedly try
+ * to start the same streams.
+ *
+ * We pick random users because sometimes the setInterval calls that trigger
+ * this function get stacked up. That means that we query for users to add many
+ * times in succession and get the same users each time, because they are not
+ * yet in the active set. That, in turn, means we try to connect to streaming
+ * and fetch at-replies many times for the same user, and get rate limited.
  *
  * TODO: Also collect block and unblock events.
  * TODO: Test that streams are restarted after network down events.
@@ -53,7 +62,10 @@ function startStreams() {
           }
         )
       ),
-      limit: 10
+      limit: 10,
+      // Note: This is inefficient for large tables but for the current ~4k
+      // users it's fine.
+      order: 'RAND()'
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
@@ -263,5 +275,5 @@ function enqueueBlock(sourceUser, sinkUserId, cause) {
 }
 
 startStreams();
-setInterval(startStreams, 5 * 1000);
+setInterval(startStreams, 1000);
 })();
