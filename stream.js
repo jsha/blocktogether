@@ -73,7 +73,7 @@ function startStream(user) {
   var boundDataCallback = dataCallback.bind(undefined, user);
   var boundEndCallback = endCallback.bind(undefined, user);
 
-  logger.info('Starting stream for user', user.screen_name, user.uid);
+  logger.info('Starting stream for user', user);
   var req = twitter.getStream('user', {
     // Get events for all replies, not just people the user follows.
     'replies': 'all',
@@ -84,7 +84,7 @@ function startStream(user) {
   // Sometimes we get an ECONNRESET that is not caught in the OAuth code
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
-    logger.error('Error for', user.screen_name, user.uid, err);
+    logger.error('Error for', user, err);
   });
 
   streams[user.uid] = req;
@@ -122,7 +122,7 @@ function checkPastMentions(user) {
  * @param {BtUser} user The user whose stream ended.
  */
 function endCallback(user) {
-  logger.warn('Ending stream for', user.screen_name);
+  logger.warn('Ending stream for', user);
   user.verifyCredentials();
   delete streams[user.uid];
 }
@@ -139,8 +139,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
   if (!data) return;
   if (data.disconnect) {
-    logger.warn(recipientBtUser.screen_name,
-      'disconnect message:', data.disconnect);
+    logger.warn(recipientBtUser, 'disconnect message:', data.disconnect);
     // Code 6 is for revoked, e.g.:
     // { code: 6, stream_name:
     //   'twestact4&XXXXXXXXXXXXXXXXXXXXXXXXX-userstream685868461329014147',
@@ -159,10 +158,10 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       recipientBtUser.verifyCredentials();
     }
   } else if (data.warning) {
-    logger.warn(recipientBtUser.screen_name,
+    logger.warn(recipientBtUser,
       'stream warning message:', data.warning);
   } else if (data.event) {
-    logger.info(recipientBtUser.screen_name, 'event', data.event);
+    logger.info(recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
