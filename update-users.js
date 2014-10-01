@@ -17,16 +17,19 @@ var config = setup.config,
  * Find TwitterUsers needing update, look them up on Twitter, and store in
  * database. A user needs update if it's just been inserted (no screen name)
  * or if it hasn't been updated in a day.
+ *
+ * @param {string} sqlFilter An SQL `where' clause to filter users by. Allows
+ *   running separate update cycles for fresh users (with no screen name) vs
+ *   users who need a refresh.
  */
-function findAndUpdateUsers() {
+function findAndUpdateUsers(sqlFilter) {
   TwitterUser
     .findAll({
       where: sequelize.and(
         { deactivatedAt: null },
-        sequelize.or(
-          { screen_name: null },
-          'updatedAt < (now() - INTERVAL 1 DAY)')),
-      limit: 100
+        sqlFilter),
+      limit: 100,
+      order: 'updatedAt'
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
@@ -169,8 +172,12 @@ module.exports = {
 
 if (require.main === module) {
   findAndUpdateUsers();
-  // Poll for more users to update every 2 seconds.
-  setInterval(findAndUpdateUsers, 2000);
+  // Poll for just-added users every 1 second and do an initial fetch of their
+  // information.
+  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 1000);
+  // Poll for users needing update every 10 seconds.
+  setInterval(
+    findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
   // Poll for reactivated users every hour.
   setInterval(reactivateBtUsers, 60 * 60 * 1000);
 }
