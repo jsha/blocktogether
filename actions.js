@@ -18,9 +18,6 @@ var twitter = setup.twitter,
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
  * batch of processing Actions for the source user.
  *
- * TODO: Once all the actions are created, this should kick off a processing run
- * for the triggering user. Need to figure out how to do Promise joins.
- *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {Array.<string>} list A list of uids to target with the actions.
  * @param {type} type The type of action, e.g block/unblock.
@@ -41,7 +38,15 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
     })).error(function(err) {
       logger.error(err);
     }).success(function(actions) {
-      processActionsForUserId(source_uid);
+      // After writing the actions to the DB, wait 1s and process all actions
+      // for the user. Waiting a bit allows more actions to accumulate so they
+      // can be batched better, e.g. during stream startup. Note that we still
+      // wind up with a queue of processing requests right on top of each other,
+      // which is not ideal. TODO: Keep track in memory of which users have had
+      // a very recent processing run, and don't add additional ones.
+      setTimeout(function() {
+        actions.processActionsForUserId(sourceUser.uid);
+      }, 1000);
     });
 }
 

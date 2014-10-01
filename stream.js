@@ -195,6 +195,10 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
  * Given a status object from either the streaming API or the REST API,
  * check whether that status should trigger a block, i.e. whether they are less
  * than 7 days old or have fewer than 15 followers. If so, enqueue a block.
+ *
+ * TODO: Have a separate mode for stream startup that doesn't enqueue each block
+ * separately, but accumulates them and enqueues in bulk.
+ *
  * @param {BtUser} recipientBtUser User who might be doing the blocking.
  * @param {Object} status A JSON Tweet object as specified by the Twitter API
  *   https://dev.twitter.com/docs/platform-objects/tweets
@@ -266,12 +270,6 @@ function handleUnblock(data) {
 function enqueueBlock(sourceUser, sinkUserId, cause) {
   actions.queueActions(
     sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
-  // HACK: Wait 500 ms and then process actions for the user. The ideal thing
-  // here would be for queueBlocks to automatically kick off a processing run
-  // for its source_uid.
-  setTimeout(function() {
-    actions.processActionsForUserId(sourceUser.uid);
-  }, 500);
 }
 
 startStreams();
