@@ -18,6 +18,12 @@ var twitter = setup.twitter,
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
  * batch of processing Actions for the source user.
  *
+ * TODO: Certain sources, like mention replays when stream.js restarts, can
+ * cause fresh Actions to be enqueued even when those Actions have previously
+ * been cancelled, e.g. cancelled-following. These Actions are very likely to be
+ * cancelled again, and we should probably avoid enqueuing them in order to not
+ * clutter up the Actions list with entries that are confusing to the user.
+ *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {Array.<string>} list A list of uids to target with the actions.
  * @param {type} type The type of action, e.g block/unblock.
@@ -45,7 +51,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
       // which is not ideal. TODO: Keep track in memory of which users have had
       // a very recent processing run, and don't add additional ones.
       setTimeout(function() {
-        actions.processActionsForUserId(sourceUser.uid);
+        processActionsForUserId(source_uid);
       }, 1000);
     });
 }
