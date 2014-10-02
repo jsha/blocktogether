@@ -1,3 +1,7 @@
+th {
+  white-space: nowrap;
+}
+
 .navbar {
   padding: 2em;
 }

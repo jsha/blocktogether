@@ -57,7 +57,10 @@
         <th><input type=checkbox id=check-all></input></th>
         <th>Screen Name</th>
         <th>Name</th>
-        <th></th>
+        <th>Account Created</th>
+        <th>Tweets</th>
+        <th>Following</th>
+        <th>Followers</th>
       </tr>
     </thead>
   {{#blocked_users}}
@@ -78,9 +81,19 @@
        {{/screen_name}}
       </td>
       <td>
-       {{#screen_name}}
-         {{name}}
-       {{/screen_name}}
+        {{name}}
+      </td>
+      <td>
+        {{account_age}}
+      </td>
+      <td>
+        {{statuses_count}}
+      </td>
+      <td>
+        {{friends_count}}
+      </td>
+      <td>
+        {{followers_count}}
       </td>
     </tr>
   {{/blocked_users}}
