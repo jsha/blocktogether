@@ -41,7 +41,8 @@ namespace :deploy do
         update-blocks
     }.each do |name|
       sudo "service blocktogether-instance restart NAME=#{name}"
-      end
+    end
+    sudo "service nginx reload"
   end
 end
 
@@ -54,7 +55,7 @@ before "deploy:setup" do
           /data/mysql-backup
         }
   dirs.each do |dir|
-    sudo "mkdir -p #{dir} -m 0700"
+    sudo "mkdir -p #{dir} -m 0755"
     sudo "chown ubuntu.ubuntu #{dir}"
   end
   ETC_BLOCKTOGETHER="/etc/blocktogether"

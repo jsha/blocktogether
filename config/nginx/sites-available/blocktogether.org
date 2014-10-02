@@ -10,6 +10,12 @@ server {
         location / {
                 proxy_pass http://localhost:2078/;
         }
+        location /static/ {
+            alias /usr/local/blocktogether/current/static/;
+        }
+        location /docs/ {
+            alias /usr/local/blocktogether/current/docs/;
+        }
 }
 
 server {
