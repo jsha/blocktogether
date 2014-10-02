@@ -2,8 +2,9 @@
 
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
-    actions = require('./actions'),
+    _ = require('sequelize').Utils._,
     https = require('https'),
+    actions = require('./actions'),
     updateUsers = require('./update-users'),
     updateBlocks = require('./update-blocks'),
     setup = require('./setup');
@@ -24,7 +25,7 @@ var streams = {
 // of streams going. Note: Currently we use User Streams. According to the
 // Twitter API docs, an app like this would be better suited for Site Streams,
 // but (contrary to the docs) they are not accepting new apps for Site Streams.
-https.globalAgent.maxSockets = 10000;
+https.globalAgent.maxSockets = 40000;
 
 /**
  * For some random users with stored credentials, start receiving their Twitter user
@@ -122,7 +123,15 @@ function checkPastMentions(user) {
           'for', user);
       } else {
         logger.debug('Replaying', mentions.length, 'past mentions for', user);
-        mentions.forEach(checkReplyAndBlock.bind(undefined, user));
+        // It's common to have a large number of mentions from each user,
+        // because of back-and-forth conversations. De-dupe users before
+        // checking for block criteria.
+        var mentioningUsers = _.indexBy(mentions.map(function(status) {
+          return status.user;
+        }), 'id_str');
+        Object.keys(mentioningUsers).forEach(function(id_str) {
+          checkReplyAndBlock(user, mentioningUsers[id_str]);
+        });
       }
     });
 }
@@ -173,7 +182,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     logger.warn(recipientBtUser,
       'stream warning message:', data.warning);
   } else if (data.event) {
-    logger.info(recipientBtUser, 'event', data.event);
+    logger.info('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
@@ -181,50 +190,50 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     }
 
     handleUnblock(data);
-  } else if (data.text && !data.retweeted_status) {
+  } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
     // as a mention of @foo for the purposes of blocking. That retweet would
     // show up in the streaming API with text: "@foo hi", as if user B had
     // tweeted it. The way we would tell it was actually a retweet is because
     // it also has the retweeted_status field set.
-    checkReplyAndBlock(recipientBtUser, data);
+    checkReplyAndBlock(recipientBtUser, data.user);
   }
 }
 
 /**
- * Given a status object from either the streaming API or the REST API,
- * check whether that status should trigger a block, i.e. whether they are less
- * than 7 days old or have fewer than 15 followers. If so, enqueue a block.
- *
- * TODO: Have a separate mode for stream startup that doesn't enqueue each block
- * separately, but accumulates them and enqueues in bulk.
+ * Given a user object from either the streaming API or the REST API,
+ * check whether a mention from that user should trigger a block,
+ * i.e. whether they are less than 7 days old or have fewer than 15
+ * followers, and the receiving user has enabled the appropriate option.
+ * If so, enqueue a block.
  *
  * @param {BtUser} recipientBtUser User who might be doing the blocking.
- * @param {Object} status A JSON Tweet object as specified by the Twitter API
- *   https://dev.twitter.com/docs/platform-objects/tweets
+ * @param {Object} mentioningUser A JSON User object as specified by the
+ *   Twitter API: https://dev.twitter.com/overview/api/users
  */
 var MIN_AGE = 7;
 var MIN_FOLLOWERS = 15;
-function checkReplyAndBlock(recipientBtUser, status) {
+function checkReplyAndBlock(recipientBtUser, mentioningUser) {
   // If present, data.user is the user who sent the at-reply.
-  if (status.user && status.user.created_at &&
-      status.user.id_str !== recipientBtUser.uid) {
-    var ageInDays = (new Date() - Date.parse(status.user.created_at)) / 86400 / 1000;
+  if (mentioningUser && mentioningUser.created_at &&
+      mentioningUser.id_str !== recipientBtUser.uid) {
+    var ageInDays = (new Date() - Date.parse(mentioningUser.created_at)) /
+      86400 / 1000;
     logger.info('User', recipientBtUser, 'got at reply from',
-      status.user.screen_name, status.user.id_str, '(age', ageInDays, '/ followers',
-      status.user.followers_count, ')');
-    if (ageInDays < MIN_AGE || status.user.followers_count < MIN_FOLLOWERS) {
+      mentioningUser.screen_name, mentioningUser.id_str, '(age', ageInDays,
+      '/ followers', mentioningUser.followers_count, ')');
+    if (ageInDays < MIN_AGE || mentioningUser.followers_count < MIN_FOLLOWERS) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
       recipientBtUser.reload().success(function(user) {
         if (ageInDays < MIN_AGE && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
-            status.user.screen_name, status.user.id_str);
-          enqueueBlock(recipientBtUser, status.user.id_str, Action.NEW_ACCOUNT);
-        } else if (status.user.followers_count < MIN_FOLLOWERS && recipientBtUser.block_low_followers) {
+            mentioningUser.screen_name, mentioningUser.id_str);
+          enqueueBlock(recipientBtUser, mentioningUser.id_str, Action.NEW_ACCOUNT);
+        } else if (mentioningUser.followers_count < MIN_FOLLOWERS && recipientBtUser.block_low_followers) {
           logger.info('Queuing block', recipientBtUser, '-->',
-            status.user.screen_name, status.user.id_str);
-          enqueueBlock(recipientBtUser, status.user.id_str, Action.LOW_FOLLOWERS);
+            mentioningUser.screen_name, mentioningUser.id_str);
+          enqueueBlock(recipientBtUser, mentioningUser.id_str, Action.LOW_FOLLOWERS);
         }
       });
     }
