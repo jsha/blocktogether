@@ -1,5 +1,6 @@
 (function() {
 var fs = require('fs'),
+    path = require('path'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
@@ -14,7 +15,9 @@ var fs = require('fs'),
  *    "cookieSecret": "...",
  *  }
  */
-var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
+var configDir = '/etc/blocktogether/';
+var nodeEnv = process.env['NODE_ENV'] || 'development';
+var configData = fs.readFileSync(configDir + 'config.json', 'utf8');
 var config = JSON.parse(configData);
 
 var twitter = new twitterAPI({
@@ -22,13 +25,13 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 
-var logger = log4js.getLogger({
-  appenders: [
-    { type: 'console' }
-  ],
-  replaceConsole: true
+log4js.configure(configDir + nodeEnv + '/log4js.json', {
+  cwd: '/tmp'
 });
-logger.setLevel('TRACE');
+// The logging category is based on the name of the running script, e.g.
+// blocktogether, action, stream, etc.
+var scriptName = path.basename(require.main.filename).replace(".js", "");
+var logger = log4js.getLogger(scriptName);
 
 // Once a second log how many pending HTTPS requests there are.
 function logPendingRequests() {
@@ -52,9 +55,8 @@ function logPendingRequests() {
 setInterval(logPendingRequests, 5000);
 
 var sequelizeConfigData = fs.readFileSync(
-  '/etc/blocktogether/sequelize.json', 'utf8');
-var env = process.env['NODE_ENV'] || 'development';
-var c = JSON.parse(sequelizeConfigData)[env];
+  configDir + 'sequelize.json', 'utf8');
+var c = JSON.parse(sequelizeConfigData)[nodeEnv];
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
       logging: function(message) {

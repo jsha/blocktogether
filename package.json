@@ -15,7 +15,7 @@
     "sequelize": "~1.7.9",
     "timeago": "~0.1.0",
     "node-twitter-api": "~1.4.0",
-    "log4js": "~0.6.16",
+    "log4js": "~0.6.21",
     "sequelize-cli": "~0.2.4",
     "mysql": "~2.4.2"
   }
