@@ -1,44 +1,9 @@
 {
   "appenders": [{
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "blocktogether",
-    "appender": {
-      "type": "file",
-      "filename": "blocktogether.log"
-    }
-  }, {
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "stream",
-    "appender": {
-      "type": "file",
-      "filename": "stream.log"
-    }
-  }, {
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "actions",
-    "appender": {
-      "type": "file",
-      "filename": "actions.log"
-    }
-  }, {
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "update-users",
-    "appender": {
-      "type": "file",
-      "filename": "update-users.log"
-    }
-  }, {
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "update-blocks",
-    "appender": {
-      "type": "file",
-      "filename": "update-blocks.log"
-    }
+    "type": "console"
   }],
-  "replaceConsole": true
+  "replaceConsole": true,
+  "levels": {
+    "[all]": "TRACE"
+  }
 }
