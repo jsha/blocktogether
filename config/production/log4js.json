@@ -5,7 +5,8 @@
     "category": "blocktogether",
     "appender": {
       "type": "file",
-      "filename": "blocktogether-info.log"
+      "filename": "blocktogether-info.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -13,7 +14,8 @@
     "category": "stream",
     "appender": {
       "type": "file",
-      "filename": "stream-info.log"
+      "filename": "stream-info.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -21,7 +23,8 @@
     "category": "actions",
     "appender": {
       "type": "file",
-      "filename": "actions-info.log"
+      "filename": "actions-info.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -29,7 +32,8 @@
     "category": "update-users",
     "appender": {
       "type": "file",
-      "filename": "update-users-info.log"
+      "filename": "update-users-info.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -37,7 +41,8 @@
     "category": "update-blocks",
     "appender": {
       "type": "file",
-      "filename": "update-blocks-info.log"
+      "filename": "update-blocks-info.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -45,7 +50,8 @@
     "category": "blocktogether",
     "appender": {
       "type": "file",
-      "filename": "blocktogether-warn.log"
+      "filename": "blocktogether-warn.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -53,7 +59,8 @@
     "category": "stream",
     "appender": {
       "type": "file",
-      "filename": "stream-warn.log"
+      "filename": "stream-warn.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -61,7 +68,8 @@
     "category": "actions",
     "appender": {
       "type": "file",
-      "filename": "actions-warn.log"
+      "filename": "actions-warn.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -69,7 +77,8 @@
     "category": "update-users",
     "appender": {
       "type": "file",
-      "filename": "update-users-warn.log"
+      "filename": "update-users-warn.log",
+      "layout": { "type": "colored" }
     }
   }, {
     "type": "logLevelFilter",
@@ -77,7 +86,8 @@
     "category": "update-blocks",
     "appender": {
       "type": "file",
-      "filename": "update-blocks-warn.log"
+      "filename": "update-blocks-warn.log",
+      "layout": { "type": "colored" }
     }
   }],
   "replaceConsole": true
