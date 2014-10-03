@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 
 var twitterAPI = require('node-twitter-api'),

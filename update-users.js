@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 var setup = require('./setup'),
     _ = require('sequelize').Utils._;

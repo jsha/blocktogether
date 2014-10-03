@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.

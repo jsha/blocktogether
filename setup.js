@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
