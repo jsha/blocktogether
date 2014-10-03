@@ -52,7 +52,6 @@ before "deploy:setup" do
           /etc/blocktogether
           /usr/local/blocktogether
           /usr/local/blocktogether/releases
-          /data/logs
           /data/mysql-backup
         }
   dirs.each do |dir|
