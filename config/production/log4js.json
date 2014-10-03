@@ -1,9 +1,84 @@
 {
   "appenders": [{
-    "type": "console"
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "blocktogether",
+    "appender": {
+      "type": "file",
+      "filename": "blocktogether-info.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "stream",
+    "appender": {
+      "type": "file",
+      "filename": "stream-info.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "actions",
+    "appender": {
+      "type": "file",
+      "filename": "actions-info.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "update-users",
+    "appender": {
+      "type": "file",
+      "filename": "update-users-info.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "update-blocks",
+    "appender": {
+      "type": "file",
+      "filename": "update-blocks-info.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "blocktogether",
+    "appender": {
+      "type": "file",
+      "filename": "blocktogether-warn.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "stream",
+    "appender": {
+      "type": "file",
+      "filename": "stream-warn.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "actions",
+    "appender": {
+      "type": "file",
+      "filename": "actions-warn.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "update-users",
+    "appender": {
+      "type": "file",
+      "filename": "update-users-warn.log"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "update-blocks",
+    "appender": {
+      "type": "file",
+      "filename": "update-blocks-warn.log"
+    }
   }],
-  "replaceConsole": true,
-  "levels": {
-    "[all]": "TRACE"
-  }
+  "replaceConsole": true
 }
