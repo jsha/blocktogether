@@ -68,38 +68,6 @@ sequelize
     logger.error('Unable to connect to the database:', err);
   });
 
-function getType(fieldDefinition) {
-  if (typeof fieldDefinition === 'object') {
-    return getType(fieldDefinition.type);
-  } else if (fieldDefinition === Sequelize.STRING) {
-    return 'string';
-  } else if (fieldDefinition === Sequelize.INTEGER) {
-    return 'number';
-  } else if (fieldDefinition === Sequelize.DATE) {
-    return 'Date';
-  } else if (fieldDefinition === Sequelize.DATETIME) {
-    return 'Date';
-  } else if (fieldDefinition === Sequelize.BOOLEAN) {
-    return 'boolean';
-  } else {
-    return 'I DUNNO ' + fieldDefinition;
-  }
-}
-sequelize.define = function(modelName, fields) {
-  process.stdout.write('/** @interface @extends {DAOFactory} */\n');
-  process.stdout.write('function ' + modelName + '() {};\n');
-  Object.keys(fields).forEach(function (fieldName) {
-    process.stdout.write('/** type{' + getType(fields[fieldName]) + '} */ '
-      + modelName + '.prototype.' + fieldName + ';\n');
-  });
-  return {
-    find: function(){},
-    build: function(){},
-    belongsTo: function(){},
-    hasOne: function(){},
-    hasMany: function(){}
-  }
-}
 // Use snake_case for model accessors because that's SQL style.
 var TwitterUser = sequelize.define('TwitterUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
