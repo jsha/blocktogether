@@ -27,7 +27,7 @@ var twitter = setup.twitter,
  *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {Array.<string>} list A list of uids to target with the actions.
- * @param {type} type The type of action, e.g block/unblock.
+ * @param {string} type The type of action, e.g block/unblock.
  * @param {string} cause The cause to be recorded on the Actions.
  * @param {string} cause_uid Uid of the user who caused the actions, e.g.
  *    the author of a shared block list if cause is 'bulk-manual-block.'
@@ -254,7 +254,7 @@ function processBlocksForUser(btUser, actions) {
  * follow or block relationship. Then update the Actions provided.
  *
  * @param {BtUser} sourceBtUser The user doing the blocking.
- * @param {Array.<integer>} sinkUids A list of uids to potentially block.
+ * @param {Array.<string>} sinkUids A list of uids to potentially block.
  * @param {Array.<Action>} actions The Actions to be updated based on the results.
  */
 function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
@@ -363,8 +363,11 @@ function nothing() {
 }
 
 /**
- * Set an actions status to newState, save it, and call the `next' callback
+ * Set an action's status to newState, save it, and call the `next' callback
  * regardless of success or error.
+ * @param {Action} action Action to modify.
+ * @param {string} newState The new state to assign to it.
+ * @param {Function=} next A callback to call when done.
  */
 function setActionStatus(action, newState, next) {
   next = next || nothing;

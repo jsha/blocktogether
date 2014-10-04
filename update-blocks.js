@@ -2,7 +2,7 @@
 (function() {
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
-    timeago = require('timeago'),
+    /** @type{Function|null} */ timeago = require('timeago'),
     setup = require('./setup'),
     updateUsers = require('./update-users');
 
@@ -93,10 +93,18 @@ function fetchAndStoreBlocks(blockBatch, accessToken, accessTokenSecret, cursor)
     handleIds.bind(null, blockBatch, currentCursor, getMore));
 }
 
+/**
+ * Given results from Twitter, store as appropriate.
+ * @param {BlockBatch} blockBatch BlockBatch to add blocks to
+ * @param {string} currentCursor
+ * @param {Function} getMore
+ * @param {TwitterError} err
+ * @param {Object} results
+ */
 function handleIds(blockBatch, currentCursor, getMore, err, results) {
   if (err) {
     if (err.statusCode === 429) {
-      logger.warn('Rate limited. Trying again in 15 minutes.');
+      logger.info('Rate limited. Trying again in 15 minutes.');
       setTimeout(function() {
         getMore(currentCursor);
       }, 15 * 60 * 1000);

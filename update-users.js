@@ -1,7 +1,8 @@
 'use strict';
 (function() {
-var setup = require('./setup'),
-    _ = require('sequelize').Utils._;
+/** @type{SetupModule} */
+var setup = require('./setup');
+var _ = require('sequelize').Utils._;
 
 var config = setup.config,
     twitter = setup.twitter,
