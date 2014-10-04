@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 /**
  * Script to block a list of screen names using credentials for a given user id

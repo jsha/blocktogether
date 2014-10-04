@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
@@ -412,6 +413,11 @@ app.get('/my-unblocks',
 
 app.get('/my-blocks',
   function(req, res, next) {
+    // HACK: Each time a user reloads their own blocks page, fetch an updated
+    // copy of their blocks. This won't show up on the first render, since we
+    // don't want to wait for results if it's a multi-page response, but it
+    // means subsequent reloads will get the correct results.
+    updateBlocks.updateBlocks(req.user);
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
@@ -435,21 +441,24 @@ app.get('/show-blocks/:slug',
 /**
  * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
  */
-app.post('/do-blocks.json',
+app.post('/do-actions.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
-    if (req.body.list && req.body.list.length &&
+    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
+    if (req.body.list &&
+        req.body.list.length &&
         req.body.list.length < 5000 &&
         req.body.cause_uid &&
-        req.body.cause_uid.match(/[0-9]{1,20}/)) {
-      actions.queueBlocks(
-        req.user.uid, req.body.list, Action.BULK_MANUAL_BLOCK,
-          req.body.cause_uid);
+        req.body.cause_uid.match(/[0-9]{1,20}/) &&
+        validTypes[req.body.type]) {
+      actions.queueActions(
+        req.user.uid, req.body.list, req.body.type,
+        Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
       res.end('{}');
     } else {
       res.status(400);
       res.end(JSON.stringify({
-        error: 'Need to supply a list of ids and a source user id.'
+        error: 'Invalid parameters.'
       }));
     }
   });
@@ -463,7 +472,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
   // For pagination
   // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
   var currentPage = parseInt(req.query.page, 10) || 1,
-      perPage = 500;
+      perPage = 5000;
   if (currentPage < 1) {
     currentPage = 1;
   }

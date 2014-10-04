@@ -5,10 +5,7 @@
   "secureProxy": true,
   "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
   "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
-  "cookieSecret": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
-  "dbUser": "blocktogether",
-  "dbPass": "AAAAAAAAAAA",
-  "dbHost": "localhost",
+  "cookieSecret": "__COOKIE_SECRET__",
   "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
   "userToFollow": "blocktogether"

@@ -7,4 +7,6 @@ install:
   - "unzip -n compiler-latest.zip"
 script:
   # TODO: Enable checkTypes after adding more types to externs.js
-  - "java -jar compiler.jar --warning_level=VERBOSE *.js --jscomp_off=checkTypes --externs=externs/externs.js  > /dev/null"
+  - "java -jar compiler.jar --warning_level=VERBOSE *.js --jscomp_off=checkTypes
+    --externs=externs/externs.js --externs=externs/core.js --externs=externs/process.js
+    --externs=externs/underscore-1.5.1.js  > /dev/null"

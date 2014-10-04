@@ -1,3 +1,4 @@
+'use strict';
 (function() {
 var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
@@ -12,9 +13,6 @@ var fs = require('fs'),
  *    "consumerKey": "...",
  *    "consumerSecret": "...",
  *    "cookieSecret": "...",
- *    "dbUser": "...",
- *    "dbPass": "...",
- *    "dbHost": "..."
  *  }
  */
 var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
@@ -54,23 +52,54 @@ function logPendingRequests() {
 }
 setInterval(logPendingRequests, 5000);
 
+var sequelizeConfigData = fs.readFileSync(
+  '/etc/blocktogether/sequelize.json', 'utf8');
+var env = process.env['NODE_ENV'] || 'development';
+var c = JSON.parse(sequelizeConfigData)[env];
 var Sequelize = require('sequelize'),
-    sequelize = new Sequelize('blocktogether', config.dbUser, config.dbPass, {
+    sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
       logging: function(message) {
         logger.trace(message);
-      },
-      dialect: 'mysql',
-      dialectOptions: {
-        charset: 'utf8mb4'
-      },
-      host: config.dbHost
-    });
+      }
+    }));
 sequelize
   .authenticate()
   .error(function(err) {
     logger.error('Unable to connect to the database:', err);
   });
 
+function getType(fieldDefinition) {
+  if (typeof fieldDefinition === 'object') {
+    return getType(fieldDefinition.type);
+  } else if (fieldDefinition === Sequelize.STRING) {
+    return 'string';
+  } else if (fieldDefinition === Sequelize.INTEGER) {
+    return 'number';
+  } else if (fieldDefinition === Sequelize.DATE) {
+    return 'Date';
+  } else if (fieldDefinition === Sequelize.DATETIME) {
+    return 'Date';
+  } else if (fieldDefinition === Sequelize.BOOLEAN) {
+    return 'boolean';
+  } else {
+    return 'I DUNNO ' + fieldDefinition;
+  }
+}
+sequelize.define = function(modelName, fields) {
+  process.stdout.write('/** @interface @extends {DAOFactory} */\n');
+  process.stdout.write('function ' + modelName + '() {};\n');
+  Object.keys(fields).forEach(function (fieldName) {
+    process.stdout.write('/** type{' + getType(fields[fieldName]) + '} */ '
+      + modelName + '.prototype.' + fieldName + ';\n');
+  });
+  return {
+    find: function(){},
+    build: function(){},
+    belongsTo: function(){},
+    hasOne: function(){},
+    hasMany: function(){}
+  }
+}
 // Use snake_case for model accessors because that's SQL style.
 var TwitterUser = sequelize.define('TwitterUser', {
   uid: { type: Sequelize.STRING, primaryKey: true },
@@ -78,7 +107,8 @@ var TwitterUser = sequelize.define('TwitterUser', {
   followers_count: Sequelize.INTEGER,
   profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
-  name: Sequelize.STRING
+  name: Sequelize.STRING,
+  deactivatedAt: Sequelize.DATE
 });
 
 /**
@@ -162,7 +192,7 @@ var BtUser = sequelize.define('BtUser', {
     }
   }
 });
-BtUser.hasOne(TwitterUser);
+BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
 
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,

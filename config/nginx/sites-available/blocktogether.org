@@ -1,0 +1,29 @@
+server {
+        listen 443;
+        server_name blocktogether.org;
+
+        ssl on;
+        ssl_certificate /etc/nginx/certs/2014/blocktogether.org.crt;
+        ssl_certificate_key /etc/nginx/certs/2014/blocktogether.org.key;
+
+        add_header Strict-Transport-Security "max-age=31536000; includeSubdomains";
+        location / {
+                proxy_pass http://localhost:2078/;
+        }
+        location /static/ {
+            alias /usr/local/blocktogether/current/static/;
+        }
+        location /docs/ {
+            alias /usr/local/blocktogether/current/docs/;
+        }
+}
+
+server {
+        listen 80 default_server;
+        listen   [::]:80 default_server ipv6only=on;
+        server_name blocktogether.org;
+
+        location / {
+            return 301 https://blocktogether.org$request_uri;
+        }
+}

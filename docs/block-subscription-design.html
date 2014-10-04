@@ -1,0 +1,200 @@
+<link rel='stylesheet' href='doc-style.css' />
+<h1>Block Subscription Design Doc</h1>
+<h2>Status: Not yet implemented.</h2>
+<h4>Please send feedback to <a href="mailto:blocktogether@lists.riseup.net"
+  >blocktogether@lists.riseup.net</a> or tweet at
+  <a href="https://twitter.com/intent/tweet?text=@j4cob">@j4cob</a>.</h4>
+
+<p>Currently (2014-09-30), Block Together allows you to share block lists,
+and block all users on a block list, but it <b>doesn't yet</b> allow you to
+subscribe to block lists on an ongoing basis. Here is the planned functionality
+for Block Subscriptions, to be implemented:</p>
+
+<p>An author can share a list of accounts they think others should block. This list
+must be a subset of accounts the author blocks.</p>
+
+<p>An author can add and remove accounts from their list.</p>
+
+<p>By default, when an author blocks accounts on Twitter, those accounts are added
+to the author's shared block list.</p>
+
+<p>When an author unblocks accounts on Twitter, those accounts are removed from the
+author's shared block list.</p>
+
+<p>An author can manually remove an account from their shared block list even though
+they still block that account.</p>
+
+<p>When creating a shared block list, an author can start with all their existing
+blocks or start with an empty list. The latter will be gently encouraged to avoid
+accidental inclusion of 'tedious and highly retweeted' accounts that are not
+involved in harassment or abuse.</p>
+
+<p>A subscriber can subscribe to shared block lists, up to a limit of 10
+subscriptions. An author can have any number of subscribers.</p>
+
+<p>When an author adds an account to their shared block list, that author's
+subscribers auto-block that account.</p>
+
+<p>Subscribers will not auto-block accounts they currently follow.</p>
+
+<p>Subscribers <b>will</b> auto-block accounts that currently follow
+them.</p>
+
+<p>When an author removes an account from their shared block list, each of that
+author's subscribers auto-unblocks the account, if:<ul>
+ <li>the subscriber has never manually blocked the account, AND
+ <li>the account is not on any other shared block lists subscribed to by the
+   subscriber.</ul></p>
+
+<p>If an author subscribes to other authors' block lists or uses one of the 'block
+new accounts' features, account they auto-block through these mechanisms do not
+get added to their shared block list.</p>
+
+<p>If a account on a shared block list is suspended, deactivated, or deleted, that
+account's user id remains on that shared block list indefinitely. If the
+account is unsuspended or reactivated, anyone who newly subscribed to the
+shared block list while that account was suspended or deactivated will block
+them as soon as Block Together notices the reactivation.</p>
+
+<p>A subscriber can view a list of authors whose shared block lists they subscribe to.</p>
+
+<p>A subscriber can unsubscribe from an authors' block list. When they do this,
+any accounts that the subscriber blocked solely because of that block list
+will be unblocked.</p>
+
+<p>An author can view a list of subscribers to their block list.</p>
+
+<p>An author can remove individual subscribers to their block list. When they do
+this, the subscribers do not auto-unblock the accounts that they blocked
+via the author's block list.</p>
+
+<p>An author can disable the sharing URL for their block list. When they do this,
+they retain their subscribers, but are asked whether they would like to remove
+those subscribers.</p>
+
+<p>If the author of a shared block list is suspended, deactivated, or deleted,
+their shared block list and list of subscribers are stored for 30 days, after
+which they are deleted, unless the author has been unsuspended or reactivated
+in the meantime.</p>
+
+<p>If a subscriber is suspended, deactivated, or deleted, no auto-blocks are
+attempted on their account until they are unsuspended or reactivated. When the
+subscriber is unsuspended or reactivated, Block Together will retroactively
+apply any auto-blocks that would have been applied.</p>
+
+<h1>Technical Design</h1>
+
+<p>Technical goals: Newly added blocks should be applied to subscriber accounts
+relatively quickly. Downtime of the Block Together service should not cause
+missed blocks - i.e. if shared block list authors block new accounts during down
+time, those blocks should be distributed to subscribers when Block Together
+comes back online.</p>
+
+<p>It should be possible to construct at any time the exact set of accounts that
+a subscriber should be auto-blocking based on their subscriptions, and apply
+blocks or unblocks as necessary to make the subscriber's actual blocks on
+Twitter match that list. There is a small amount of path-dependence here
+because of the UX requirement that an author can force-unsubscribe a subscriber,
+but the force-unsubscription does not trigger any unblocks on the subscriber's
+account. Also we need to make sure not to unblock accounts that a subscriber has
+manually blocked.</p>
+
+<p>There will be a new Subscriptions table to record subscription
+information.  It will have columns author_uid and subscriber_uid. We
+would also like to record historical subscription data to make it easier
+to debug any issues. In the user-facing code to add a subscription, we will
+have to verify that the subscription request includes an authorization of some
+sort. Initially this authorization will be the contents of the author's
+shared_blocks_key. In future authorization may be provided by the
+author setting their block list to public, or by a specific list of authorized
+subscribers that the author provides.</p>
+
+<p>To construct the should-be-blocked set for a subscriber, start with the union
+of all the block lists they subscribe to. Subtract any accounts that the
+subscriber currently blocks for any reason. Subtract any accounts that the
+subscriber has ever manually unblocked (auto-unblocks do not count). Any
+accounts remaining should be enqueued in the Actions list to be blocked,
+with cause = 'subscription' and cause_uid = any author whose block list the
+account is on.</p>
+
+<p>If we naively enqueue a block action for each such account, some
+of those blocks will be cancelled in the Actions system because the subscriber
+is following the account to be blocked. This is fine, but it would result in a
+loop of continually enqueueing fresh Actions, only to have them be cancelled
+repeatedly. To avoid this, before enqueueing blocks, we should also subtract
+accounts for which the subscriber has a previous cancelled Block
+Action. More generally, we should subtract accounts for which the subscriber has
+any past Block Action, unless that Action has status = 'done' and cause =
+'subscription.' Ignoring Actions caused by subscriptions doesn't cause loops
+because the subscriber would still be blocking the target account, unless the
+subscriber had subsequently auto-unblocked it, in which case the account is fair
+game to be auto-blocked again if the account is re-added to one of the
+subscribed lists.</p>
+
+<p>To construct the should-be-unblocked set for a subscriber, we want to
+start with the set of all accounts the subscriber is currently blocking
+due to their current subscriptions, and subtract the union of the block
+lists they currently subscribe to. Since we only consider accounts the
+subscriber blocks due to current subscriptions, this approach doesn't
+auto-unblock accounts when a subscriber is force-unsubscribed from an author's list. To
+get the set of all accounts the subscriber is currently blocking due to
+their current subscriptions, we look at the Actions table for accounts
+where the subscriber has a Block or Unblock Action with status = 'done'.
+We group those actions by sink_uid and choose the most recent one. Of those, we
+select the ones where type = 'block', cause = 'subscription', and
+cause_uid = any author the subscriber currently subscribes to.</p>
+
+<p>We are assuming that the Actions table records externally-observed
+blocks and unblocks, which it doesn't yet. We could record these from
+the Streaming API and/or by looking at the differences each time we
+fetch someone's blocks from the REST API. Most likely we want both,
+but the REST version should have priority since it is the best way to
+be resilient to short downtimes. With the Streaming API, any blocks and
+unblocks that happen while stream.js is not running get dropped on the
+floor. With the REST API the only time we would fail to notice a block
+or an unblock is if the action was executed and then reversed before
+the next time we fetch updated blocks. The disadvantage of the REST API
+is that we may not fetch updated blocks for up to 24 hours, and so the
+timestamps on the actions may be misleading. In either case we need to be
+aware that when Block Together takes an action, that action will also be
+echoed back to us through the API. We should take care to collapse that
+external action with any recently updated Actions marked as 'done'. There
+may also be race conditions. It's possible that after executing a Block
+Action, actions.js attempts to write the updated status for that Action
+in the database, but that attempt gets put on an unusually long event
+queue and is not executed for a few seconds. Meanwhile the event is
+echoed back from the Streaming API and, finding only a pending action,
+gets added to the Actions table. So both 'pending' and 'done' should
+be collapsed with external actions. External actions will have cause =
+'external', and cause_uid = none.</p>
+
+<p>When determining block / unblock events via the REST API, we have to be aware
+of suspensions and deactivations. If an author is blocking an account, and that
+account is not listed next time we request blocks from the REST API, it could be
+because the author unblocked the account, or because the account is now
+suspended or deactivated. When calculating block diffs, we should make sure to
+call /users/lookup for accounts that appear to have been added or removed. If
+the lookup returns 404, we know the account was suspended or deactivated and shouldn't
+be added as an Action. Similarly, an account may suddenly show up as blocked
+when we request blocks, but that may only mean that the account was blocked and
+deactivated, but recently reactivated. We have limited ability to detect this
+situation, since accounts that an author blocked before signing up for Block
+Together can later reactivate, looking like a recent block, but these are
+probably fine.</p>
+
+<p>Over time authors will block increasingly large chunks of accounts that are suspended or
+deactivated. If we retain a record of these "ghost blocks" and incorporate them
+into BlockBatches, we would need to call /users/lookup on every block update, even
+if there was no change in the user's blocks. Instead, we should always treat a
+BlockBatch as a simple representation of the latest results from the Twitter
+REST API. That way, when a blocked account disappears from the next fetched
+BlockBatch, we do the /users/lookup once to disambiguate suspension /
+deactivation vs unblock, and we're done. The next fetched BlockBatch will also
+not contain that user, so there will be no diff to check. After checking a diff,
+we will insert a record of that diff in the Actions table and potentially in a
+shared block list table. It's possible for Block Together to be restarted
+between when we finish fetching a fresh BlockBatch and when we finish checking
+any diffs. We should use the `complete' flag on BlockBatches to control for
+this. A BlockBatch is not considered complete until all diffs have been checked
+and stored as necessary. Storing the diffs an the `complete' flag should be done
+in an SQL transaction to avoid inconsistency.</p>
