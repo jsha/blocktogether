@@ -37,6 +37,6 @@ if ! crontab -l >/dev/null; then
   crontab - <<EOCRON
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     MAILTO=ubuntu
-    23 10 * * * bash /usr/local/blocktogether/current/util/backup-db.sh
+    23 10 * * * bash /usr/local/blocktogether/current/util/cron.sh
 EOCRON
 fi
