@@ -3,8 +3,8 @@
 
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
-    _ = require('sequelize').Utils._,
     https = require('https'),
+    _ = require('sequelize').Utils._,
     actions = require('./actions'),
     updateUsers = require('./update-users'),
     updateBlocks = require('./update-blocks'),

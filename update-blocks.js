@@ -3,6 +3,7 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     /** @type{Function|null} */ timeago = require('timeago'),
+    _ = require('sequelize').Utils._,
     setup = require('./setup'),
     updateUsers = require('./update-users');
 
@@ -25,6 +26,9 @@ function findAndUpdateBlocks() {
     }).error(function(err) {
       logger.error(err);
     }).success(function(user) {
+      if (!user) {
+        return;
+      }
       // We structure this as a nested fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
@@ -79,13 +83,23 @@ function updateBlocks(user, prevBlockBatchId) {
   });
 }
 
+/**
+ * For a given BtUser, fetch all current blocks and store in DB.
+ *
+ * @param {BtUser} user The user whose blocks we want to fetch.
+ * @param {BlockBatch|null} blockBatch The current block batch in which we will
+ *   store the blocks. Null for the first fetch, set if cursoring is needed.
+ * @param {number} prevBlockBatchId The previous block batch for comparison.
+ * @param {string|null} cursor When cursoring, the current cursor for the
+ *   Twitter API.
+ */
 function fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId, cursor) {
   logger.info('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
   // updated cursor.
   var getMore = fetchAndStoreBlocks.bind(null,
     user, blockBatch, prevBlockBatchId);
-  var currentCursor = cursor || -1;
+  var currentCursor = cursor || '-1';
   twitter.blocks('ids', {
       // Stringify ids is very important, or we'll get back numeric ids that
       // will get subtly mangled by JS.
@@ -93,18 +107,20 @@ function fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId, cursor) {
       cursor: currentCursor
     },
     user.access_token, user.access_token_secret,
-    handleIds.bind(null, blockBatch, currentCursor, getMore));
+    handleIds.bind(null, blockBatch, prevBlockBatchId, currentCursor, getMore));
 }
 
 /**
  * Given results from Twitter, store as appropriate.
- * @param {BlockBatch} blockBatch BlockBatch to add blocks to
+ * @param {BlockBatch|null} blockBatch BlockBatch to add blocks to. Null for the
+ *   first batch, set if cursoring is needed.
+ * @param {number} prevBlockBatchId
  * @param {string} currentCursor
  * @param {Function} getMore
  * @param {TwitterError} err
  * @param {Object} results
  */
-function handleIds(blockBatch, currentCursor, getMore, err, results) {
+function handleIds(blockBatch, prevBlockBatchId, currentCursor, getMore, err, results) {
   if (err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited. Trying again in 15 minutes.');
@@ -150,16 +166,82 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
 
   // Check whether we're done or next to grab the items at the next cursor.
   if (results.next_cursor_str === '0') {
-    logger.info('Finished fetching blocks for user', blockBatch.source_uid);
-    // Mark the BlockBatch as complete and save that bit.
-    blockBatch.complete = true;
-    blockBatch.save().error(function(err) {
-      logger.error(err);
-    });
+    complete(blockBatch);
   } else {
     logger.debug('Cursoring ', results.next_cursor_str);
     getMore(results.next_cursor_str);
   }
+}
+
+/**
+ * Mark a BlockBatch as complete, and delete previous BlockBatches as necessary.
+ * @param {BlockBatch} blockBatch The batch to mark as complete.
+ */
+function complete(blockBatch) {
+  logger.info('Finished fetching blocks for user', blockBatch.source_uid);
+  // Mark the BlockBatch as complete and save that bit.
+  blockBatch.complete = true;
+  blockBatch.save().error(function(err) {
+    logger.error(err);
+  }).success(function(blockBatch) {
+    diffBatchWithPrevious(blockBatch);
+    deleteOldBatches(blockBatch.source_uid);
+  });
+}
+
+/**
+ * Delete all but the most recent four batches for the given uid.
+ * TODO: This should differentiate complete batches from incomplete batches,
+ * and ensure at least one previous complete batch is retained.
+ * @param {string} uid The user id whose batches to delete.
+ */
+function deleteOldBatches(uid) {
+  BlockBatch.findAll({
+    source_uid: uid,
+    order: 'id DESC'
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(oldBatches) {
+    if (oldBatches && oldBatches.length > 4) {
+      oldBatches.slice(4).forEach(function(batch) {
+        batch.destroy().error(function(err) {
+          logger.error(err);
+        });
+      });
+    }
+  });
+}
+
+/**
+ * Compare a BlockBatch with the immediately previous completed BlockBatch
+ * for the same uid. Generate Actions with cause = external from the result.
+ * @param {BlockBatch} currentBatch The batch to compare to its previous batch.
+ */
+function diffBatchWithPrevious(currentBatch) {
+  BlockBatch.findAll({
+    where: {
+      id: { lte: currentBatch.id },
+    },
+    order: 'id DESC',
+    limit: 2,
+    include: Block
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(batches) {
+    if (batches && batches.length === 2) {
+      var currentBlocks = batches[0].blocks;
+      var oldBlocks = batches[1].blocks;
+      logger.info('Current batch size', currentBlocks.length,
+        'old', oldBlocks.length);
+      var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
+      var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
+      var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
+      var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
+      logger.info('Added:', addedBlockIds, 'Removed:', removedBlockIds);
+    } else {
+      logger.info('Insufficient block batches to diff.');
+    }
+  });
 }
 
 module.exports = {
