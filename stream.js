@@ -14,7 +14,6 @@ var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
     Action = setup.Action,
-    UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
 
 // An associative array of streams currently running. Indexed by uid.
@@ -247,26 +246,16 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleUnblock(data) {
-  if (data.event === 'unblock') {
-    UnblockedUser.find({
-      where: {
-        source_uid: data.source.id_str,
-        sink_uid: data.target.id_str
-      }
-    }).error(function(err) {
-      logger.error(err);
-    }).success(function(unblockedUser) {
-      if (!unblockedUser) {
-        unblockedUser = UnblockedUser.build({
-          source_uid: data.source.id_str,
-          sink_uid: data.target.id_str
-        });
-      }
-      unblockedUser.save().error(function(err) {
-        logger.error(err);
-      });
-    });
-  }
+  Action.create({
+    source_uid: data.source.id_str,
+    sink_uid: data.target.id_str
+    type: Action.UNBLOCK,
+    cause: Action.EXTERNAL,
+    cause_uid: null,
+    'status': Action.DONE
+  }).error(function(err) {
+    logger.error(err);
+  })
 }
 
 /**

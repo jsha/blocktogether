@@ -40,7 +40,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
         sink_uid: sink_uid,
         type: type,
         cause: cause,
-        cause_uid: cause_uid
+        cause_uid: cause_uid,
+        'status': Action.PENDING
       }
     })).error(function(err) {
       logger.error(err);
@@ -234,30 +235,23 @@ function processMutesForUser(btUser, actions) {
   });
 }
 
+  // Now that we've got our list, send them to Twitter to see if the
+  // btUser follows them.
+  blockUnlessFollowing(btUser, sinkUids, actions);
+}
+
 /**
- * Given a BtUser and a subset of that user's pending blocks, process
- * as appropriate.
+ * Given a BtUser and a subset of that user's pending blocks, check the
+ * follow relationship between sourceBtUser and those each sinkUid,
+ * and block if there is not an existing follow or block relationship and there
+ * is no previous external block or unblock in the Actions table. Then update
+ * the Actions' status as appropriate.
  *
  * @param {BtUser} btUser The user whose Actions we should process.
  * @param {Array.<Action>} actions Actions to process.
  */
 function processBlocksForUser(btUser, actions) {
-  // Now that we've got our list, send them to Twitter to see if the
-  // btUser follows them.
   var sinkUids = _.pluck(actions, 'sink_uid');
-  blockUnlessFollowing(btUser, sinkUids, actions);
-}
-
-/**
- * Given fewer than 100 sinkUids, check the following relationship between
- * sourceBtUser and those each sinkUid, and block if there is not an existing
- * follow or block relationship. Then update the Actions provided.
- *
- * @param {BtUser} sourceBtUser The user doing the blocking.
- * @param {Array.<string>} sinkUids A list of uids to potentially block.
- * @param {Array.<Action>} actions The Actions to be updated based on the results.
- */
-function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
