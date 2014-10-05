@@ -220,7 +220,7 @@ function deleteOldBatches(uid) {
 function diffBatchWithPrevious(currentBatch) {
   BlockBatch.findAll({
     where: {
-      id: { lte: currentBatch.id },
+      id: { lte: currentBatch.id }
     },
     order: 'id DESC',
     limit: 2,
