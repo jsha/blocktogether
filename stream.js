@@ -275,7 +275,7 @@ function handleUnblock(data) {
     if (!prevAction) {
       Action.create(_.extend(actionContents, {
         cause: Action.EXTERNAL,
-        cause_uid: null,
+        cause_uid: null
       })).error(function(err) {
         logger.error(err);
       })
