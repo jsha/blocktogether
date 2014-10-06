@@ -189,7 +189,9 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       updateUsers.storeUser(data.target);
     }
 
-    handleUnblock(data);
+    if (data.event === 'unblock') {
+      handleUnblock(data);
+    }
   } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
     // as a mention of @foo for the purposes of blocking. That retweet would
@@ -241,14 +243,19 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 }
 
 /**
- * Given an unblock event from the streaming API,
- * record that unblock so we know not to re-block that user in the future.
+ * Given an unblock event from the streaming API, record that unblock so we
+ * know not to re-block that user in the future.
+ * XXX TODO: First check if this is attributable to a recent Block
+ * Together-initiated action. Should probably check for action with a recent
+ * updatedAt that's either 'pending' or 'done'. Perhaps better: introduce new
+ * DB state 'sending' that actions get put in prior to making the Twitter Block
+ * request.
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleUnblock(data) {
   Action.create({
     source_uid: data.source.id_str,
-    sink_uid: data.target.id_str
+    sink_uid: data.target.id_str,
     type: Action.UNBLOCK,
     cause: Action.EXTERNAL,
     cause_uid: null,

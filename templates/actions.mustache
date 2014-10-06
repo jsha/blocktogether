@@ -7,8 +7,9 @@
       <th>Action</th>
       <th>Target</th>
       <th>Status</th>
-      <th>Created</th>
       <th>Updated</th>
+      <th>Cause</th>
+      <th>Cause User</th>
     </tr>
   </thead>
   {{#actions}}
@@ -27,8 +28,11 @@
       {{/twitterUser.screen_name}}
       </td>
       <td>{{status}}</td>
-      <td title="{{createdAt}}">{{prettyCreated}}</td>
       <td title="{{updatedAt}}">{{prettyUpdated}}</td>
+      <td>{{cause}}</td>
+      {{! XXX TODO: Add association on cause_uid so causeUser is present. Also
+          specify an include clause to fetch it. }}
+      <td>{{causeUser}}</td>
     </tr>
   {{/actions}}
   </table>
