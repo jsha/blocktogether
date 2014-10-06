@@ -104,9 +104,9 @@ function processActionsForUserId(uid) {
       logger.error(err);
     }).success(function(btUser) {
       if (!btUser || btUser.deactivatedAt) {
-        // Defer all pending actions for deactivated or absent users.
+        // Cancel all pending actions for deactivated or absent users.
         logger.error('User missing or deactivated', uid);
-        deferSourceDeactivated(uid);
+        cancelSourceDeactivated(uid);
       } else {
         getActions(btUser, 'block', processBlocksForUser);
         getActions(btUser, 'unblock', processUnblocksForUser);
@@ -152,15 +152,16 @@ function getActions(btUser, type, callback) {
 
 /**
  * For a uid that has been determined to be deactivated, mark all of that
- * user's actions with status = DEFERRED_SOURCE_DEACTIVATED.
+ * user's pending actions with status = CANCELLED_SOURCE_DEACTIVATED.
  *
  * @param {string} uid User id for whom to modify actions.
  */
-function deferSourceDeactivated(uid) {
+function cancelSourceDeactivated(uid) {
   Action.update({
-    status: Action.DEFERRED_SOURCE_DEACTIVATED
+    status: Action.CANCELLED_SOURCE_DEACTIVATED
   }, { /* where */
-    source_uid: uid
+    source_uid: uid,
+    status: Action.PENDING
   }).error(function(err) {
     logger.error(err);
   })
