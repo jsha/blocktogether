@@ -295,7 +295,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
       source_uid: sourceBtUser.uid,
       sink_uid: sinkUids,
       status: Action.DONE,
-      cause: Action.EXTERNAL,
+      cause: [Action.EXTERNAL, Action.BULK_MANUAL_BLOCK],
       type: Action.UNBLOCK
     }
   }).error(function(err) {
