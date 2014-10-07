@@ -12,7 +12,6 @@ var twitterAPI = require('node-twitter-api'),
 var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
-    UnblockedUser = setup.UnblockedUser,
     Action = setup.Action;
 
 /**
@@ -97,11 +96,8 @@ function processActions() {
  * @param {string} uid The uid of the user to process.
  */
 function processActionsForUserId(uid) {
-  BtUser
-    .find({
-      where: { uid: uid },
-      include: [UnblockedUser]
-    }).error(function(err) {
+  BtUser.find(uid)
+    .error(function(err) {
       logger.error(err);
     }).success(function(btUser) {
       if (!btUser || btUser.deactivatedAt) {
@@ -264,8 +260,7 @@ function processBlocksForUser(btUser, actions) {
           btUser.screen_name, err.data);
       } else {
         var indexedFriendships = _.indexBy(friendships, 'id_str');
-        checkUnblocks(
-          btUser, indexedFriendships, actions);
+        checkUnblocks(btUser, indexedFriendships, actions);
       }
     });
 }

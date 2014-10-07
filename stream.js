@@ -237,43 +237,51 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 
 /**
  * Given an unblock event from the streaming API, record that unblock so we
- * know not to re-block that user in the future. When we unblock users through
- * the REST API, those unblock events also get echoed back to us through the
- * Streaming API, so we check the DB to avoid recording duplicates.
+ * know not to re-block that user in the future. NOTE: When we perform unblock
+ * actions on a user, they get echoed back to us through the Streaming API.
+ * Since the Action we performed in already in the DB, we don't want to insert a
+ * different record with cause = 'external'. So we check the DB to avoid
+ * recording duplicates.
  *
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleUnblock(data) {
-  // Most of the contents of the action to be created. Stored here because they
-  // are also useful to query for previous actions.
-  var actionContents = {
-    source_uid: data.source.id_str,
-    sink_uid: data.target.id_str,
-    type: Action.UNBLOCK,
-    'status': Action.DONE
-  }
+  // When we perform an unblock action, it gets echoed back from the Stream API
+  // very quickly - on the order of milliseconds. In order to make sure
+  // actions.js has had a chance to write the 'done' status to the DB, we wait a
+  // second before checking for duplicates.
+  setTimeout(function() {
+    // Most of the contents of the action to be created. Stored here because they
+    // are also useful to query for previous actions.
+    var actionContents = {
+      source_uid: data.source.id_str,
+      sink_uid: data.target.id_str,
+      type: Action.UNBLOCK,
+      'status': Action.DONE
+    }
 
-  Action.find({
-    where: _.extend(actionContents, {
-      updatedAt: {
-        // Look only at actions updated less than a minute ago.
-        gt: new Date(new Date() - 60000)
+    Action.find({
+      where: _.extend(actionContents, {
+        updatedAt: {
+          // Look only at actions updated less than a minute ago.
+          gt: new Date(new Date() - 60000)
+        }
+      })
+    }).error(function(err) {
+      logger.error(err)
+    }).success(function(prevAction) {
+      // No previous action found, so create one. Add the cause and cause_uid
+      // fields, which we didn't use for the query.
+      if (!prevAction) {
+        Action.create(_.extend(actionContents, {
+          cause: Action.EXTERNAL,
+          cause_uid: null
+        })).error(function(err) {
+          logger.error(err);
+        })
       }
     })
-  }).error(function(err) {
-    logger.error(err)
-  }).success(function(prevAction) {
-    // No previous action found, so create one. Add the cause and cause_uid
-    // fields, which we didn't use for the query.
-    if (!prevAction) {
-      Action.create(_.extend(actionContents, {
-        cause: Action.EXTERNAL,
-        cause_uid: null
-      })).error(function(err) {
-        logger.error(err);
-      })
-    }
-  })
+  }, 1000);
 }
 
 /**

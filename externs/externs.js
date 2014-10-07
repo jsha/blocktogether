@@ -121,11 +121,6 @@ function Action() {};
 /** type{string} */ Action.prototype.NEW_ACCOUNT;
 /** type{string} */ Action.prototype.LOW_FOLLOWERS;
 
-/** @interface @extends {DAOFactory} */
-function UnblockedUser() {};
-/** type{string} */ UnblockedUser.prototype.source_uid;
-/** type{string} */ UnblockedUser.prototype.sink_uid;
-
 /** An Express request object
  * @interface */
 function ExpressRequest() {};
