@@ -45,13 +45,21 @@ https.globalAgent.maxSockets = 40000;
  * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
-  logger.info('Active streams:', Object.keys(streams).length - 1);
+  var streamingIds = Object.keys(streams);
+  logger.info('Active streams:', streamingIds.length - 1);
+  // Detect stale streams that haven't been receiving updates for some reason.
+  streamingIds.forEach(function(id) {
+    if (streams[id].lastUpdated < new Date() - 60000) {
+      logger.error('Stale stream for uid', id,
+        'not updated since', streams[id].lastUpdated);
+    }
+  });
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
       where: sequelize.and(
         {
-          uid: { not: Object.keys(streams) },
+          uid: { not: streamingIds },
           deactivatedAt: null
         },
         // Check for any option that monitors stream for autoblock criteria
@@ -159,6 +167,13 @@ function endCallback(user) {
  */
 function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
+  // Keep track of last update time on streams so we can detect if any of them
+  // grow stale (stop receiving updates but never received an endCallback).
+  if (streams[recipientUid]) {
+    streams[recipientUid].lastUpdated = new Date();
+  } else {
+    logger.error('Got a dataCallback on an unknown stream for', recipientBtUser);
+  }
   if (!data) return;
   if (data.disconnect) {
     logger.warn(recipientBtUser, 'disconnect message:', data.disconnect);
