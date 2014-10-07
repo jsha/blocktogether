@@ -368,27 +368,56 @@ function updateSettings(user, settings, callback) {
 
 app.get('/actions',
   function(req, res) {
-    req.user
-      .getActions({
-        order: 'updatedAt DESC',
-        // Get the associated TwitterUser so we can display screen names.
-        include: [{
-          model: TwitterUser,
-          required: false
-        }]
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(actions) {
-        // Decorate the actions with human-friendly times
-        actions = actions.map(function(action) {
-          return _.extend(action, {
-            prettyCreated: timeago(new Date(action.createdAt)),
-            prettyUpdated: timeago(new Date(action.updatedAt))
-          });
+    // For pagination
+    // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
+    var currentPage = parseInt(req.query.page, 10) || 1,
+        perPage = 1000;
+    if (currentPage < 1) {
+      currentPage = 1;
+    }
+    // A reasonable number of actions per page
+    Action.findAndCountAll({
+      where: {
+        source_uid == req.user.uid
+      },
+      order: 'updatedAt DESC',
+      limit: perPage,
+      offset: perPage * (currentPage - 1),
+      // Get the associated TwitterUser so we can display screen names.
+      include: [{
+        model: TwitterUser,
+        required: false
+      }]
+    }).error(function(err) {
+      logger.error(err);
+    }).success(function(actions) {
+      // Decorate the actions with human-friendly times
+      actions = actions.map(function(action) {
+        return _.extend(action, {
+          prettyCreated: timeago(new Date(action.createdAt)),
+          prettyUpdated: timeago(new Date(action.updatedAt))
         });
-        var stream = mu.compileAndRender('actions.mustache', {
+      });
+      var actionsCount = actions.count,
+          actionsRows = actions.rows,
+          pageCount = Math.ceil(actionsCount / perPage);
+      var stream = mu.compileAndRender('actions.mustache', {
           logged_in_screen_name: req.user.screen_name,
           actions: actions
+          action_count: actionsCount,
+          paginate: pageCount > 1,
+          // Array of objects (1-indexed) for use in pagination template.
+          pages: _.range(1, pageCount + 1).map(function(pageNum) {
+            return {
+              page_num: pageNum,
+              active: pageNum === currentPage
+            };
+          }),
+          // Previous/next page indices for use in pagination template.
+          previous_page: currentPage - 1 || false,
+          next_page: currentPage === pageCount ? false : currentPage + 1,
+          // Base URL for appending pagination querystring.
+          path_name: url.parse(req.url).pathname
         });
         res.header('Content-Type', 'text/html');
         stream.pipe(res);
