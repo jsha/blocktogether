@@ -40,18 +40,21 @@ https.globalAgent.maxSockets = 40000;
  * times in succession and get the same users each time, because they are not
  * yet in the active set. That, in turn, means we try to connect to streaming
  * and fetch at-replies many times for the same user, and get rate limited.
- *
- * TODO: Also collect block and unblock events.
- * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
   var streamingIds = Object.keys(streams);
   logger.info('Active streams:', streamingIds.length - 1);
-  // Detect stale streams that haven't been receiving updates for some reason.
+  // In normal operation, each open stream should receive an empty data item
+  // '{}' every 30 seconds for keepalive. Sometimes a connection will die
+  // without Node noticing it, in which case we stop receiving these keepalives.
+  // This checks for such stale streams and explicitly kills them so they can be
+  // restarted.
   streamingIds.forEach(function(id) {
-    if (streams[id].lastUpdated < new Date() - 60000) {
+    var lastUpdated = streams[id].lastUpdated;
+    if (lastUpdated && (new Date() - lastUpdated) > 70000) {
       logger.error('Stale stream for uid', id,
-        'not updated since', streams[id].lastUpdated);
+        'not updated since', lastUpdated, 'aborting.');
+      streams[id].abort();
     }
   });
   // Find all users who don't already have a running stream.
@@ -128,8 +131,7 @@ function checkPastMentions(user) {
     user.access_token, user.access_token_secret,
     function(err, mentions) {
       if (err) {
-        logger.error('Error /statuses/mentions_timeline', err, err.statusCode,
-          'for', user);
+        logger.error('Error', err.statusCode, err.data, 'for', user);
       } else {
         logger.debug('Replaying', mentions.length, 'past mentions for', user);
         // It's common to have a large number of mentions from each user,
