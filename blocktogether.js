@@ -511,7 +511,10 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
             pageCount = Math.ceil(blocksCount / perPage);
         var blockedUsersList = blocksRows.map(function(block) {
           if (block.twitterUser) {
-            return block.twitterUser;
+            var user = block.twitterUser;
+            return _.extend(user, {
+              account_age: timeago(user.account_created_at)
+            });
           } else {
             return {uid: block.sink_uid};
           }

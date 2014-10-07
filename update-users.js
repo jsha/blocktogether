@@ -143,6 +143,10 @@ function storeUser(twitterUserResponse) {
       logger.error(err);
     }).success(function(user, created) {
       user = _.extend(user, twitterUserResponse);
+      // This field is special because it needs to be parsed as a date, and
+      // because the default name 'created_at' is too confusing alongside
+      // Sequelize's built-in createdAt.
+      user.account_created_at = new Date(twitterUserResponse.created_at);
       user.deactivatedAt = null;
       // In general we want to write the user to DB so updatedAt gets bumped,
       // so we know not to bother refreshing the user for a day. However, during

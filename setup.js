@@ -78,7 +78,13 @@ var TwitterUser = sequelize.define('TwitterUser', {
   profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
   name: Sequelize.STRING,
-  deactivatedAt: Sequelize.DATE
+  deactivatedAt: Sequelize.DATE,
+  lang: Sequelize.STRING,
+  statuses_count: Sequelize.INTEGER,
+  // NOTE: This field doesn't exactly match the name of the corresponding field
+  // in the Twitter User object ('created_at'), because that matches too closely
+  // the Sequelize built-in createdAt, and would be confusing.
+  account_created_at: Sequelize.DATE
 });
 
 /**
