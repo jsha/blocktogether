@@ -224,8 +224,8 @@ _.extend(Action, {
   // later.
   DEFERRED_TARGET_SUSPENDED: 'deferred-target-suspended',
   // When a user with pending actions is deactivated/suspended/revokes,
-  // defer their actions until that state changes.
-  DEFERRED_SOURCE_DEACTIVATED: 'deferred-source-deactivated',
+  // cancel those pending actions.
+  CANCELLED_SOURCE_DEACTIVATED: 'cancelled-source-deactivated',
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
