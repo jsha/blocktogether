@@ -45,24 +45,17 @@ https.globalAgent.maxSockets = 40000;
  */
 function startStreams() {
   logger.info('Active streams:', Object.keys(streams).length - 1);
-  // Find all users who don't already have a running stream.
+  // Find all users who don't already have a running stream. We start streams
+  // even for users that don't have one of the auto-block options
+  // (block_new_accounts or block_low_followers) because it's useful to get
+  // block/unblock information in a timely way. It also gives us early warning
+  // if we start running into limits on number of open streams.
   BtUser
     .findAll({
-      where: sequelize.and(
-        {
-          uid: { not: Object.keys(streams) },
-          deactivatedAt: null
-        },
-        // Check for any option that monitors stream for autoblock criteria
-        sequelize.or(
-          {
-            block_new_accounts: true
-          },
-          {
-            block_low_followers: true
-          }
-        )
-      ),
+      where: {
+        uid: { not: Object.keys(streams) },
+        deactivatedAt: null
+      },
       limit: 10,
       // Note: This is inefficient for large tables but for the current ~4k
       // users it's fine.
