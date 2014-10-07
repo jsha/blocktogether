@@ -235,8 +235,8 @@ function processMutesForUser(btUser, actions) {
  * Given a BtUser and a subset of that user's pending blocks, check the
  * follow relationship between sourceBtUser and those each sinkUid,
  * and block if there is not an existing follow or block relationship and there
- * is no previous external block or unblock in the Actions table. Then update
- * the Actions' status as appropriate.
+ * is no previous external unblock in the Actions table. Then update the
+ * Actions' status as appropriate.
  *
  * @param {BtUser} btUser The user whose Actions we should process.
  * @param {Array.<Action>} actions Actions to process.
