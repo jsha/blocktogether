@@ -441,18 +441,16 @@ app.post('/do-actions.json',
 
 /**
  * Create pagination metadata object for items retrieved with findAndCountAll().
+ * @param {Object} items Result of findAndCountAll() with count and rows fields.
+ * @param {Number} perPage Number of items displayed per page.
+ * @param {Number} currentPage Which page is currently being rendered, starts at 1.
  */
 function getPaginationData(items, perPage, currentPage) {
-  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED.
-  if (typeof currentPage === 'undefined') {
-    currentPage = 1;
-  }
-  var itemCount = items.count,
-      itemRows = items.rows,
-      pageCount = Math.ceil(itemCount / perPage);
+  var pageCount = Math.ceil(items.count / perPage);
+  // Pagination metadata to be returned:
   var paginationData = {
-    item_count: itemCount,
-    item_rows: itemRows,
+    item_count: items.count,
+    item_rows: items.rows,
     // Are there enough items to paginate?
     paginate: pageCount > 1,
     // Array of objects (1-indexed) for use in pagination template.
@@ -510,12 +508,10 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       }).error(function(err) {
         logger.error(err);
       }).success(function(blocks) {
-        var paginationData = getPaginationData(blocks, perPage, currentPage),
-            blocksCount = paginationData.item_count,
-            blocksRows = paginationData.item_rows;
+        var paginationData = getPaginationData(blocks, perPage, currentPage);
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
-        var blockedUsersList = blocksRows.map(function(block) {
+        paginationData.item_rows = paginationData.item_rows.map(function(block) {
           if (block.twitterUser) {
             var user = block.twitterUser;
             return _.extend(user, {
@@ -533,10 +529,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           author_screen_name: btUser.screen_name,
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
-          block_count: blocksCount,
           // Base URL for appending pagination querystring.
           path_name: url.parse(req.url).pathname,
-          blocked_users: blockedUsersList,
           own_blocks: ownBlocks
         };
         // Merge pagination metadata with template-specific fields.
@@ -551,10 +545,10 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
 /**
  * Render the action list for a given BtUser as HTML.
  */
-function showActions(req, res, next, BtUser) {
+function showActions(req, res, next) {
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
-      perPage = 5000;
+      perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
   }
@@ -574,11 +568,9 @@ function showActions(req, res, next, BtUser) {
   }).error(function(err) {
     logger.error(err);
   }).success(function(actions) {
-    var paginationData = getPaginationData(actions, perPage, currentPage),
-        actionsCount = paginationData.item_count,
-        actionsRows = paginationData.item_rows;
+    var paginationData = getPaginationData(actions, perPage, currentPage);
     // Decorate the actions with human-friendly times
-    actionsRows = actionsRows.map(function(action) {
+    paginationData.item_rows = paginationData.item_rows.map(function(action) {
       return _.extend(action, {
         prettyCreated: timeago(new Date(action.createdAt)),
         prettyUpdated: timeago(new Date(action.updatedAt))
@@ -586,8 +578,6 @@ function showActions(req, res, next, BtUser) {
     });
     var templateData = {
       logged_in_screen_name: req.user.screen_name,
-      actions: actionsRows,
-      action_count: actionsCount,
       // Base URL for appending pagination querystring.
       path_name: url.parse(req.url).pathname
     };

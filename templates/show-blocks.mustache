@@ -4,11 +4,11 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{block_count}} users on Twitter (updated {{updated}}):
+    is blocking {{item_count}} users on Twitter (updated {{updated}}):
   {{/own_blocks}}
   {{#own_blocks}}
   <p>
-    You are blocking {{block_count}} users on Twitter (updated {{updated}}):
+    You are blocking {{item_count}} users on Twitter (updated {{updated}}):
   </p>
   {{/own_blocks}}
 
@@ -39,7 +39,7 @@
   <div>
     <button class='btn btn-primary block-all'>Block All{{#paginate}} on Page{{/paginate}}</button>
     <div class='block-all-processing'>
-      Block Together will now block {{blocked_users.length}} users using your account
+      Block Together will now block {{item_rows.length}} users using your account
       @{{logged_in_screen_name}}. This may take some time. You can check
       on progress at <a href='/actions'>the Actions page</a>.
     </div>
@@ -63,7 +63,7 @@
         <th>Followers</th>
       </tr>
     </thead>
-  {{#blocked_users}}
+  {{#item_rows}}
     <tr class='blocked-user'>
       <td>
         <input type='checkbox' class='checkbox' data-uid='{{uid}}'></input>
@@ -96,6 +96,6 @@
         {{followers_count}}
       </td>
     </tr>
-  {{/blocked_users}}
+  {{/item_rows}}
   </table>
   {{>footer.mustache}}
