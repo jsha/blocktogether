@@ -367,61 +367,8 @@ function updateSettings(user, settings, callback) {
 }
 
 app.get('/actions',
-  function(req, res) {
-    // For pagination
-    // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
-    var currentPage = parseInt(req.query.page, 10) || 1,
-        perPage = 1000;
-    if (currentPage < 1) {
-      currentPage = 1;
-    }
-    // A reasonable number of actions per page
-    Action.findAndCountAll({
-      where: {
-        source_uid == req.user.uid
-      },
-      order: 'updatedAt DESC',
-      limit: perPage,
-      offset: perPage * (currentPage - 1),
-      // Get the associated TwitterUser so we can display screen names.
-      include: [{
-        model: TwitterUser,
-        required: false
-      }]
-    }).error(function(err) {
-      logger.error(err);
-    }).success(function(actions) {
-      // Decorate the actions with human-friendly times
-      actions = actions.map(function(action) {
-        return _.extend(action, {
-          prettyCreated: timeago(new Date(action.createdAt)),
-          prettyUpdated: timeago(new Date(action.updatedAt))
-        });
-      });
-      var actionsCount = actions.count,
-          actionsRows = actions.rows,
-          pageCount = Math.ceil(actionsCount / perPage);
-      var stream = mu.compileAndRender('actions.mustache', {
-          logged_in_screen_name: req.user.screen_name,
-          actions: actions
-          action_count: actionsCount,
-          paginate: pageCount > 1,
-          // Array of objects (1-indexed) for use in pagination template.
-          pages: _.range(1, pageCount + 1).map(function(pageNum) {
-            return {
-              page_num: pageNum,
-              active: pageNum === currentPage
-            };
-          }),
-          // Previous/next page indices for use in pagination template.
-          previous_page: currentPage - 1 || false,
-          next_page: currentPage === pageCount ? false : currentPage + 1,
-          // Base URL for appending pagination querystring.
-          path_name: url.parse(req.url).pathname
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      });
+  function(req, res, next) {
+    showActions(req, res, next, req.user);
   });
 
 app.get('/my-unblocks',
@@ -493,13 +440,42 @@ app.post('/do-actions.json',
   });
 
 /**
+ * Create pagination metadata object for items retrieved with findAndCountAll().
+ */
+function getPaginationData(items, perPage, currentPage) {
+  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED.
+  if (typeof currentPage === 'undefined') {
+    currentPage = 1;
+  }
+  var itemCount = items.count,
+      itemRows = items.rows,
+      pageCount = Math.ceil(itemCount / perPage);
+  var paginationData = {
+    item_count: itemCount,
+    item_rows: itemRows,
+    // Are there enough items to paginate?
+    paginate: pageCount > 1,
+    // Array of objects (1-indexed) for use in pagination template.
+    pages: _.range(1, pageCount + 1).map(function(pageNum) {
+      return {
+        page_num: pageNum,
+        active: pageNum === currentPage
+      };
+    }),
+    // Previous/next page indices for use in pagination template.
+    previous_page: currentPage - 1 || false,
+    next_page: currentPage === pageCount ? false : currentPage + 1
+  }
+  return paginationData;
+}
+
+/**
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
-  // For pagination
-  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
+  // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 5000;
   if (currentPage < 1) {
@@ -520,6 +496,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     if (!blockBatch) {
       next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
+      // Find, count, and prepare block data for display:
       Block.findAndCountAll({
         where: {
           blockBatchId: blockBatch.id
@@ -533,11 +510,11 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       }).error(function(err) {
         logger.error(err);
       }).success(function(blocks) {
+        var paginationData = getPaginationData(blocks, perPage, currentPage),
+            blocksCount = paginationData.item_count,
+            blocksRows = paginationData.item_rows;
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
-        var blocksCount = blocks.count,
-            blocksRows = blocks.rows,
-            pageCount = Math.ceil(blocksCount / perPage);
         var blockedUsersList = blocksRows.map(function(block) {
           if (block.twitterUser) {
             var user = block.twitterUser;
@@ -557,26 +534,67 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
           block_count: blocksCount,
-          paginate: pageCount > 1,
-          // Array of objects (1-indexed) for use in pagination template.
-          pages: _.range(1, pageCount + 1).map(function(pageNum) {
-            return {
-              page_num: pageNum,
-              active: pageNum === currentPage
-            };
-          }),
-          // Previous/next page indices for use in pagination template.
-          previous_page: currentPage - 1 || false,
-          next_page: currentPage === pageCount ? false : currentPage + 1,
           // Base URL for appending pagination querystring.
           path_name: url.parse(req.url).pathname,
           blocked_users: blockedUsersList,
           own_blocks: ownBlocks
         };
+        // Merge pagination metadata with template-specific fields.
+        _.extend(templateData, paginationData);
         res.header('Content-Type', 'text/html');
         mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
       });
     }
+  });
+}
+
+/**
+ * Render the action list for a given BtUser as HTML.
+ */
+function showActions(req, res, next, BtUser) {
+  // For pagination:
+  var currentPage = parseInt(req.query.page, 10) || 1,
+      perPage = 5000;
+  if (currentPage < 1) {
+    currentPage = 1;
+  }
+  // Find, count, and prepare action data for display:
+  Action.findAndCountAll({
+    where: {
+      source_uid: req.user.uid
+    },
+    order: 'updatedAt DESC',
+    limit: perPage,
+    offset: perPage * (currentPage - 1),
+    // Get the associated TwitterUser so we can display screen names.
+    include: [{
+      model: TwitterUser,
+      required: false
+    }]
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(actions) {
+    var paginationData = getPaginationData(actions, perPage, currentPage),
+        actionsCount = paginationData.item_count,
+        actionsRows = paginationData.item_rows;
+    // Decorate the actions with human-friendly times
+    actionsRows = actionsRows.map(function(action) {
+      return _.extend(action, {
+        prettyCreated: timeago(new Date(action.createdAt)),
+        prettyUpdated: timeago(new Date(action.updatedAt))
+      });
+    });
+    var templateData = {
+      logged_in_screen_name: req.user.screen_name,
+      actions: actionsRows,
+      action_count: actionsCount,
+      // Base URL for appending pagination querystring.
+      path_name: url.parse(req.url).pathname
+    };
+    // Merge pagination metadata with template-specific fields.
+    _.extend(templateData, paginationData);
+    res.header('Content-Type', 'text/html');
+    mu.compileAndRender('actions.mustache', templateData).pipe(res);
   });
 }
 

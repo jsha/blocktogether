@@ -11,11 +11,13 @@
       <th>Updated</th>
     </tr>
   </thead>
+
   {{#paginate}}
   <div id='pagination-bar'>
     {{>pagination.mustache}}
   </div>
   {{/paginate}}
+
   {{#actions}}
     <tr class='action' data-id='{{id}}'>
       <td>{{type}}</td>
