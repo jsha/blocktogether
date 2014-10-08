@@ -447,7 +447,7 @@ app.post('/do-actions.json',
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     if (req.body.list &&
         req.body.list.length &&
-        req.body.list.length < 5000 &&
+        req.body.list.length <= 5000 &&
         req.body.cause_uid &&
         req.body.cause_uid.match(/[0-9]{1,20}/) &&
         validTypes[req.body.type]) {
