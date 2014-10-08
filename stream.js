@@ -49,6 +49,7 @@ function startStreams() {
   // without Node noticing it, in which case we stop receiving these keepalives.
   // This checks for such stale streams and explicitly kills them so they can be
   // restarted.
+  // TODO: This could be more cleanly implemented with Node's socket.setTimeout.
   streamingIds.forEach(function(id) {
     var lastUpdated = streams[id].lastUpdated;
     if (lastUpdated && (new Date() - lastUpdated) > 70000) {
