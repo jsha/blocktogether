@@ -368,7 +368,7 @@ function updateSettings(user, settings, callback) {
 
 app.get('/actions',
   function(req, res, next) {
-    showActions(req, res, next, req.user);
+    showActions(req, res, next);
   });
 
 app.get('/my-unblocks',
