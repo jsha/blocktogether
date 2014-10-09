@@ -417,59 +417,6 @@ app.get('/show-blocks/:slug',
 /**
  * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
  */
-app.post('/block-all.json',
-  function(req, res) {
-    res.header('Content-Type', 'application/json');
-    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
-    if (req.body.slug &&
-        typeof req.body.slug === 'string' &&
-        req.body.slug.length < 100) {
-      BtUser
-        .find({
-          where: {
-            shared_blocks_key: req.body.slug,
-            deactivatedAt: null
-          }
-        }).error(function(err) {
-          logger.error(err);
-        }).success(function(author) {
-          if (author) {
-            author.getBlockBatch({
-              limit: 1,
-              order: 'updatedAt desc',
-              include: [Block]
-            }).error(function(err) {
-              logger.error(err);
-            }).success(function(blockBatch) {
-              if (blockBatch && blockBatch.blocks &&
-                  blockBatch.blocks.length > 0) {
-                var sinkUids = _.pluck(blockBatch.blocks, 'sink_uid');
-                actions.queueActions(
-                  req.user.uid, sinkUids, Action.BLOCK,
-                  Action.BULK_MANUAL_BLOCK, author.uid);
-              } else {
-                next(new Error('Empty block list.'));
-              }
-            });
-          } else {
-            next(new Error('Invalid shared block list id.'));
-          }
-          actions.queueActions(
-            req.user.uid, req.body.list, req.body.type,
-            Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
-          res.end('{}');
-        });
-    } else {
-      res.status(400);
-      res.end(JSON.stringify({
-        error: 'Invalid parameters.'
-      }));
-    }
-  });
-
-/**
- * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
- */
 app.post('/do-actions.json',
   function(req, res) {
     res.header('Content-Type', 'application/json');
