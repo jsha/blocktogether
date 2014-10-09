@@ -44,20 +44,6 @@ https.globalAgent.maxSockets = 40000;
 function startStreams() {
   var streamingIds = Object.keys(streams);
   logger.info('Active streams:', streamingIds.length - 1);
-  // In normal operation, each open stream should receive an empty data item
-  // '{}' every 30 seconds for keepalive. Sometimes a connection will die
-  // without Node noticing it, in which case we stop receiving these keepalives.
-  // This checks for such stale streams and explicitly kills them so they can be
-  // restarted.
-  // TODO: This could be more cleanly implemented with Node's socket.setTimeout.
-  streamingIds.forEach(function(id) {
-    var lastUpdated = streams[id].lastUpdated;
-    if (lastUpdated && (new Date() - lastUpdated) > 70000) {
-      logger.error('Stale stream for uid', id,
-        'not updated since', lastUpdated, 'aborting.');
-      streams[id].abort();
-    }
-  });
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
@@ -111,6 +97,16 @@ function startStream(user) {
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
     logger.error('Error for', user, err);
+  });
+  // In normal operation, each open stream should receive an empty data item
+  // '{}' every 30 seconds for keepalive. Sometimes a connection will die
+  // without Node noticing it for instance if the host switches networks.
+  // This ensures the HTTPS request is aborted, which in turn calls
+  // endCallback, removing the entry from streams and allowing it to be started
+  // again.
+  req.setTimeout(70000, function() {
+    logger.error('Stream timeout for user', user, 'aborting.');
+    req.abort();
   });
 
   streams[user.uid] = req;
