@@ -40,18 +40,16 @@ https.globalAgent.maxSockets = 40000;
  * times in succession and get the same users each time, because they are not
  * yet in the active set. That, in turn, means we try to connect to streaming
  * and fetch at-replies many times for the same user, and get rate limited.
- *
- * TODO: Also collect block and unblock events.
- * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
-  logger.info('Active streams:', Object.keys(streams).length - 1);
+  var streamingIds = Object.keys(streams);
+  logger.info('Active streams:', streamingIds.length - 1);
   // Find all users who don't already have a running stream.
   BtUser
     .findAll({
       where: sequelize.and(
         {
-          uid: { not: Object.keys(streams) },
+          uid: { not: streamingIds },
           deactivatedAt: null
         },
         // Check for any option that monitors stream for autoblock criteria
@@ -100,6 +98,16 @@ function startStream(user) {
   req.on('error', function(err) {
     logger.error('Error for', user, err);
   });
+  // In normal operation, each open stream should receive an empty data item
+  // '{}' every 30 seconds for keepalive. Sometimes a connection will die
+  // without Node noticing it for instance if the host switches networks.
+  // This ensures the HTTPS request is aborted, which in turn calls
+  // endCallback, removing the entry from streams and allowing it to be started
+  // again.
+  req.setTimeout(70000, function() {
+    logger.error('Stream timeout for user', user, 'aborting.');
+    req.abort();
+  });
 
   streams[user.uid] = req;
 
@@ -120,8 +128,7 @@ function checkPastMentions(user) {
     user.access_token, user.access_token_secret,
     function(err, mentions) {
       if (err) {
-        logger.error('Error /statuses/mentions_timeline', err, err.statusCode,
-          'for', user);
+        logger.error('Error', err.statusCode, err.data, 'for', user);
       } else {
         logger.debug('Replaying', mentions.length, 'past mentions for', user);
         // It's common to have a large number of mentions from each user,
@@ -159,6 +166,13 @@ function endCallback(user) {
  */
 function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
+  // Keep track of last update time on streams so we can detect if any of them
+  // grow stale (stop receiving updates but never received an endCallback).
+  if (streams[recipientUid]) {
+    streams[recipientUid].lastUpdated = new Date();
+  } else {
+    logger.error('Got a dataCallback on an unknown stream for', recipientBtUser);
+  }
   if (!data) return;
   if (data.disconnect) {
     logger.warn(recipientBtUser, 'disconnect message:', data.disconnect);
