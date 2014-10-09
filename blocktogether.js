@@ -415,7 +415,68 @@ app.get('/show-blocks/:slug',
   });
 
 /**
- * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
+ * Given a JSON POST from a show-blocks page, enqueue all blocks.
+ * For the "Block all" button the JSON POST includes just the
+ * shared_blocks_key, and we look up the blocks in the DB.
+ */
+app.post('/block-all.json',
+  function(req, res, next) {
+    res.header('Content-Type', 'application/json');
+    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
+    if (req.body.shared_blocks_key &&
+        typeof req.body.shared_blocks_key === 'string' &&
+        req.body.shared_blocks_key.length < 100) {
+      BtUser
+        .find({
+          where: {
+            shared_blocks_key: req.body.shared_blocks_key,
+            deactivatedAt: null
+          }
+        }).error(function(err) {
+          logger.error(err);
+        }).success(function(author) {
+          logger.info('Found author', author);
+          // If the shared_blocks_key is valid, find the most recent BlockBatch
+          // from that share block list author, and copy each uid onto the
+          // blocking user's list.
+          if (author) {
+            author.getBlockBatches({
+              limit: 1,
+              order: 'complete desc, currentCursor is null, updatedAt desc'
+            }).error(function(err) {
+              logger.error(err);
+            }).success(function(blockBatches) {
+              if (blockBatches && blockBatches.length > 0) {
+                blockBatches[0].getBlocks()
+                  .error(function(err) {
+                    logger.error(err);
+                  }).success(function(blocks) {
+                    var sinkUids = _.pluck(blocks, 'sink_uid');
+                    actions.queueActions(
+                      req.user.uid, sinkUids, Action.BLOCK,
+                      Action.BULK_MANUAL_BLOCK, author.uid);
+                    res.end(JSON.stringify({
+                      block_count: sinkUids.length
+                    }));
+                  });
+              } else {
+                next(new Error('Empty block list.'));
+              }
+            });
+          } else {
+            next(new Error('Invalid shared block list id.'));
+          }
+        });
+    } else {
+      res.status(400);
+      res.end(JSON.stringify({
+        error: 'Invalid parameters.'
+      }));
+    }
+  });
+
+/**
+ * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
  */
 app.post('/do-actions.json',
   function(req, res) {
@@ -424,8 +485,6 @@ app.post('/do-actions.json',
     if (req.body.list &&
         req.body.list.length &&
         req.body.list.length <= 5000 &&
-        req.body.cause_uid &&
-        req.body.cause_uid.match(/[0-9]{1,20}/) &&
         validTypes[req.body.type]) {
       actions.queueActions(
         req.user.uid, req.body.list, req.body.type,
@@ -462,7 +521,8 @@ function getPaginationData(items, perPage, currentPage) {
     }),
     // Previous/next page indices for use in pagination template.
     previous_page: currentPage - 1 || false,
-    next_page: currentPage === pageCount ? false : currentPage + 1
+    next_page: currentPage === pageCount ? false : currentPage + 1,
+    per_page: perPage
   }
   return paginationData;
 }
@@ -475,7 +535,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
   var logged_in_screen_name = undefined;
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
-      perPage = 5000;
+      perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
   }
@@ -487,7 +547,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     limit: 1,
     // We prefer a the most recent complete BlockBatch, but if none is
     // available we will choose the most recent non-complete BlockBatch.
-    order: 'complete desc, createdAt desc'
+    order: 'complete desc, currentCursor is null, updatedAt desc'
   }).error(function(err) {
     logger.error(err);
   }).success(function(blockBatch) {
@@ -531,6 +591,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           author_uid: btUser.uid,
           // Base URL for appending pagination querystring.
           path_name: url.parse(req.url).pathname,
+          shared_blocks_key: req.params.slug,
           own_blocks: ownBlocks
         };
         // Merge pagination metadata with template-specific fields.

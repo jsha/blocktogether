@@ -4,11 +4,14 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{item_count}} users on Twitter (updated {{updated}}):
+    is blocking {{item_count}} users on Twitter (updated {{updated}}). Showing
+    {{per_page}} per page:
+  </p>
   {{/own_blocks}}
   {{#own_blocks}}
   <p>
-    You are blocking {{item_count}} users on Twitter (updated {{updated}}):
+    You are blocking {{item_count}} users on Twitter (updated {{updated}}).
+    Showing {{per_page}} per page:
   </p>
   {{/own_blocks}}
 
@@ -37,11 +40,13 @@
       same ones on this page.  }}
   {{^own_blocks}}
   <div>
-    <button class='btn btn-primary block-all'>Block All{{#paginate}} on Page{{/paginate}}</button>
+    <button class='btn btn-primary block-all'>Block All {{item_count}}</button>
     <div class='block-all-processing'>
-      Block Together will now block {{item_rows.length}} users using your account
-      @{{logged_in_screen_name}}. This may take some time. You can check
-      on progress at <a href='/actions'>the Actions page</a>.
+      Block Together will now block
+      <span id='blocked-users'></span>
+      users using your account @{{logged_in_screen_name}}.
+      This may take some time. You can check on progress at
+      <a href='/actions'>the Actions page</a>.
     </div>
   </div>
   {{/own_blocks}}
