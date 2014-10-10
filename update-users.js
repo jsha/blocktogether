@@ -101,7 +101,7 @@ function deactivateTwitterUser(uid) {
 function updateUsers(uids, err, response) {
   if (err) {
     if (err.statusCode === 429) {
-      logger.warn('Rate limited.');
+      logger.info('Rate limited.');
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Delete all of them.
