@@ -78,7 +78,13 @@ var TwitterUser = sequelize.define('TwitterUser', {
   profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
   name: Sequelize.STRING,
-  deactivatedAt: Sequelize.DATE
+  deactivatedAt: Sequelize.DATE,
+  lang: Sequelize.STRING,
+  statuses_count: Sequelize.INTEGER,
+  // NOTE: This field doesn't exactly match the name of the corresponding field
+  // in the Twitter User object ('created_at'), because that matches too closely
+  // the Sequelize built-in createdAt, and would be confusing.
+  account_created_at: Sequelize.DATE
 });
 
 /**
@@ -228,8 +234,8 @@ _.extend(Action, {
   // later.
   DEFERRED_TARGET_SUSPENDED: 'deferred-target-suspended',
   // When a user with pending actions is deactivated/suspended/revokes,
-  // defer their actions until that state changes.
-  DEFERRED_SOURCE_DEACTIVATED: 'deferred-source-deactivated',
+  // cancel those pending actions.
+  CANCELLED_SOURCE_DEACTIVATED: 'cancelled-source-deactivated',
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
