@@ -14,7 +14,6 @@ var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
     Action = setup.Action,
-    UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
 
 // An associative array of streams currently running. Indexed by uid.
@@ -44,24 +43,17 @@ https.globalAgent.maxSockets = 40000;
 function startStreams() {
   var streamingIds = Object.keys(streams);
   logger.info('Active streams:', streamingIds.length - 1);
-  // Find all users who don't already have a running stream.
+  // Find all users who don't already have a running stream. We start streams
+  // even for users that don't have one of the auto-block options
+  // (block_new_accounts or block_low_followers) because it's useful to get
+  // block/unblock information in a timely way. It also gives us early warning
+  // if we start running into limits on number of open streams.
   BtUser
     .findAll({
-      where: sequelize.and(
-        {
-          uid: { not: streamingIds },
-          deactivatedAt: null
-        },
-        // Check for any option that monitors stream for autoblock criteria
-        sequelize.or(
-          {
-            block_new_accounts: true
-          },
-          {
-            block_low_followers: true
-          }
-        )
-      ),
+      where: {
+        uid: { not: streamingIds },
+        deactivatedAt: null
+      },
       limit: 10,
       // Note: This is inefficient for large tables but for the current ~4k
       // users it's fine.
@@ -197,7 +189,9 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       updateUsers.storeUser(data.target);
     }
 
-    handleUnblock(data);
+    if (data.event === 'unblock') {
+      handleUnblock(data);
+    }
   } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
     // as a mention of @foo for the purposes of blocking. That retweet would
@@ -249,31 +243,52 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 }
 
 /**
- * Given an unblock event from the streaming API,
- * record that unblock so we know not to re-block that user in the future.
+ * Given an unblock event from the streaming API, record that unblock so we
+ * know not to re-block that user in the future. NOTE: When we perform unblock
+ * actions on a user, they get echoed back to us through the Streaming API.
+ * Since the Action we performed in already in the DB, we don't want to insert a
+ * different record with cause = 'external'. So we check the DB to avoid
+ * recording duplicates.
+ *
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleUnblock(data) {
-  if (data.event === 'unblock') {
-    UnblockedUser.find({
-      where: {
-        source_uid: data.source.id_str,
-        sink_uid: data.target.id_str
-      }
+  // When we perform an unblock action, it gets echoed back from the Stream API
+  // very quickly - on the order of milliseconds. In order to make sure
+  // actions.js has had a chance to write the 'done' status to the DB, we wait a
+  // second before checking for duplicates.
+  setTimeout(function() {
+    // Most of the contents of the action to be created. Stored here because they
+    // are also useful to query for previous actions.
+    var actionContents = {
+      source_uid: data.source.id_str,
+      sink_uid: data.target.id_str,
+      type: Action.UNBLOCK,
+      'status': Action.DONE
+    }
+
+    Action.find({
+      where: _.extend(actionContents, {
+        updatedAt: {
+          // Look only at actions updated less than a minute ago.
+          gt: new Date(new Date() - 60000)
+        }
+      })
     }).error(function(err) {
-      logger.error(err);
-    }).success(function(unblockedUser) {
-      if (!unblockedUser) {
-        unblockedUser = UnblockedUser.build({
-          source_uid: data.source.id_str,
-          sink_uid: data.target.id_str
-        });
+      logger.error(err)
+    }).success(function(prevAction) {
+      // No previous action found, so create one. Add the cause and cause_uid
+      // fields, which we didn't use for the query.
+      if (!prevAction) {
+        Action.create(_.extend(actionContents, {
+          cause: Action.EXTERNAL,
+          cause_uid: null
+        })).error(function(err) {
+          logger.error(err);
+        })
       }
-      unblockedUser.save().error(function(err) {
-        logger.error(err);
-      });
-    });
-  }
+    })
+  }, 1000);
 }
 
 /**

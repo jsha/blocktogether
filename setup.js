@@ -190,9 +190,13 @@ Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
 
 /**
- * An action (block or unblock) that we perform on behalf of a user.
- * These are created when we intend to perform the action, and marked 'done'
- * once it's completed.
+ * An action (block or unblock) that we performed on behalf of a user, or that
+ * we observed the user perform from an external client (like twitter.com or
+ * Twitter for Android).
+ *
+ * Pending actions are created when we intend to perform an action, and marked
+ * 'done' once completed. External actions are marked with cause = 'external',
+ * and are inserted with status = 'done' as soon as we observe them.
  */
 var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
@@ -240,24 +244,9 @@ _.extend(Action, {
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
   NEW_ACCOUNT: 'new-account', // "Block new accounts" blocked this user.
-  LOW_FOLLOWERS: 'low-followers' // "Block unpopular accounts" block this user.
+  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts" block this user.
+  EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
-
-/**
- * A record of a user who was unblocked by a BlockTogether user.
- * Note: This is NOT parallel to the Blocks table because we cannot update
- * it at will from the REST API. Right now this table is only filled by
- * stream.js when it receives an unblock event, and entries are never removed
- * except manually by the user.
- *
- * Entries in this table are used to prevent re-blocking a user who has been
- * manually unblocked.
- */
-var UnblockedUser = sequelize.define('UnblockedUser', {
-  source_uid: Sequelize.STRING,
-  sink_uid: Sequelize.STRING
-});
-BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
 
 sequelize
   .sync()
@@ -289,7 +278,6 @@ module.exports = {
   BtUser: BtUser,
   Block: Block,
   BlockBatch: BlockBatch,
-  UnblockedUser: UnblockedUser,
   Action: Action
 };
 })();

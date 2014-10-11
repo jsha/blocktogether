@@ -12,7 +12,6 @@ var twitterAPI = require('node-twitter-api'),
 var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
-    UnblockedUser = setup.UnblockedUser,
     Action = setup.Action;
 
 /**
@@ -40,7 +39,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
         sink_uid: sink_uid,
         type: type,
         cause: cause,
-        cause_uid: cause_uid
+        cause_uid: cause_uid,
+        'status': Action.PENDING
       }
     })).error(function(err) {
       logger.error(err);
@@ -96,11 +96,8 @@ function processActions() {
  * @param {string} uid The uid of the user to process.
  */
 function processActionsForUserId(uid) {
-  BtUser
-    .find({
-      where: { uid: uid },
-      include: [UnblockedUser]
-    }).error(function(err) {
+  BtUser.find(uid)
+    .error(function(err) {
       logger.error(err);
     }).success(function(btUser) {
       if (!btUser || btUser.deactivatedAt) {
@@ -236,50 +233,74 @@ function processMutesForUser(btUser, actions) {
 }
 
 /**
- * Given a BtUser and a subset of that user's pending blocks, process
- * as appropriate.
+ * Given a BtUser and a subset of that user's pending blocks, check the
+ * follow relationship between sourceBtUser and those each sinkUid,
+ * and block if there is not an existing follow or block relationship and there
+ * is no previous external unblock in the Actions table. Then update the
+ * Actions' status as appropriate.
  *
  * @param {BtUser} btUser The user whose Actions we should process.
  * @param {Array.<Action>} actions Actions to process.
  */
 function processBlocksForUser(btUser, actions) {
-  // Now that we've got our list, send them to Twitter to see if the
-  // btUser follows them.
   var sinkUids = _.pluck(actions, 'sink_uid');
-  blockUnlessFollowing(btUser, sinkUids, actions);
-}
-
-/**
- * Given fewer than 100 sinkUids, check the following relationship between
- * sourceBtUser and those each sinkUid, and block if there is not an existing
- * follow or block relationship. Then update the Actions provided.
- *
- * @param {BtUser} sourceBtUser The user doing the blocking.
- * @param {Array.<string>} sinkUids A list of uids to potentially block.
- * @param {Array.<Action>} actions The Actions to be updated based on the results.
- */
-function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
   if (sinkUids.length > 100) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return;
   }
-  logger.debug('Checking follow status', sourceBtUser,
+  logger.debug('Checking follow status', btUser,
     '--???-->', sinkUids.length, 'users');
   twitter.friendships('lookup', {
       user_id: sinkUids.join(',')
-    }, sourceBtUser.access_token, sourceBtUser.access_token_secret,
+    }, btUser.access_token, btUser.access_token_secret,
     function(err, friendships) {
       if (err && err.statusCode === 401) {
-        sourceBtUser.verifyCredentials();
+        btUser.verifyCredentials();
       } else if (err) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
-          sourceBtUser.screen_name, err.data);
+          btUser.screen_name, err.data);
       } else {
         var indexedFriendships = _.indexBy(friendships, 'id_str');
-        blockUnlessFollowingWithFriendships(
-          sourceBtUser, indexedFriendships, actions);
+        checkUnblocks(btUser, indexedFriendships, actions);
       }
     });
+}
+
+/**
+ * Look in the Actions table to see if we have seen the source user unblock any
+ * of the sink_uids from an external application. If so, we'll want to avoid
+ * auto-blocking those sink_uids. We stipulate 'from an external application'
+ * because it's fine for a user that was auto-unblocked (e.g via subscriptions)
+ * to later be auto-reblocked.
+ *
+ * After doing the lookup, call cancelOrPerformBlocks with the results, plus the
+ * results of the friendships lookup previously made.
+ *
+ * @param {BtUser} sourceBtUser The user doing the blocking.
+ * @param {Object} indexedFriendships A map from sink uids to friendship
+ *   objects. Simply passed through to cancelOrPerformBlocks.
+ * @param{Array.<Action>} actions The list of actions to be performed or
+ *   cancelled.
+ */
+function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
+  var sinkUids = _.pluck(actions, 'sink_uid');
+  // Look for the any previous unblock Action for this sink_uid with
+  // status = done, cause = external, and cancel if it exists.
+  Action.findAll({
+    where: {
+      source_uid: sourceBtUser.uid,
+      sink_uid: sinkUids,
+      status: Action.DONE,
+      cause: [Action.EXTERNAL, Action.BULK_MANUAL_BLOCK],
+      type: Action.UNBLOCK
+    }
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(unblocks) {
+    var indexedUnblocks = _.indexBy(unblocks, 'sink_uid');
+    cancelOrPerformBlocks(
+      sourceBtUser, indexedFriendships, indexedUnblocks, actions);
+  });
 }
 
 /**
@@ -293,18 +314,21 @@ function blockUnlessFollowing(sourceBtUser, sinkUids, actions) {
  * around the same time, and any one of them may have been the "real" fix.
  *
  * @param{BtUser} sourceBtUser The user doing the blocking.
- * @param{Object} indexedFriendships A map from uids to friendship objects as
- *   returned by the Twitter API.
- * @param{Array.<Action>} actions The list of actions to be performed or state
- *   transitioned.
+ * @param{Object} indexedFriendships A map from sink uids to friendship objects
+ *   as returned by the Twitter API.
+ * @param{Object} indexedUnblocks A map from sink uids to previous unblock
+ *   action, if present.
+ * @param{Array.<Action>} actions The list of actions to be performed or
+ *   cancelled.
  */
-function blockUnlessFollowingWithFriendships(
-    sourceBtUser, indexedFriendships, actions) {
+function cancelOrPerformBlocks(
+    sourceBtUser, indexedFriendships, indexedUnblocks, actions) {
   if (!actions || actions.length < 1) {
     return;
   }
-  var next = blockUnlessFollowingWithFriendships.bind(
-      undefined, sourceBtUser, indexedFriendships, actions.slice(1));
+  var next = cancelOrPerformBlocks.bind(
+      undefined, sourceBtUser, indexedFriendships,
+      indexedUnblocks, actions.slice(1));
   var action = actions[0];
   // Sanity check that this is a block, not some other action.
   if (action.type != 'block') {
@@ -327,22 +351,18 @@ function blockUnlessFollowingWithFriendships(
   } else if (_.contains(friendship.connections, 'following')) {
     // If the sourceBtUser follows them, don't block.
     newState = Action.CANCELLED_FOLLOWING;
-  } else if (_.find(sourceBtUser.unblockedUsers, {sink_uid: sink_uid})) {
-    // If the user unblocked the sink_uid in the past, don't re-block.
-    newState = Action.CANCELLED_UNBLOCKED;
   } else if (sourceBtUser.uid === sink_uid) {
     // You cannot block yourself.
     newState = Action.CANCELLED_SELF;
+  } else if (indexedUnblocks[sink_uid]) {
+    // If the user unblocked the sink_uid in the past, don't re-block.
+    newState = Action.CANCELLED_UNBLOCKED;
   }
-  // If we're cancelling, update the state of the action. It's
-  // possible to have multiple pending Blocks for the same sink_uid, so
-  // we have to do a forEach across the available Actions.
+  // If we're cancelling, update the state of the action.
   if (newState) {
     setActionStatus(action, newState, next);
   } else {
     // No obstacles to blocking the sink_uid have been found, block 'em!
-    // TODO: Don't kick off all these requests to Twitter
-    // simultaneously; instead chain them.
     logger.debug('Creating block', sourceBtUser.screen_name,
       '--block-->', friendship.screen_name, sink_uid);
     block(sourceBtUser, sink_uid, function(err, results) {

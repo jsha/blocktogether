@@ -371,22 +371,6 @@ app.get('/actions',
     showActions(req, res, next);
   });
 
-app.get('/my-unblocks',
-  function(req, res) {
-    req.user
-      .getUnblockedUsers()
-      .error(function(err) {
-        logger.error(err);
-      }).success(function(unblockedUsers) {
-        var stream = mu.compileAndRender('my-unblocks.mustache', {
-          logged_in_screen_name: req.user.screen_name,
-          unblocked_users: unblockedUsers
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      });
-  });
-
 app.get('/my-blocks',
   function(req, res, next) {
     // HACK: Each time a user reloads their own blocks page, fetch an updated
