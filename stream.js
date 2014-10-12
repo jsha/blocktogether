@@ -50,10 +50,21 @@ function startStreams() {
   // if we start running into limits on number of open streams.
   BtUser
     .findAll({
-      where: {
-        uid: { not: streamingIds },
-        deactivatedAt: null
-      },
+      where: sequelize.and(
+        {
+          uid: { not: streamingIds },
+          deactivatedAt: null
+        },
+        // Check for any option that monitors stream for autoblock criteria
+        sequelize.or(
+          {
+            block_new_accounts: true
+          },
+          {
+            block_low_followers: true
+          }
+        )
+      ),
       limit: 10,
       // Note: This is inefficient for large tables but for the current ~4k
       // users it's fine.
@@ -182,7 +193,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     logger.warn(recipientBtUser,
       'stream warning message:', data.warning);
   } else if (data.event) {
-    logger.info('User', recipientBtUser, 'event', data.event);
+    logger.debug('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
