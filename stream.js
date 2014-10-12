@@ -190,8 +190,15 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       recipientBtUser.verifyCredentials();
     }
   } else if (data.warning) {
-    logger.warn(recipientBtUser,
-      'stream warning message:', data.warning);
+    if (data.warning.code === 'FOLLOWS_OVER_LIMIT') {
+      // These happen any time you start a stream for a user with more than 10k
+      // follows, so they are normal and we don't care. They mean that you won't
+      // see all tweets on the user's timeline, but we don't care about timeline
+      // tweets anyhow.
+    } else {
+      logger.warn('Stream warning for', recipientBtUser, data.warning.code,
+        data.warning.message);
+    }
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
