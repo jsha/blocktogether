@@ -1,10 +1,10 @@
 module.exports = {
   up: function(migration, DataTypes, done) {
-    migration.addIndex('BtUsers', ['updatedAt']);
+    migration.addIndex('BtUsers', ['deactivatedAt', 'updatedAt']);
     done()
   },
   down: function(migration, DataTypes, done) {
-    migration.removeIndex('BtUsers', ['updatedAt']);
+    migration.removeIndex('BtUsers', ['deactivatedAt', 'updatedAt']);
     done()
   }
 }

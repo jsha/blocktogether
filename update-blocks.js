@@ -21,7 +21,7 @@ var ONE_DAY_IN_MILLIS = 86400 * 1000;
 function findAndUpdateBlocks() {
   BtUser
     .find({
-      where: ["BtUsers.updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR BtUsers.updatedAd IS NULL"],
+      where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
       order: 'BtUsers.updatedAt ASC'
     }).error(function(err) {
       logger.error(err);
