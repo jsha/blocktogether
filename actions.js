@@ -204,7 +204,13 @@ function processUnblocksForUser(btUser, actions) {
       logger.error("Shouldn't happen: non-unblock action", btUser);
     }
     unBlock(btUser, action.sink_uid, function(err, results) {
-      if (err) {
+      // TODO: This error handling is repeated for all actions. Abstract into
+      // its own function.
+      if (err && err.statusCode === 404) {
+        logger.info('Unblock returned 404 for inactive sink_uid',
+          action.sink_uid, 'cancelling action.');
+        setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
+      } else if (err) {
         logger.error('Error /blocks/destroy', err.statusCode, btUser,
           '-->', action.sink_uid);
       } else {
@@ -221,7 +227,11 @@ function processMutesForUser(btUser, actions) {
       logger.error("Shouldn't happen: non-mute action", btUser);
     }
     mute(btUser, action.sink_uid, function(err, results) {
-      if (err) {
+      if (err && err.statusCode === 404) {
+        logger.info('Unmute returned 404 for inactive sink_uid',
+          action.sink_uid, 'cancelling action.');
+        setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
+      } else if (err) {
         logger.error('Error /mutes/users/create', err.statusCode, btUser,
           '-->', action.sink_uid);
       } else {

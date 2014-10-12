@@ -17,7 +17,7 @@ Manual tests to run before a release:
 - Log Off from Block Together.
 - From the home page, Log On to Block together.
 - Visit settings page and ensure settings are: block_new_accounts=true,
-  follow_blocktogether=true, share_blocks=false.
+  block_low_followers=false, follow_blocktogether=true, share_blocks=false.
 - Log Off from Block Together.
 - From the home page, select share_blocks=true, leave "block young
   accounts"=false, and click 'Sign Up'.
@@ -44,7 +44,7 @@ Manual tests to run before a release:
    is listed.
 
 - On Twitter, have @twestact3 unblock @new.
-- Visit /my-unblocks and verify that an unblock of @new shows up.
+- Visit /actions and verify that an unblock of @new shows up.
 - (other window) Use @new to mention @twestact3 a third time.
 - Visit /actions, verify that there is a block of @new listed as 'pending' or
   'cancelled-unblocked'.
@@ -57,7 +57,8 @@ Manual tests to run before a release:
 - With @twestact3, disable block_new_accounts. Verify "Saved" appears.
 - Reload /settings and verify block_new_accounts is still unchecked.
 - Create another new account, @new2. Alternately: Purge @twestact3's Unblocks
-     (DELETE FROM UnblockedUsers;) and reuse @new.
+     (delete from Actions where source_uid = 596973693 and type = 'unblock';)
+     and reuse @new.
 - Use @new2 to mention @twestact3.
 - Visit /actions, verify there is not an additional block of @new.
 - Visit /my-blocks, verify that @new is not listed as blocked.

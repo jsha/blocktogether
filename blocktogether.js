@@ -377,7 +377,10 @@ app.get('/my-blocks',
     // copy of their blocks. This won't show up on the first render, since we
     // don't want to wait for results if it's a multi-page response, but it
     // means subsequent reloads will get the correct results.
-    updateBlocks.updateBlocks(req.user);
+    // Only trigger this for the first page worth of blocks.
+    if (!req.query.page) {
+      updateBlocks.updateBlocks(req.user);
+    }
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 

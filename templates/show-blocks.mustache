@@ -11,7 +11,9 @@
   {{#own_blocks}}
   <p>
     You are blocking {{item_count}} users on Twitter (updated {{updated}}).
+    {{#paginate}}
     Showing {{per_page}} per page:
+    {{/paginate}}
   </p>
   {{/own_blocks}}
 
