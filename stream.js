@@ -42,7 +42,10 @@ https.globalAgent.maxSockets = 40000;
  */
 function startStreams() {
   var streamingIds = Object.keys(streams);
-  logger.info('Active streams:', streamingIds.length - 1);
+  var streamingHost = 'userstream.twitter.com:443';
+  var sockets = https.globalAgent.sockets[streamingHost];
+  logger.info('Active streams / open sockets:', streamingIds.length - 1,
+    '/', sockets ? sockets.length : 0);
   // Find all users who don't already have a running stream. We start streams
   // even for users that don't have one of the auto-block options
   // (block_new_accounts or block_low_followers) because it's useful to get
