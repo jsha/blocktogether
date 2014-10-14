@@ -143,21 +143,34 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
     .error(function(err) {
       logger.error(err);
     }).success(function(blocks) {
-      updateUsers.findAndUpdateUsers();
+      // Check whether we're done or need to grab the items at the next cursor.
+      if (results.next_cursor_str === '0') {
+        finalizeBlockBatch(blockBatch);
+      } else {
+        logger.debug('Cursoring ', results.next_cursor_str);
+        getMore(results.next_cursor_str);
+      }
     });
+}
 
-  // Check whether we're done or next to grab the items at the next cursor.
-  if (results.next_cursor_str === '0') {
-    logger.info('Finished fetching blocks for user', blockBatch.source_uid);
-    // Mark the BlockBatch as complete and save that bit.
-    blockBatch.complete = true;
+function finalizeBlockBatch(blockBatch) {
+  logger.info('Finished fetching blocks for user', blockBatch.source_uid);
+  // Mark the BlockBatch as complete and save that bit.
+  blockBatch.complete = true;
+  Block.count({
+    where: {
+      BlockBatchId: blockBatch.id
+    }
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(count) {
+    blockBatch.size = count;
     blockBatch.save().error(function(err) {
       logger.error(err);
+    }).success(function(blockBatch) {
+      updateUsers.findAndUpdateUsers();
     });
-  } else {
-    logger.debug('Cursoring ', results.next_cursor_str);
-    getMore(results.next_cursor_str);
-  }
+  });
 }
 
 module.exports = {
