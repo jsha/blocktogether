@@ -102,7 +102,7 @@ function startStream(user) {
   // Sometimes we get an ECONNRESET that is not caught in the OAuth code
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
-    logger.error('Error for', user, err);
+    logger.error('Socket error for', user, err.message);
   });
   // In normal operation, each open stream should receive an empty data item
   // '{}' every 30 seconds for keepalive. Sometimes a connection will die
@@ -134,7 +134,8 @@ function checkPastMentions(user) {
     user.access_token, user.access_token_secret,
     function(err, mentions) {
       if (err) {
-        logger.error('Error', err.statusCode, err.data, 'for', user);
+        logger.error('Error', err.statusCode, '/statuses/mentions',
+          err.data, 'for', user);
       } else {
         logger.debug('Replaying', mentions.length, 'past mentions for', user);
         // It's common to have a large number of mentions from each user,
@@ -156,8 +157,8 @@ function checkPastMentions(user) {
  * streams map.
  * @param {BtUser} user The user whose stream ended.
  */
-function endCallback(user) {
-  logger.warn('Ending stream for', user);
+function endCallback(user, httpIncomingMessage) {
+  logger.warn('Ending stream for', user, httpIncomingMessage.statusCode);
   user.verifyCredentials();
   delete streams[user.uid];
 }

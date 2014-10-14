@@ -153,7 +153,7 @@ var BtUser = sequelize.define('BtUser', {
               logger.warn('User', user, 'deactivated or suspended.')
               user.deactivatedAt = new Date();
             } else {
-              logger.warn('Unknown error', err.statusCode, 'for', user, err.data);
+              logger.warn('User', user, 'verify_credentials rate limited.');
             }
           } else {
             logger.warn('User', user, 'has not revoked app.');

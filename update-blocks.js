@@ -165,6 +165,6 @@ module.exports = {
 
 if (require.main === module) {
   findAndUpdateBlocks();
-  setInterval(findAndUpdateBlocks, 1000);
+  setInterval(findAndUpdateBlocks, 5000);
 }
 })();
