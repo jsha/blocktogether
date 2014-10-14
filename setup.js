@@ -183,7 +183,8 @@ var Block = sequelize.define('Block', {
 var BlockBatch = sequelize.define('BlockBatch', {
   source_uid: Sequelize.STRING,
   currentCursor: Sequelize.STRING,
-  complete: Sequelize.BOOLEAN
+  complete: Sequelize.BOOLEAN,
+  size: Sequelize.INTEGER
 });
 BlockBatch.hasMany(Block, {onDelete: 'cascade'});
 Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
