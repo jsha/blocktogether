@@ -542,7 +542,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
       // Find, count, and prepare block data for display:
-      Block.findAndCountAll({
+      Block.findAll({
         where: {
           blockBatchId: blockBatch.id
         },
@@ -555,7 +555,10 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       }).error(function(err) {
         logger.error(err);
       }).success(function(blocks) {
-        var paginationData = getPaginationData(blocks, perPage, currentPage);
+        var paginationData = getPaginationData({
+          count: blockBatch.size || 0,
+          rows: blocks
+        }, perPage, currentPage);
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
         paginationData.item_rows = paginationData.item_rows.map(function(block) {
@@ -579,6 +582,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           // Base URL for appending pagination querystring.
           path_name: url.parse(req.url).pathname,
           shared_blocks_key: req.params.slug,
+          // Whether this is /my-blocks (rather than /show-blocks/foo)
           own_blocks: ownBlocks
         };
         // Merge pagination metadata with template-specific fields.

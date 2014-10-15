@@ -30,8 +30,7 @@ function findAndUpdateUsers(sqlFilter) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 100,
-      order: 'updatedAt'
+      limit: 100
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {

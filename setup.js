@@ -153,7 +153,7 @@ var BtUser = sequelize.define('BtUser', {
               logger.warn('User', user, 'deactivated or suspended.')
               user.deactivatedAt = new Date();
             } else {
-              logger.warn('Unknown error', err.statusCode, 'for', user, err.data);
+              logger.warn('User', user, 'verify_credentials', err.statusCode);
             }
           } else {
             logger.warn('User', user, 'has not revoked app.');
@@ -183,7 +183,8 @@ var Block = sequelize.define('Block', {
 var BlockBatch = sequelize.define('BlockBatch', {
   source_uid: Sequelize.STRING,
   currentCursor: Sequelize.STRING,
-  complete: Sequelize.BOOLEAN
+  complete: Sequelize.BOOLEAN,
+  size: Sequelize.INTEGER
 });
 BlockBatch.hasMany(Block, {onDelete: 'cascade'});
 Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
@@ -247,12 +248,6 @@ _.extend(Action, {
   LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts" block this user.
   EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
-
-sequelize
-  .sync()
-    .error(function(err) {
-       logger.error(err);
-    });
 
 // User to follow from settings page. In prod this is @blocktogether.
 // Initially blank, and loaded asynchronously. It's unlikely the
