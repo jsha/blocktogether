@@ -249,12 +249,6 @@ _.extend(Action, {
   EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
 
-sequelize
-  .sync()
-    .error(function(err) {
-       logger.error(err);
-    });
-
 // User to follow from settings page. In prod this is @blocktogether.
 // Initially blank, and loaded asynchronously. It's unlikely the
 // variable will be referenced before it is initialized.
