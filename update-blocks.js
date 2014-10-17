@@ -110,7 +110,7 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
         getMore(currentCursor);
       }, 15 * 60 * 1000);
     } else {
-      logger.error(err);
+      logger.error('Error /blocks/ids', err.statusCode, err.data);
     }
     return;
   }

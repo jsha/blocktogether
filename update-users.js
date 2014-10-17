@@ -109,7 +109,7 @@ function updateUsers(uids, err, response) {
         uids.length, 'users');
       uids.forEach(deactivateTwitterUser);
     } else {
-      logger.error(err);
+      logger.error('Error /users/lookup', err.statusCode, err.data);
     }
     return;
   }
