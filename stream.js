@@ -14,7 +14,6 @@ var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
     Action = setup.Action,
-    UnblockedUser = setup.UnblockedUser,
     BtUser = setup.BtUser;
 
 // An associative array of streams currently running. Indexed by uid.
@@ -40,18 +39,23 @@ https.globalAgent.maxSockets = 40000;
  * times in succession and get the same users each time, because they are not
  * yet in the active set. That, in turn, means we try to connect to streaming
  * and fetch at-replies many times for the same user, and get rate limited.
- *
- * TODO: Also collect block and unblock events.
- * TODO: Test that streams are restarted after network down events.
  */
 function startStreams() {
-  logger.info('Active streams:', Object.keys(streams).length - 1);
-  // Find all users who don't already have a running stream.
+  var streamingIds = Object.keys(streams);
+  var streamingHost = 'userstream.twitter.com:443';
+  var sockets = https.globalAgent.sockets[streamingHost];
+  logger.info('Active streams / open sockets:', streamingIds.length - 1,
+    '/', sockets ? sockets.length : 0);
+  // Find all users who don't already have a running stream. We start streams
+  // even for users that don't have one of the auto-block options
+  // (block_new_accounts or block_low_followers) because it's useful to get
+  // block/unblock information in a timely way. It also gives us early warning
+  // if we start running into limits on number of open streams.
   BtUser
     .findAll({
       where: sequelize.and(
         {
-          uid: { not: Object.keys(streams) },
+          uid: { not: streamingIds },
           deactivatedAt: null
         },
         // Check for any option that monitors stream for autoblock criteria
@@ -98,7 +102,17 @@ function startStream(user) {
   // Sometimes we get an ECONNRESET that is not caught in the OAuth code
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
-    logger.error('Error for', user, err);
+    logger.error('Socket error for', user, err.message);
+  });
+  // In normal operation, each open stream should receive an empty data item
+  // '{}' every 30 seconds for keepalive. Sometimes a connection will die
+  // without Node noticing it for instance if the host switches networks.
+  // This ensures the HTTPS request is aborted, which in turn calls
+  // endCallback, removing the entry from streams and allowing it to be started
+  // again.
+  req.setTimeout(70000, function() {
+    logger.error('Stream timeout for user', user, 'aborting.');
+    req.abort();
   });
 
   streams[user.uid] = req;
@@ -120,8 +134,8 @@ function checkPastMentions(user) {
     user.access_token, user.access_token_secret,
     function(err, mentions) {
       if (err) {
-        logger.error('Error /statuses/mentions_timeline', err, err.statusCode,
-          'for', user);
+        logger.error('Error', err.statusCode, '/statuses/mentions',
+          err.data, 'for', user);
       } else {
         logger.debug('Replaying', mentions.length, 'past mentions for', user);
         // It's common to have a large number of mentions from each user,
@@ -143,8 +157,8 @@ function checkPastMentions(user) {
  * streams map.
  * @param {BtUser} user The user whose stream ended.
  */
-function endCallback(user) {
-  logger.warn('Ending stream for', user);
+function endCallback(user, httpIncomingMessage) {
+  logger.warn('Ending stream for', user, httpIncomingMessage.statusCode);
   user.verifyCredentials();
   delete streams[user.uid];
 }
@@ -180,17 +194,26 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       recipientBtUser.verifyCredentials();
     }
   } else if (data.warning) {
-    logger.warn(recipientBtUser,
-      'stream warning message:', data.warning);
+    if (data.warning.code === 'FOLLOWS_OVER_LIMIT') {
+      // These happen any time you start a stream for a user with more than 10k
+      // follows, so they are normal and we don't care. They mean that you won't
+      // see all tweets on the user's timeline, but we don't care about timeline
+      // tweets anyhow.
+    } else {
+      logger.warn('Stream warning for', recipientBtUser, data.warning.code,
+        data.warning.message);
+    }
   } else if (data.event) {
-    logger.info('User', recipientBtUser, 'event', data.event);
+    logger.debug('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
     // save it if we don't already have it.
     if (data.target) {
       updateUsers.storeUser(data.target);
     }
 
-    handleUnblock(data);
+    if (data.event === 'unblock') {
+      handleUnblock(data);
+    }
   } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
     // as a mention of @foo for the purposes of blocking. That retweet would
@@ -242,31 +265,52 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 }
 
 /**
- * Given an unblock event from the streaming API,
- * record that unblock so we know not to re-block that user in the future.
+ * Given an unblock event from the streaming API, record that unblock so we
+ * know not to re-block that user in the future. NOTE: When we perform unblock
+ * actions on a user, they get echoed back to us through the Streaming API.
+ * Since the Action we performed in already in the DB, we don't want to insert a
+ * different record with cause = 'external'. So we check the DB to avoid
+ * recording duplicates.
+ *
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleUnblock(data) {
-  if (data.event === 'unblock') {
-    UnblockedUser.find({
-      where: {
-        source_uid: data.source.id_str,
-        sink_uid: data.target.id_str
-      }
+  // When we perform an unblock action, it gets echoed back from the Stream API
+  // very quickly - on the order of milliseconds. In order to make sure
+  // actions.js has had a chance to write the 'done' status to the DB, we wait a
+  // second before checking for duplicates.
+  setTimeout(function() {
+    // Most of the contents of the action to be created. Stored here because they
+    // are also useful to query for previous actions.
+    var actionContents = {
+      source_uid: data.source.id_str,
+      sink_uid: data.target.id_str,
+      type: Action.UNBLOCK,
+      'status': Action.DONE
+    }
+
+    Action.find({
+      where: _.extend(actionContents, {
+        updatedAt: {
+          // Look only at actions updated less than a minute ago.
+          gt: new Date(new Date() - 60000)
+        }
+      })
     }).error(function(err) {
-      logger.error(err);
-    }).success(function(unblockedUser) {
-      if (!unblockedUser) {
-        unblockedUser = UnblockedUser.build({
-          source_uid: data.source.id_str,
-          sink_uid: data.target.id_str
-        });
+      logger.error(err)
+    }).success(function(prevAction) {
+      // No previous action found, so create one. Add the cause and cause_uid
+      // fields, which we didn't use for the query.
+      if (!prevAction) {
+        Action.create(_.extend(actionContents, {
+          cause: Action.EXTERNAL,
+          cause_uid: null
+        })).error(function(err) {
+          logger.error(err);
+        })
       }
-      unblockedUser.save().error(function(err) {
-        logger.error(err);
-      });
-    });
-  }
+    })
+  }, 1000);
 }
 
 /**

@@ -19,16 +19,19 @@ var config = setup.config,
  * Find TwitterUsers needing update, look them up on Twitter, and store in
  * database. A user needs update if it's just been inserted (no screen name)
  * or if it hasn't been updated in a day.
+ *
+ * @param {string} sqlFilter An SQL `where' clause to filter users by. Allows
+ *   running separate update cycles for fresh users (with no screen name) vs
+ *   users who need a refresh.
  */
-function findAndUpdateUsers() {
+function findAndUpdateUsers(sqlFilter) {
   TwitterUser
     .findAll({
       where: sequelize.and(
         { deactivatedAt: null },
-        sequelize.or(
-          { screen_name: null },
-          'updatedAt < (now() - INTERVAL 1 DAY)')),
-      limit: 100
+        sqlFilter),
+      limit: 100,
+      order: 'updatedAt'
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
@@ -98,7 +101,7 @@ function deactivateTwitterUser(uid) {
 function updateUsers(uids, err, response) {
   if (err) {
     if (err.statusCode === 429) {
-      logger.warn('Rate limited.');
+      logger.info('Rate limited.');
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Delete all of them.
@@ -106,7 +109,7 @@ function updateUsers(uids, err, response) {
         uids.length, 'users');
       uids.forEach(deactivateTwitterUser);
     } else {
-      logger.error(err);
+      logger.error('Error /users/lookup', err.statusCode, err.data);
     }
     return;
   }
@@ -140,6 +143,10 @@ function storeUser(twitterUserResponse) {
       logger.error(err);
     }).success(function(user, created) {
       user = _.extend(user, twitterUserResponse);
+      // This field is special because it needs to be parsed as a date, and
+      // because the default name 'created_at' is too confusing alongside
+      // Sequelize's built-in createdAt.
+      user.account_created_at = new Date(twitterUserResponse.created_at);
       user.deactivatedAt = null;
       // In general we want to write the user to DB so updatedAt gets bumped,
       // so we know not to bother refreshing the user for a day. However, during
@@ -171,8 +178,12 @@ module.exports = {
 
 if (require.main === module) {
   findAndUpdateUsers();
-  // Poll for more users to update every 2 seconds.
-  setInterval(findAndUpdateUsers, 2000);
+  // Poll for just-added users every 1 second and do an initial fetch of their
+  // information.
+  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 1000);
+  // Poll for users needing update every 10 seconds.
+  setInterval(
+    findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
   // Poll for reactivated users every hour.
   setInterval(reactivateBtUsers, 60 * 60 * 1000);
 }

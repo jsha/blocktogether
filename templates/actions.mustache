@@ -11,7 +11,14 @@
       <th>Updated</th>
     </tr>
   </thead>
-  {{#actions}}
+
+  {{#paginate}}
+  <div id='pagination-bar'>
+    {{>pagination.mustache}}
+  </div>
+  {{/paginate}}
+
+  {{#item_rows}}
     <tr class='action' data-id='{{id}}'>
       <td>{{type}}</td>
       <td>
@@ -30,6 +37,6 @@
       <td title="{{createdAt}}">{{prettyCreated}}</td>
       <td title="{{updatedAt}}">{{prettyUpdated}}</td>
     </tr>
-  {{/actions}}
+  {{/item_rows}}
   </table>
   {{>footer.mustache}}

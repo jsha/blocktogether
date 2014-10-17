@@ -4,11 +4,16 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{block_count}} users on Twitter (updated {{updated}}):
+    is blocking {{item_count}} users on Twitter (updated {{updated}}). Showing
+    {{per_page}} per page:
+  </p>
   {{/own_blocks}}
   {{#own_blocks}}
   <p>
-    You are blocking {{block_count}} users on Twitter (updated {{updated}}):
+    You are blocking {{item_count}} users on Twitter (updated {{updated}}).
+    {{#paginate}}
+    Showing {{per_page}} per page:
+    {{/paginate}}
   </p>
   {{/own_blocks}}
 
@@ -37,16 +42,20 @@
       same ones on this page.  }}
   {{^own_blocks}}
   <div>
-    <button class='btn btn-primary block-all'>Block All{{#paginate}} on Page{{/paginate}}</button>
+    <button class='btn btn-primary block-all'>Block All {{item_count}}</button>
     <div class='block-all-processing'>
-      Block Together will now block {{block_count}} users using your account
-      @{{logged_in_screen_name}}. This may take some time. You can check
-      on progress at <a href='/actions'>the Actions page</a>.
+      Block Together will now block
+      <span id='blocked-users'></span>
+      users using your account @{{logged_in_screen_name}}.
+      This may take some time. You can check on progress at
+      <a href='/actions'>the Actions page</a>.
     </div>
   </div>
   {{/own_blocks}}
 
-  <table data-author-uid='{{author_uid}}'
+  <table
+    data-shared-blocks-key='{{shared_blocks_key}}'
+    data-author-uid='{{author_uid}}'
     class='table table-condensed table-hover all-blocks
       {{#own_blocks}}
       own-blocks
@@ -57,10 +66,13 @@
         <th><input type=checkbox id=check-all></input></th>
         <th>Screen Name</th>
         <th>Name</th>
-        <th></th>
+        <th>Account Created</th>
+        <th>Tweets</th>
+        <th>Following</th>
+        <th>Followers</th>
       </tr>
     </thead>
-  {{#blocked_users}}
+  {{#item_rows}}
     <tr class='blocked-user'>
       <td>
         <input type='checkbox' class='checkbox' data-uid='{{uid}}'></input>
@@ -78,11 +90,21 @@
        {{/screen_name}}
       </td>
       <td>
-       {{#screen_name}}
-         {{name}}
-       {{/screen_name}}
+        {{name}}
+      </td>
+      <td>
+        {{account_age}}
+      </td>
+      <td>
+        {{statuses_count}}
+      </td>
+      <td>
+        {{friends_count}}
+      </td>
+      <td>
+        {{followers_count}}
       </td>
     </tr>
-  {{/blocked_users}}
+  {{/item_rows}}
   </table>
   {{>footer.mustache}}

@@ -11,6 +11,7 @@ var express = require('express'), // Web framework
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
     timeago = require('timeago'),
+    constantTimeEquals = require('scmp'),
     setup = require('./setup'),
     actions = require('./actions'),
     updateBlocks = require('./update-blocks'),
@@ -75,8 +76,6 @@ function makeApp() {
     BtUser.find({
       where: {
         uid: sessionUser.uid,
-        access_token: sessionUser.accessToken,
-        access_token_secret: sessionUser.accessTokenSecret,
         deactivatedAt: null
       }
     }).error(function(err) {
@@ -84,7 +83,17 @@ function makeApp() {
       // User not found in DB. Leave the user object undefined.
       done(null, undefined);
     }).success(function(user) {
-      done(null, user);
+      // It's probably unnecessary to do constant time compare on these, since
+      // the HMAC on the session cookie should prevent an attacker from
+      // submitting arbitrary valid sessions, but this is nice defence in depth
+      // against timing attacks in case the cookie secret gets out.
+      if (constantTimeEquals(user.access_token, sessionUser.accessToken) &&
+          constantTimeEquals(user.access_token_secret, sessionUser.accessTokenSecret)) {
+        done(null, user);
+      } else {
+        logger.error('Incorrect access token in session for', user);
+        done(null, undefined);
+      }
     });
   });
   return app;
@@ -367,48 +376,8 @@ function updateSettings(user, settings, callback) {
 }
 
 app.get('/actions',
-  function(req, res) {
-    req.user
-      .getActions({
-        order: 'updatedAt DESC',
-        // Get the associated TwitterUser so we can display screen names.
-        include: [{
-          model: TwitterUser,
-          required: false
-        }]
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(actions) {
-        // Decorate the actions with human-friendly times
-        actions = actions.map(function(action) {
-          return _.extend(action, {
-            prettyCreated: timeago(new Date(action.createdAt)),
-            prettyUpdated: timeago(new Date(action.updatedAt))
-          });
-        });
-        var stream = mu.compileAndRender('actions.mustache', {
-          logged_in_screen_name: req.user.screen_name,
-          actions: actions
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      });
-  });
-
-app.get('/my-unblocks',
-  function(req, res) {
-    req.user
-      .getUnblockedUsers()
-      .error(function(err) {
-        logger.error(err);
-      }).success(function(unblockedUsers) {
-        var stream = mu.compileAndRender('my-unblocks.mustache', {
-          logged_in_screen_name: req.user.screen_name,
-          unblocked_users: unblockedUsers
-        });
-        res.header('Content-Type', 'text/html');
-        stream.pipe(res);
-      });
+  function(req, res, next) {
+    showActions(req, res, next);
   });
 
 app.get('/my-blocks',
@@ -417,29 +386,100 @@ app.get('/my-blocks',
     // copy of their blocks. This won't show up on the first render, since we
     // don't want to wait for results if it's a multi-page response, but it
     // means subsequent reloads will get the correct results.
-    updateBlocks.updateBlocks(req.user);
+    // Only trigger this for the first page worth of blocks.
+    if (!req.query.page) {
+      updateBlocks.updateBlocks(req.user);
+    }
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
 app.get('/show-blocks/:slug',
   function(req, res, next) {
+    var slug = req.params.slug;
+    if (!slug.match(/^[a-f0-9]{96}$/)) {
+      next(new Error('No such block list.'));
+    }
     BtUser
-      .find({ where: { shared_blocks_key: req.params.slug } })
-      .error(function(err) {
+      .find({
+        where: ['shared_blocks_key LIKE ?', slug.slice(0, 10) + '%']
+      }).error(function(err) {
         logger.error(err);
       }).success(function(user) {
-        if (user) {
+        // To avoid timing attacks to try and incremental discover shared block
+        // slugs, use only the first part of the slug for lookup, and check the
+        // rest using constantTimeEquals. For details about timing attacks see
+        // http://codahale.com/a-lesson-in-timing-attacks/
+        if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          res.header('Content-Type', 'text/html');
-          res.status(404);
-          res.end('<h1>404 Page not found</h1>');
+          next(new Error('No such block list.'));
         }
       });
   });
 
 /**
- * Given a JSON POST from a show-blocks page, enqueue the appropriate blocks.
+ * Given a JSON POST from a show-blocks page, enqueue all blocks.
+ * For the "Block all" button the JSON POST includes just the
+ * shared_blocks_key, and we look up the blocks in the DB.
+ */
+app.post('/block-all.json',
+  function(req, res, next) {
+    res.header('Content-Type', 'application/json');
+    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
+    if (req.body.shared_blocks_key &&
+        typeof req.body.shared_blocks_key === 'string' &&
+        req.body.shared_blocks_key.length < 100) {
+      BtUser
+        .find({
+          where: {
+            shared_blocks_key: req.body.shared_blocks_key,
+            deactivatedAt: null
+          }
+        }).error(function(err) {
+          logger.error(err);
+        }).success(function(author) {
+          logger.debug('Found author', author);
+          // If the shared_blocks_key is valid, find the most recent BlockBatch
+          // from that share block list author, and copy each uid onto the
+          // blocking user's list.
+          if (author) {
+            author.getBlockBatches({
+              limit: 1,
+              order: 'complete desc, currentCursor is null, updatedAt desc'
+            }).error(function(err) {
+              logger.error(err);
+            }).success(function(blockBatches) {
+              if (blockBatches && blockBatches.length > 0) {
+                blockBatches[0].getBlocks()
+                  .error(function(err) {
+                    logger.error(err);
+                  }).success(function(blocks) {
+                    var sinkUids = _.pluck(blocks, 'sink_uid');
+                    actions.queueActions(
+                      req.user.uid, sinkUids, Action.BLOCK,
+                      Action.BULK_MANUAL_BLOCK, author.uid);
+                    res.end(JSON.stringify({
+                      block_count: sinkUids.length
+                    }));
+                  });
+              } else {
+                next(new Error('Empty block list.'));
+              }
+            });
+          } else {
+            next(new Error('Invalid shared block list id.'));
+          }
+        });
+    } else {
+      res.status(400);
+      res.end(JSON.stringify({
+        error: 'Invalid parameters.'
+      }));
+    }
+  });
+
+/**
+ * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
  */
 app.post('/do-actions.json',
   function(req, res) {
@@ -447,9 +487,7 @@ app.post('/do-actions.json',
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     if (req.body.list &&
         req.body.list.length &&
-        req.body.list.length < 5000 &&
-        req.body.cause_uid &&
-        req.body.cause_uid.match(/[0-9]{1,20}/) &&
+        req.body.list.length <= 5000 &&
         validTypes[req.body.type]) {
       actions.queueActions(
         req.user.uid, req.body.list, req.body.type,
@@ -464,15 +502,43 @@ app.post('/do-actions.json',
   });
 
 /**
+ * Create pagination metadata object for items retrieved with findAndCountAll().
+ * @param {Object} items Result of findAndCountAll() with count and rows fields.
+ * @param {Number} perPage Number of items displayed per page.
+ * @param {Number} currentPage Which page is currently being rendered, starts at 1.
+ */
+function getPaginationData(items, perPage, currentPage) {
+  var pageCount = Math.ceil(items.count / perPage);
+  // Pagination metadata to be returned:
+  var paginationData = {
+    item_count: items.count,
+    item_rows: items.rows,
+    // Are there enough items to paginate?
+    paginate: pageCount > 1,
+    // Array of objects (1-indexed) for use in pagination template.
+    pages: _.range(1, pageCount + 1).map(function(pageNum) {
+      return {
+        page_num: pageNum,
+        active: pageNum === currentPage
+      };
+    }),
+    // Previous/next page indices for use in pagination template.
+    previous_page: currentPage - 1 || false,
+    next_page: currentPage === pageCount ? false : currentPage + 1,
+    per_page: perPage
+  }
+  return paginationData;
+}
+
+/**
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
-  // For pagination
-  // N.B.: currentPage IS 1-INDEXED, NOT ZERO-INDEXED
+  // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
-      perPage = 5000;
+      perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
   }
@@ -484,14 +550,15 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     limit: 1,
     // We prefer a the most recent complete BlockBatch, but if none is
     // available we will choose the most recent non-complete BlockBatch.
-    order: 'complete desc, createdAt desc'
+    order: 'complete desc, currentCursor is null, updatedAt desc'
   }).error(function(err) {
     logger.error(err);
   }).success(function(blockBatch) {
     if (!blockBatch) {
       next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
-      Block.findAndCountAll({
+      // Find, count, and prepare block data for display:
+      Block.findAll({
         where: {
           blockBatchId: blockBatch.id
         },
@@ -504,14 +571,18 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       }).error(function(err) {
         logger.error(err);
       }).success(function(blocks) {
+        var paginationData = getPaginationData({
+          count: blockBatch.size || 0,
+          rows: blocks
+        }, perPage, currentPage);
         // Create a list of users that has at least a uid entry even if the
         // TwitterUser doesn't yet exist in our DB.
-        var blocksCount = blocks.count,
-            blocksRows = blocks.rows,
-            pageCount = Math.ceil(blocksCount / perPage);
-        var blockedUsersList = blocksRows.map(function(block) {
+        paginationData.item_rows = paginationData.item_rows.map(function(block) {
           if (block.twitterUser) {
-            return block.twitterUser;
+            var user = block.twitterUser;
+            return _.extend(user, {
+              account_age: timeago(user.account_created_at)
+            });
           } else {
             return {uid: block.sink_uid};
           }
@@ -524,27 +595,64 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           author_screen_name: btUser.screen_name,
           // The uid of the user whose blocks we are viewing.
           author_uid: btUser.uid,
-          block_count: blocksCount,
-          paginate: pageCount > 1,
-          // Array of objects (1-indexed) for use in pagination template.
-          pages: _.range(1, pageCount + 1).map(function(pageNum) {
-            return {
-              page_num: pageNum,
-              active: pageNum === currentPage
-            };
-          }),
-          // Previous/next page indices for use in pagination template.
-          previous_page: currentPage - 1 || false,
-          next_page: currentPage === pageCount ? false : currentPage + 1,
           // Base URL for appending pagination querystring.
           path_name: url.parse(req.url).pathname,
-          blocked_users: blockedUsersList,
+          shared_blocks_key: req.params.slug,
+          // Whether this is /my-blocks (rather than /show-blocks/foo)
           own_blocks: ownBlocks
         };
+        // Merge pagination metadata with template-specific fields.
+        _.extend(templateData, paginationData);
         res.header('Content-Type', 'text/html');
         mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
       });
     }
+  });
+}
+
+/**
+ * Render the action list for a given BtUser as HTML.
+ */
+function showActions(req, res, next) {
+  // For pagination:
+  var currentPage = parseInt(req.query.page, 10) || 1,
+      perPage = 500;
+  if (currentPage < 1) {
+    currentPage = 1;
+  }
+  // Find, count, and prepare action data for display:
+  Action.findAndCountAll({
+    where: {
+      source_uid: req.user.uid
+    },
+    order: 'updatedAt DESC',
+    limit: perPage,
+    offset: perPage * (currentPage - 1),
+    // Get the associated TwitterUser so we can display screen names.
+    include: [{
+      model: TwitterUser,
+      required: false
+    }]
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(actions) {
+    var paginationData = getPaginationData(actions, perPage, currentPage);
+    // Decorate the actions with human-friendly times
+    paginationData.item_rows = paginationData.item_rows.map(function(action) {
+      return _.extend(action, {
+        prettyCreated: timeago(new Date(action.createdAt)),
+        prettyUpdated: timeago(new Date(action.updatedAt))
+      });
+    });
+    var templateData = {
+      logged_in_screen_name: req.user.screen_name,
+      // Base URL for appending pagination querystring.
+      path_name: url.parse(req.url).pathname
+    };
+    // Merge pagination metadata with template-specific fields.
+    _.extend(templateData, paginationData);
+    res.header('Content-Type', 'text/html');
+    mu.compileAndRender('actions.mustache', templateData).pipe(res);
   });
 }
 

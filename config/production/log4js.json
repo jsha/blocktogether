@@ -1,0 +1,94 @@
+{
+  "appenders": [{
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "blocktogether",
+    "appender": {
+      "type": "file",
+      "filename": "blocktogether-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "stream",
+    "appender": {
+      "type": "file",
+      "filename": "stream-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "actions",
+    "appender": {
+      "type": "file",
+      "filename": "actions-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "update-users",
+    "appender": {
+      "type": "file",
+      "filename": "update-users-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "update-blocks",
+    "appender": {
+      "type": "file",
+      "filename": "update-blocks-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "blocktogether",
+    "appender": {
+      "type": "file",
+      "filename": "blocktogether-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "stream",
+    "appender": {
+      "type": "file",
+      "filename": "stream-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "actions",
+    "appender": {
+      "type": "file",
+      "filename": "actions-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "update-users",
+    "appender": {
+      "type": "file",
+      "filename": "update-users-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "WARN",
+    "category": "update-blocks",
+    "appender": {
+      "type": "file",
+      "filename": "update-blocks-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }],
+  "replaceConsole": true
+}

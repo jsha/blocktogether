@@ -1,6 +1,7 @@
 'use strict';
 (function() {
 var fs = require('fs'),
+    path = require('path'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
@@ -15,7 +16,9 @@ var fs = require('fs'),
  *    "cookieSecret": "...",
  *  }
  */
-var configData = fs.readFileSync('/etc/blocktogether/config.json', 'utf8');
+var configDir = '/etc/blocktogether/';
+var nodeEnv = process.env['NODE_ENV'] || 'development';
+var configData = fs.readFileSync(configDir + 'config.json', 'utf8');
 var config = JSON.parse(configData);
 
 var twitter = new twitterAPI({
@@ -23,13 +26,13 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 
-var logger = log4js.getLogger({
-  appenders: [
-    { type: 'console' }
-  ],
-  replaceConsole: true
+log4js.configure(configDir + nodeEnv + '/log4js.json', {
+  cwd: '/usr/local/blocktogether/shared/log'
 });
-logger.setLevel('TRACE');
+// The logging category is based on the name of the running script, e.g.
+// blocktogether, action, stream, etc.
+var scriptName = path.basename(require.main.filename).replace(".js", "");
+var logger = log4js.getLogger(scriptName);
 
 // Once a second log how many pending HTTPS requests there are.
 function logPendingRequests() {
@@ -53,9 +56,8 @@ function logPendingRequests() {
 setInterval(logPendingRequests, 5000);
 
 var sequelizeConfigData = fs.readFileSync(
-  '/etc/blocktogether/sequelize.json', 'utf8');
-var env = process.env['NODE_ENV'] || 'development';
-var c = JSON.parse(sequelizeConfigData)[env];
+  configDir + 'sequelize.json', 'utf8');
+var c = JSON.parse(sequelizeConfigData)[nodeEnv];
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
       logging: function(message) {
@@ -76,7 +78,13 @@ var TwitterUser = sequelize.define('TwitterUser', {
   profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
   name: Sequelize.STRING,
-  deactivatedAt: Sequelize.DATE
+  deactivatedAt: Sequelize.DATE,
+  lang: Sequelize.STRING,
+  statuses_count: Sequelize.INTEGER,
+  // NOTE: This field doesn't exactly match the name of the corresponding field
+  // in the Twitter User object ('created_at'), because that matches too closely
+  // the Sequelize built-in createdAt, and would be confusing.
+  account_created_at: Sequelize.DATE
 });
 
 /**
@@ -145,7 +153,7 @@ var BtUser = sequelize.define('BtUser', {
               logger.warn('User', user, 'deactivated or suspended.')
               user.deactivatedAt = new Date();
             } else {
-              logger.warn('Unknown error', err.statusCode, 'for', user, err.data);
+              logger.warn('User', user, 'verify_credentials', err.statusCode);
             }
           } else {
             logger.warn('User', user, 'has not revoked app.');
@@ -175,16 +183,21 @@ var Block = sequelize.define('Block', {
 var BlockBatch = sequelize.define('BlockBatch', {
   source_uid: Sequelize.STRING,
   currentCursor: Sequelize.STRING,
-  complete: Sequelize.BOOLEAN
+  complete: Sequelize.BOOLEAN,
+  size: Sequelize.INTEGER
 });
 BlockBatch.hasMany(Block, {onDelete: 'cascade'});
 Block.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
 
 /**
- * An action (block or unblock) that we perform on behalf of a user.
- * These are created when we intend to perform the action, and marked 'done'
- * once it's completed.
+ * An action (block or unblock) that we performed on behalf of a user, or that
+ * we observed the user perform from an external client (like twitter.com or
+ * Twitter for Android).
+ *
+ * Pending actions are created when we intend to perform an action, and marked
+ * 'done' once completed. External actions are marked with cause = 'external',
+ * and are inserted with status = 'done' as soon as we observe them.
  */
 var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
@@ -222,8 +235,8 @@ _.extend(Action, {
   // later.
   DEFERRED_TARGET_SUSPENDED: 'deferred-target-suspended',
   // When a user with pending actions is deactivated/suspended/revokes,
-  // defer their actions until that state changes.
-  DEFERRED_SOURCE_DEACTIVATED: 'deferred-source-deactivated',
+  // cancel those pending actions.
+  CANCELLED_SOURCE_DEACTIVATED: 'cancelled-source-deactivated',
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',
@@ -232,30 +245,9 @@ _.extend(Action, {
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
   NEW_ACCOUNT: 'new-account', // "Block new accounts" blocked this user.
-  LOW_FOLLOWERS: 'low-followers' // "Block unpopular accounts" block this user.
+  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts" block this user.
+  EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
-
-/**
- * A record of a user who was unblocked by a BlockTogether user.
- * Note: This is NOT parallel to the Blocks table because we cannot update
- * it at will from the REST API. Right now this table is only filled by
- * stream.js when it receives an unblock event, and entries are never removed
- * except manually by the user.
- *
- * Entries in this table are used to prevent re-blocking a user who has been
- * manually unblocked.
- */
-var UnblockedUser = sequelize.define('UnblockedUser', {
-  source_uid: Sequelize.STRING,
-  sink_uid: Sequelize.STRING
-});
-BtUser.hasMany(UnblockedUser, {foreignKey: 'source_uid'});
-
-sequelize
-  .sync()
-    .error(function(err) {
-       logger.error(err);
-    });
 
 // User to follow from settings page. In prod this is @blocktogether.
 // Initially blank, and loaded asynchronously. It's unlikely the
@@ -281,7 +273,6 @@ module.exports = {
   BtUser: BtUser,
   Block: Block,
   BlockBatch: BlockBatch,
-  UnblockedUser: UnblockedUser,
   Action: Action
 };
 })();
