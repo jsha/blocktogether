@@ -11,6 +11,7 @@ var express = require('express'), // Web framework
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
     timeago = require('timeago'),
+    constantTimeEquals = require('scmp'),
     setup = require('./setup'),
     actions = require('./actions'),
     updateBlocks = require('./update-blocks'),
@@ -75,8 +76,6 @@ function makeApp() {
     BtUser.find({
       where: {
         uid: sessionUser.uid,
-        access_token: sessionUser.accessToken,
-        access_token_secret: sessionUser.accessTokenSecret,
         deactivatedAt: null
       }
     }).error(function(err) {
@@ -84,7 +83,17 @@ function makeApp() {
       // User not found in DB. Leave the user object undefined.
       done(null, undefined);
     }).success(function(user) {
-      done(null, user);
+      // It's probably unnecessary to do constant time compare on these, since
+      // the HMAC on the session cookie should prevent an attacker from
+      // submitting arbitrary valid sessions, but this is nice defence in depth
+      // against timing attacks in case the cookie secret gets out.
+      if (constantTimeEquals(user.access_token, sessionUser.accessToken) &&
+          constantTimeEquals(user.access_token_secret, sessionUser.accessTokenSecret)) {
+        done(null, user);
+      } else {
+        logger.error('Incorrect access token in session for', user);
+        done(null, undefined);
+      }
     });
   });
   return app;
@@ -386,17 +395,24 @@ app.get('/my-blocks',
 
 app.get('/show-blocks/:slug',
   function(req, res, next) {
+    var slug = req.params.slug;
+    if (!slug.match(/^[a-f0-9]{96}$/)) {
+      next(new Error('No such block list.'));
+    }
     BtUser
-      .find({ where: { shared_blocks_key: req.params.slug } })
-      .error(function(err) {
+      .find({
+        where: ['shared_blocks_key LIKE ?', slug.slice(0, 10) + '%']
+      }).error(function(err) {
         logger.error(err);
       }).success(function(user) {
-        if (user) {
+        // To avoid timing attacks to try and incremental discover shared block
+        // slugs, use only the first part of the slug for lookup, and check the
+        // rest using constantTimeEquals. For details about timing attacks see
+        // http://codahale.com/a-lesson-in-timing-attacks/
+        if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          res.header('Content-Type', 'text/html');
-          res.status(404);
-          res.end('<h1>404 Page not found</h1>');
+          next(new Error('No such block list.'));
         }
       });
   });
@@ -422,7 +438,7 @@ app.post('/block-all.json',
         }).error(function(err) {
           logger.error(err);
         }).success(function(author) {
-          logger.info('Found author', author);
+          logger.debug('Found author', author);
           // If the shared_blocks_key is valid, find the most recent BlockBatch
           // from that share block list author, and copy each uid onto the
           // blocking user's list.
