@@ -170,6 +170,13 @@ var BtUser = sequelize.define('BtUser', {
 });
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
 
+var Subscription = sequelize.define('Subscription', {
+  author_uid: Sequelize.STRING,
+  subscriber_uid: Sequelize.STRING
+});
+Subscription.hasOne(BtUser, {foreignKey: 'author_uid'});
+Subscription.hasOne(BtUser, {foreignKey: 'subscriber_uid'});
+
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING
