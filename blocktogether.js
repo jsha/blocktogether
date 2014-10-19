@@ -625,7 +625,10 @@ function showActions(req, res, next) {
     where: {
       source_uid: req.user.uid
     },
-    order: 'updatedAt DESC',
+    // We want to show pending actions before all other actions.
+    // This FIELD statement will return 1 if status is 'pending',
+    // otherwise 0.
+    order: 'FIELD(status, "pending") DESC, updatedAt DESC',
     limit: perPage,
     offset: perPage * (currentPage - 1),
     // Get the associated TwitterUser so we can display screen names.
