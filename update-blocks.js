@@ -186,6 +186,8 @@ function finalizeBlockBatch(blockBatch) {
     }).success(function(blockBatch) {
       updateUsers.findAndUpdateUsers();
       diffBatchWithPrevious(blockBatch);
+      // Prune older BlockBatches for this user from the DB.
+      destroyOldBlocks(blockBatch.source_uid);
     });
   });
 }
@@ -231,7 +233,34 @@ function diffBatchWithPrevious(currentBatch) {
         });
       });
     } else {
-      logger.info('Insufficient block batches to diff.');
+      logger.warn('Insufficient block batches to diff.');
+    }
+  });
+}
+
+/**
+ * For a given BtUser, remove all but 2 most recent batches of blocks.
+ *
+ * @param {String} userId The uid for the BtUser whose blocks we want to trim.
+ */
+function destroyOldBlocks(userId) {
+  BlockBatch.findAll({
+    source_uid: userId,
+    offset: 2,
+    order: 'id DESC'
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(blockBatches) {
+    if (blockBatches && blockBatches.length > 0) {
+      BlockBatch.destroy({
+        id: {
+          in: _.pluck(blockBatches, 'id')
+        }
+      }).error(function(err) {
+        logger.error(err);
+      }).success(function(destroyedCount) {
+        logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
+      });
     }
   });
 }
