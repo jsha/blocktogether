@@ -211,8 +211,8 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       updateUsers.storeUser(data.target);
     }
 
-    if (data.event === 'unblock') {
-      handleUnblock(data);
+    if (data.event === 'unblock' || data.event === 'block') {
+      handleBlockEvent(recipientBtUser, data);
     }
   } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
@@ -265,51 +265,38 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 }
 
 /**
- * Given an unblock event from the streaming API, record that unblock so we
- * know not to re-block that user in the future. NOTE: When we perform unblock
+ * @type {Object.<string,number>} Currently running timers to check blocks.
+ */
+var updateBlocksTimers = {};
+
+/**
+ * Given a block/unblock event from the streaming API, record it in Actions.
+ * We will use unblocks so we know not to re-block that user in the future.
+ * NOTE: When we perform unblock
  * actions on a user, they get echoed back to us through the Streaming API.
  * Since the Action we performed in already in the DB, we don't want to insert a
  * different record with cause = 'external'. So we check the DB to avoid
  * recording duplicates.
  *
+ * @param {BtUser} recipientBtUser User who received a block / unblock event on their
+ *   stream.
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
-function handleUnblock(data) {
+function handleBlockEvent(recipientBtUser, data) {
   // When we perform an unblock action, it gets echoed back from the Stream API
   // very quickly - on the order of milliseconds. In order to make sure
   // actions.js has had a chance to write the 'done' status to the DB, we wait a
   // second before checking for duplicates.
-  setTimeout(function() {
-    // Most of the contents of the action to be created. Stored here because they
-    // are also useful to query for previous actions.
-    var actionContents = {
-      source_uid: data.source.id_str,
-      sink_uid: data.target.id_str,
-      type: Action.UNBLOCK,
-      'status': Action.DONE
-    }
-
-    Action.find({
-      where: _.extend(actionContents, {
-        updatedAt: {
-          // Look only at actions updated less than a minute ago.
-          gt: new Date(new Date() - 60000)
-        }
-      })
-    }).error(function(err) {
-      logger.error(err)
-    }).success(function(prevAction) {
-      // No previous action found, so create one. Add the cause and cause_uid
-      // fields, which we didn't use for the query.
-      if (!prevAction) {
-        Action.create(_.extend(actionContents, {
-          cause: Action.EXTERNAL,
-          cause_uid: null
-        })).error(function(err) {
-          logger.error(err);
-        })
-      }
-    })
+  // Also, if several blocks or unblocks come rapidly, we keep postponing the
+  // updateBlocks call by a second each time. This prevents excessive resource
+  // use when a user does a 'Block all' and many blocks show up in the streaming
+  // API very rapidly.
+  var timerId = updateBlocksTimers[recipientBtUser.uid];
+  if (timerId) {
+    clearTimeout(timerId);
+  }
+  updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
+    updateBlocks.updateBlocks(recipientBtUser);
   }, 1000);
 }
 

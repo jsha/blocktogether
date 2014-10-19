@@ -11,6 +11,7 @@ var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
     TwitterUser = setup.TwitterUser,
+    Action = setup.Action,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block;
 
@@ -96,7 +97,7 @@ function fetchAndStoreBlocks(user, blockBatch, cursor) {
   // A function that can simply be called again to run this once more with an
   // updated cursor.
   var getMore = fetchAndStoreBlocks.bind(null,
-    user, blockBatch, prevBlockBatchId);
+    user, blockBatch);
   var currentCursor = cursor || '-1';
   twitter.blocks('ids', {
       // Stringify ids is very important, or we'll get back numeric ids that
@@ -105,20 +106,19 @@ function fetchAndStoreBlocks(user, blockBatch, cursor) {
       cursor: currentCursor
     },
     user.access_token, user.access_token_secret,
-    handleIds.bind(null, blockBatch, prevBlockBatchId, currentCursor, getMore));
+    handleIds.bind(null, blockBatch, currentCursor, getMore));
 }
 
 /**
  * Given results from Twitter, store as appropriate.
  * @param {BlockBatch|null} blockBatch BlockBatch to add blocks to. Null for the
  *   first batch, set if cursoring is needed.
- * @param {number} prevBlockBatchId
  * @param {string} currentCursor
  * @param {Function} getMore
  * @param {TwitterError} err
  * @param {Object} results
  */
-function handleIds(blockBatch, prevBlockBatchId, currentCursor, getMore, err, results) {
+function handleIds(blockBatch, currentCursor, getMore, err, results) {
   if (err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited. Trying again in 15 minutes.');
@@ -198,53 +198,58 @@ function finalizeBlockBatch(blockBatch) {
 function diffBatchWithPrevious(currentBatch) {
   BlockBatch.findAll({
     where: {
+      source_uid: currentBatch.source_uid,
       id: { lte: currentBatch.id }
     },
     order: 'id DESC',
-    limit: 2,
-    include: Block
+    limit: 2
   }).error(function(err) {
     logger.error(err);
   }).success(function(batches) {
     if (batches && batches.length === 2) {
-      var currentBlocks = batches[0].blocks;
-      var oldBlocks = batches[1].blocks;
-      logger.info('Current batch size', currentBlocks.length,
-        'old', oldBlocks.length);
-      var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
-      var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
-      var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
-      var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-      logger.info('Added:', addedBlockIds, 'Removed:', removedBlockIds);
-      addedBlockIds.each(function(sink_uid) {
-        addBlockToActions(currentBatch.source_uid, sink_uid);
+      var currentBatch = batches[0];
+      var oldBatch = batches[1];
+      var currentBlocks = [];
+      var oldBlocks = [];
+      currentBatch.getBlocks().then(function(blocks) {
+        currentBlocks = blocks;
+        return oldBatch.getBlocks();
+      }).then(function(blocks) {
+        oldBlocks = blocks;
+        logger.warn('Current batch size', currentBlocks.length,
+          'old', oldBlocks.length, 'ids', batches[0].id, batches[1].id);
+        var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
+        var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
+        var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
+        var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
+        logger.warn('Added:', addedBlockIds, 'Removed:', removedBlockIds);
+        addedBlockIds.forEach(function(sink_uid) {
+          addObservationToActions(currentBatch.source_uid, sink_uid, Action.BLOCK);
+        });
+        removedBlockIds.forEach(function(sink_uid) {
+          addObservationToActions(currentBatch.source_uid, sink_uid, Action.UNBLOCK);
+        });
       });
-      removedBlockIds.each(function(sink_uid) {
-        addBlockToActions(currentBatch.source_uid, sink_uid);
-      }
     } else {
       logger.info('Insufficient block batches to diff.');
     }
   });
 }
 
-function addBlockToActions(source_uid, sink_uid) {
-}
-
-function addUnblockToActions(uid) {
+function addObservationToActions(source_uid, sink_uid, type) {
   // Most of the contents of the action to be created. Stored here because they
   // are also useful to query for previous actions.
   var actionContents = {
-    source_uid: data.source.id_str,
-    sink_uid: data.target.id_str,
-    type: Action.UNBLOCK,
+    source_uid: source_uid,
+    sink_uid: sink_uid,
+    type: type,
     'status': Action.DONE
   }
 
   Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
-        // Look only at actions updated less than a minute ago.
+        // Look only at actions updated within the last day.
         gt: new Date(new Date() - 60000)
       }
     })
