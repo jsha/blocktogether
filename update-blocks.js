@@ -58,7 +58,7 @@ function findAndUpdateBlocks() {
           logger.debug('User', user.uid, 'has updated blocks from',
             timeago(new Date(batch.createdAt)));
           if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
-            updateBlocks(user, batch.id);
+            updateBlocks(user);
           }
         } else {
           logger.warn('User', user.uid, 'has no updated blocks ever.');
@@ -71,16 +71,14 @@ function findAndUpdateBlocks() {
  * For a given BtUser, fetch all current blocks and store in DB.
  *
  * @param {BtUser} user The user whose blocks we want to fetch.
- * @param {number} prevBlockBatchId The id of the most recent previous block
- *   batch.
  */
-function updateBlocks(user, prevBlockBatchId) {
+function updateBlocks(user) {
   BlockBatch.create({
     source_uid: user.uid
   }).error(function(err) {
     logger.error(err);
   }).success(function(blockBatch) {
-    fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId);
+    fetchAndStoreBlocks(user, blockBatch);
   });
 }
 
@@ -90,11 +88,10 @@ function updateBlocks(user, prevBlockBatchId) {
  * @param {BtUser} user The user whose blocks we want to fetch.
  * @param {BlockBatch|null} blockBatch The current block batch in which we will
  *   store the blocks. Null for the first fetch, set if cursoring is needed.
- * @param {number} prevBlockBatchId The previous block batch for comparison.
  * @param {string|null} cursor When cursoring, the current cursor for the
  *   Twitter API.
  */
-function fetchAndStoreBlocks(user, blockBatch, prevBlockBatchId, cursor) {
+function fetchAndStoreBlocks(user, blockBatch, cursor) {
   logger.info('Fetching blocks for', blockBatch.source_uid);
   // A function that can simply be called again to run this once more with an
   // updated cursor.
@@ -219,10 +216,52 @@ function diffBatchWithPrevious(currentBatch) {
       var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
       var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
       logger.info('Added:', addedBlockIds, 'Removed:', removedBlockIds);
+      addedBlockIds.each(function(sink_uid) {
+        addBlockToActions(currentBatch.source_uid, sink_uid);
+      });
+      removedBlockIds.each(function(sink_uid) {
+        addBlockToActions(currentBatch.source_uid, sink_uid);
+      }
     } else {
       logger.info('Insufficient block batches to diff.');
     }
   });
+}
+
+function addBlockToActions(source_uid, sink_uid) {
+}
+
+function addUnblockToActions(uid) {
+  // Most of the contents of the action to be created. Stored here because they
+  // are also useful to query for previous actions.
+  var actionContents = {
+    source_uid: data.source.id_str,
+    sink_uid: data.target.id_str,
+    type: Action.UNBLOCK,
+    'status': Action.DONE
+  }
+
+  Action.find({
+    where: _.extend(actionContents, {
+      updatedAt: {
+        // Look only at actions updated less than a minute ago.
+        gt: new Date(new Date() - 60000)
+      }
+    })
+  }).error(function(err) {
+    logger.error(err)
+  }).success(function(prevAction) {
+    // No previous action found, so create one. Add the cause and cause_uid
+    // fields, which we didn't use for the query.
+    if (!prevAction) {
+      Action.create(_.extend(actionContents, {
+        cause: Action.EXTERNAL,
+        cause_uid: null
+      })).error(function(err) {
+        logger.error(err);
+      })
+    }
+  })
 }
 
 module.exports = {
