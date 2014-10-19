@@ -265,7 +265,8 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
 }
 
 /**
- * @type {Object.<string,number>} Currently running timers to check blocks.
+ * @type {Object.<string,number>} Currently running timers to check blocks. Used
+ * by handleBlockEvent.
  */
 var updateBlocksTimers = {};
 
