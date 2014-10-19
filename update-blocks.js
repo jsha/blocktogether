@@ -170,13 +170,7 @@ function finalizeBlockBatch(blockBatch) {
       logger.error(err);
     }).success(function(blockBatch) {
       // Prune older BlockBatches for this user from the DB.
-      BtUser.find({
-        uid: blockBatch.source_uid
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(btUser) {
-        destroyOldBlocks(btUser);
-      });
+      destroyOldBlocks(blockBatch.source_uid);
       updateUsers.findAndUpdateUsers();
     });
   });
@@ -185,10 +179,11 @@ function finalizeBlockBatch(blockBatch) {
 /**
  * For a given BtUser, remove all but 2 most recent batches of blocks.
  *
- * @param {BtUser} user The user whose blocks we want to trim.
+ * @param {String} userId The uid for the BtUser whose blocks we want to trim.
  */
-function destroyOldBlocks(user) {
-  user.getBlockBatches({
+function destroyOldBlocks(userId) {
+  BlockBatch.findAll({
+    source_uid: userId,
     offset: 2,
     order: 'id DESC'
   }).error(function(err) {
@@ -202,7 +197,7 @@ function destroyOldBlocks(user) {
       }).error(function(err) {
         logger.error(err);
       }).success(function(destroyedCount) {
-        logger.info('Trimmed', destroyedCount, 'old BlockBatches for', user);
+        logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
       });
     }
   });
