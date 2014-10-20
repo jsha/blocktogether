@@ -267,8 +267,9 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
       },
       setup.config.defaultAccessToken, setup.config.defaultAccessTokenSecret,
       function(err, response) {
-        if (err) {
-          // On any non-404 error, default to recording the unblocks.
+        if (err && err.statusCode === 404) {
+          logger.info('All unblocked users deactivated, ignoring unblocks.');
+        } else if (err) {
           logger.error('Error /users/lookup', err.statusCode, err.data, err,
             'ignoring', uidsToQuery.length, 'unblocks');
         } else {
@@ -286,7 +287,7 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
 }
 
 /**
- * For a given BtUser, remove all but 2 most recent batches of blocks.
+ * For a given BtUser, remove all but 4 most recent batches of blocks.
  *
  * @param {String} userId The uid for the BtUser whose blocks we want to trim.
  */
