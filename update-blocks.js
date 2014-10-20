@@ -3,6 +3,7 @@
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     /** @type{Function|null} */ timeago = require('timeago'),
+    _ = require('sequelize').Utils._,
     setup = require('./setup'),
     updateUsers = require('./update-users');
 
@@ -168,8 +169,37 @@ function finalizeBlockBatch(blockBatch) {
     blockBatch.save().error(function(err) {
       logger.error(err);
     }).success(function(blockBatch) {
+      // Prune older BlockBatches for this user from the DB.
+      destroyOldBlocks(blockBatch.source_uid);
       updateUsers.findAndUpdateUsers();
     });
+  });
+}
+
+/**
+ * For a given BtUser, remove all but 2 most recent batches of blocks.
+ *
+ * @param {String} userId The uid for the BtUser whose blocks we want to trim.
+ */
+function destroyOldBlocks(userId) {
+  BlockBatch.findAll({
+    source_uid: userId,
+    offset: 2,
+    order: 'id DESC'
+  }).error(function(err) {
+    logger.error(err);
+  }).success(function(blockBatches) {
+    if (blockBatches && blockBatches.length > 0) {
+      BlockBatch.destroy({
+        id: {
+          in: _.pluck(blockBatches, 'id')
+        }
+      }).error(function(err) {
+        logger.error(err);
+      }).success(function(destroyedCount) {
+        logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
+      });
+    }
   });
 }
 
