@@ -174,8 +174,21 @@ var Subscription = sequelize.define('Subscription', {
   author_uid: Sequelize.STRING,
   subscriber_uid: Sequelize.STRING
 });
-Subscription.hasOne(BtUser, {foreignKey: 'author_uid'});
-Subscription.hasOne(BtUser, {foreignKey: 'subscriber_uid'});
+Subscription.hasOne(BtUser, {foreignKey: 'author_uid', as: 'Author'});
+Subscription.hasOne(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
+
+/**
+ * SharedBlocks differ from Blocks because they represent a long-term curated
+ * set of blocks, and are meant to be explicitly shared. Blocks and BlockBatches
+ * are a simple representation of the current state of a user's blocks based on
+ * what the Twitter API returns.
+ */
+var SharedBlock = sequelize.define('SharedBlock', {
+  author_uid: type: Sequelize.STRING,
+  sink_uid: Sequelize.STRING
+});
+SharedBlock.hasOne(BtUser, {foreignKey: 'author_uid'});
+SharedBlock.hasOne(TwitterUser, {foreignKey: 'sink_uid'});
 
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
