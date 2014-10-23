@@ -11,6 +11,7 @@ module.exports = {
         sink_uid: 'VARCHAR(20) NOT NULL',
         createdAt: DataTypes.DATE,
         updatedAt: DataTypes.DATE
+      });
     }).then(function() {
       migration.addIndex('Subscriptions', ['author_uid']);
       migration.addIndex('Subscriptions', ['subscriber_uid']);

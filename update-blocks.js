@@ -39,7 +39,7 @@ function findAndUpdateBlocks() {
         limit: 1,
         order: 'updatedAt desc'
       }).error(function(err) {
-        logger.err(err);
+        logger.error(err);
       }).success(function(batches) {
         // HACK: mark the user as updated. This allows us to iterate through the
         // BtUsers table looking for users that haven't had their blocks updated

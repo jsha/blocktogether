@@ -184,7 +184,7 @@ Subscription.hasOne(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
  * what the Twitter API returns.
  */
 var SharedBlock = sequelize.define('SharedBlock', {
-  author_uid: type: Sequelize.STRING,
+  author_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING
 });
 SharedBlock.hasOne(BtUser, {foreignKey: 'author_uid'});
@@ -284,15 +284,17 @@ BtUser.find({
 });
 
 module.exports = {
-  config: config,
-  twitter: twitter,
-  sequelize: sequelize,
-  logger: logger,
-  userToFollow: userToFollow,
-  TwitterUser: TwitterUser,
-  BtUser: BtUser,
+  Action: Action,
   Block: Block,
   BlockBatch: BlockBatch,
-  Action: Action
+  BtUser: BtUser,
+  TwitterUser: TwitterUser,
+  Subscription: Subscription,
+  SharedBlock: SharedBlock,
+  config: config,
+  logger: logger,
+  sequelize: sequelize,
+  twitter: twitter,
+  userToFollow: userToFollow
 };
 })();
