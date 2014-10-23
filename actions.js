@@ -264,7 +264,7 @@ function processBlocksForUser(btUser, actions) {
       user_id: sinkUids.join(',')
     }, btUser.access_token, btUser.access_token_secret,
     function(err, friendships) {
-      if (err && err.statusCode === 401) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
         btUser.verifyCredentials();
       } else if (err) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
