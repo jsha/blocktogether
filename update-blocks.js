@@ -295,7 +295,9 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
  */
 function destroyOldBlocks(userId) {
   BlockBatch.findAll({
-    source_uid: userId,
+    where: {
+      source_uid: userId
+    },
     offset: 4,
     order: 'id DESC'
   }).error(function(err) {
