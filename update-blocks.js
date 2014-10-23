@@ -27,6 +27,11 @@ function findAndUpdateBlocks() {
     }).error(function(err) {
       logger.error(err);
     }).success(function(user) {
+      // Gracefully exit function if no BtUser matches criteria above.
+      if (user === null) {
+        logger.trace("No users need blocks updated at this time.");
+        return null;
+      }
       // We structure this as a nested fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
