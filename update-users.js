@@ -30,8 +30,7 @@ function findAndUpdateUsers(sqlFilter) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 100,
-      order: 'updatedAt'
+      limit: 100
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
@@ -189,7 +188,7 @@ if (require.main === module) {
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.
-  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 1000);
+  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
   // Poll for users needing update every 10 seconds.
   setInterval(
     findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
