@@ -156,7 +156,7 @@ var BtUser = sequelize.define('BtUser', {
               logger.warn('User', user, 'verify_credentials', err.statusCode);
             }
           } else {
-            logger.warn('User', user, 'has not revoked app.');
+            logger.info('User', user, 'has not revoked app or deactivated.');
             user.deactivatedAt = null;
           }
           if (user.changed()) {

@@ -30,19 +30,12 @@ function findAndUpdateUsers(sqlFilter) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 100,
-      order: 'updatedAt'
+      limit: 100
     }).error(function(err) {
       logger.error(err);
     }).success(function(users) {
       if (users.length > 0) {
-        var uids = _.pluck(users, 'uid');
-        twitter.users('lookup', {
-            skip_status: 1,
-            user_id: uids.join(',')
-          },
-          accessToken, accessTokenSecret,
-          updateUsers.bind(null, uids));
+        updateUsers(_.pluck(users, 'uid'));
       }
     });
 }
@@ -91,6 +84,21 @@ function deactivateTwitterUser(uid) {
   });
 }
 
+
+/**
+ * Given a list of uids, look them up using the Twitter API and update the
+ * database accordingly.
+ * @param {Array.<string>} uids List of user ids to look up.
+ */
+function updateUsers(uids) {
+  twitter.users('lookup', {
+      skip_status: 1,
+      user_id: uids.join(',')
+    },
+    accessToken, accessTokenSecret,
+    updateUsersCallback.bind(null, uids));
+}
+
 /**
  * Given a user lookup API response from Twitter, store the user into the DB.
  * @param {Array.<string>} uids Array of uids that were requested.
@@ -98,7 +106,7 @@ function deactivateTwitterUser(uid) {
  * @param {Array.<Object>} response List of JSON User objects as defined by the
  *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
  */
-function updateUsers(uids, err, response) {
+function updateUsersCallback(uids, err, response) {
   if (err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited.');
@@ -180,7 +188,7 @@ if (require.main === module) {
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.
-  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 1000);
+  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
   // Poll for users needing update every 10 seconds.
   setInterval(
     findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
