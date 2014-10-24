@@ -10,6 +10,7 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
+    Promise = require('promise'),
     timeago = require('timeago'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
@@ -25,7 +26,8 @@ var config = setup.config,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block,
-    TwitterUser = setup.TwitterUser;
+    TwitterUser = setup.TwitterUser,
+    Subscription = setup.Subscription;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
@@ -391,6 +393,36 @@ app.get('/my-blocks',
       updateBlocks.updateBlocks(req.user);
     }
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
+  });
+
+app.get('/subscriptions',
+  function(req, res, next) {
+    var subscriptionsPromise = req.user.getSubscriptions({
+      include: [{
+        model: BtUser,
+        as: 'Author'
+      }]
+    });
+    var subscribersPromise = req.user.getSubscribers({
+      include: [{
+        model: BtUser,
+        as: 'Subscriber'
+      }]
+    });
+    Promise.all([subscriptionsPromise, subscribersPromise])
+      .then(function(results) {
+        var subscriptions = results[0];
+        var subscribers = results[1];
+        var templateData = {
+          subscriptions: subscriptions,
+          subscribers: subscribers
+        };
+        res.header('Content-Type', 'text/html');
+        mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
+      }).catch(function(err) {
+        logger.error(err);
+        next(new Error('Sequelize error.'));
+      });
   });
 
 app.get('/show-blocks/:slug',

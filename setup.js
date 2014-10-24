@@ -174,8 +174,10 @@ var Subscription = sequelize.define('Subscription', {
   author_uid: Sequelize.STRING,
   subscriber_uid: Sequelize.STRING
 });
-Subscription.hasOne(BtUser, {foreignKey: 'author_uid', as: 'Author'});
-Subscription.hasOne(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
+BtUser.hasMany(Subscription, {foreignKey: 'author_uid', as: 'Subscribers'});
+BtUser.hasMany(Subscription, {foreignKey: 'subscriber_uid'});
+Subscription.belongsTo(BtUser, {foreignKey: 'author_uid', as: 'Author'});
+Subscription.belongsTo(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
 
 /**
  * SharedBlocks differ from Blocks because they represent a long-term curated
@@ -187,8 +189,8 @@ var SharedBlock = sequelize.define('SharedBlock', {
   author_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING
 });
-SharedBlock.hasOne(BtUser, {foreignKey: 'author_uid'});
-SharedBlock.hasOne(TwitterUser, {foreignKey: 'sink_uid'});
+SharedBlock.belongsTo(BtUser, {foreignKey: 'author_uid'});
+SharedBlock.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
