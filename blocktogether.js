@@ -10,7 +10,7 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
-    Promise = require('promise'),
+    Promise = require('q'),
     timeago = require('timeago'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
@@ -409,10 +409,8 @@ app.get('/subscriptions',
         as: 'Subscriber'
       }]
     });
-    Promise.all([subscriptionsPromise, subscribersPromise])
-      .then(function(results) {
-        var subscriptions = results[0];
-        var subscribers = results[1];
+    Promise.spread([subscriptionsPromise, subscribersPromise],
+      function(subscriptions, subscribers) {
         var templateData = {
           subscriptions: subscriptions,
           subscribers: subscribers
@@ -421,7 +419,7 @@ app.get('/subscriptions',
         mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
       }).catch(function(err) {
         logger.error(err);
-        next(new Error('Sequelize error.'));
+        next(new Error('Error.'));
       });
   });
 
