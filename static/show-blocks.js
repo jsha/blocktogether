@@ -12,8 +12,8 @@ $(function(){
       // uids into Numbers. Since uids are 64 bits, they can't be representing
       // in JavaScript and must remain as strings.
       // https://dev.twitter.com/docs/twitter-ids-json-and-snowflake
-      // We have a spot of luck in that "a value is only converted to a
-      // number if doing so doesn't change the value's representation."
+      // We have a spot of luck in that 'a value is only converted to a
+      // number if doing so doesn't change the value's representation.'
       // So if uid's are small enough we get a number; otherwise a string.
       // Neither loses bits. We call toString to ensure we always have the
       // right type.
@@ -22,8 +22,8 @@ $(function(){
     $.ajax({
       type: 'POST',
       url: '/do-actions.json',
-      contentType: "application/json",
-      dataType: "json",
+      contentType: 'application/json',
+      dataType: 'json',
       data: JSON.stringify({
         type: type,
         list: $.makeArray(checkedUids)
@@ -41,10 +41,11 @@ $(function(){
     $.ajax({
       type: 'POST',
       url: '/block-all.json',
-      contentType: "application/json",
-      dataType: "json",
+      contentType: 'application/json',
+      dataType: 'json',
       data: JSON.stringify({
-        shared_blocks_key: $(".all-blocks").data('shared-blocks-key').toString(),
+        author_uid: $('.all-blocks').data('author-uid'),
+        shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString(),
       }),
       success: function(data, textStatus, jqXHR) {
         $('.block-all-processing').show();

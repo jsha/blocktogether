@@ -1,6 +1,7 @@
 module.exports = {
   up: function(migration, DataTypes, done) {
     return migration.createTable('Subscriptions', {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       author_uid: 'VARCHAR(20) NOT NULL',
       subscriber_uid: 'VARCHAR(20) NOT NULL',
       createdAt: DataTypes.DATE,

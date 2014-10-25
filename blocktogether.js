@@ -89,7 +89,8 @@ function makeApp() {
       // the HMAC on the session cookie should prevent an attacker from
       // submitting arbitrary valid sessions, but this is nice defence in depth
       // against timing attacks in case the cookie secret gets out.
-      if (constantTimeEquals(user.access_token, sessionUser.accessToken) &&
+      if (user &&
+          constantTimeEquals(user.access_token, sessionUser.accessToken) &&
           constantTimeEquals(user.access_token_secret, sessionUser.accessTokenSecret)) {
         done(null, user);
       } else {
@@ -423,10 +424,14 @@ app.get('/subscriptions',
       });
   });
 
+function validSharedBlocksKey(key) {
+  return key && key.match(/^[a-f0-9]{96}$/);
+}
+
 app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
-    if (!slug.match(/^[a-f0-9]{96}$/)) {
+    if (!validSharedBlocksKey(slug)) {
       next(new Error('No such block list.'));
     }
     BtUser
@@ -456,13 +461,13 @@ app.post('/block-all.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
-    if (req.body.shared_blocks_key &&
-        typeof req.body.shared_blocks_key === 'string' &&
-        req.body.shared_blocks_key.length < 100) {
+    var shared_blocks_key = req.body.shared_blocks_key;
+    if (req.body.author_uid &&
+        validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
           where: {
-            shared_blocks_key: req.body.shared_blocks_key,
+            uid: req.body.author_uid,
             deactivatedAt: null
           }
         }).error(function(err) {
@@ -472,7 +477,16 @@ app.post('/block-all.json',
           // If the shared_blocks_key is valid, find the most recent BlockBatch
           // from that share block list author, and copy each uid onto the
           // blocking user's list.
-          if (author) {
+          if (author &&
+              constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+            Subscription.create({
+              author_uid: author.uid,
+              subscriber_uid: req.user.uid
+            }).then(req.user.addSubscription.bind(req.user))
+            .catch(function(err) {
+              logger.error(err);
+            });
+
             author.getBlockBatches({
               limit: 1,
               order: 'complete desc, currentCursor is null, updatedAt desc'

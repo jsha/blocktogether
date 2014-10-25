@@ -38,17 +38,19 @@
     </div>
   {{/own_blocks}}
 
-  {{! When displaying someone else's blocks, give an option to block all the
-      same ones on this page.  }}
+  {{! When displaying someone else's blocks, give an option to block and
+      subscribe. }}
   {{^own_blocks}}
   <div>
-    <button class='btn btn-primary block-all'>Block All {{item_count}}</button>
+    <button class='btn btn-primary block-all'>Block All and Subscribe</button>
     <div class='block-all-processing'>
       Block Together will now block
       <span id='blocked-users'></span>
       users using your account @{{logged_in_screen_name}}.
       This may take some time. You can check on progress at
-      <a href='/actions'>the Actions page</a>.
+      <a href='/actions'>the Actions page</a>. When @{{author_screen_name}}
+      blocks new accounts, you will automatically block those accounts too.
+      To unsubscribe, visit <a href='/subscriptions'>the Subscriptions page</a>.
     </div>
   </div>
   {{/own_blocks}}
