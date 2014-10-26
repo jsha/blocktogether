@@ -337,8 +337,11 @@ function recordAction(source_uid, sink_uid, type) {
   Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
-        // Look only at actions updated within the last day.
-        gt: new Date(new Date() - 86400 * 1000)
+        // Look only at actions updated within the last minute.
+        // TODO: For this to be correct, we need to ensure that updateBlocks is
+        // always called within a minute of performing a block or unblock
+        // action.
+        gt: new Date(new Date() - 60 * 1000)
       }
     })
   }).then(function(prevAction) {

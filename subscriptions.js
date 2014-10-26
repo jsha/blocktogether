@@ -1,30 +1,18 @@
 'use strict';
 (function() {
-var twitterAPI = require('node-twitter-api'),
-    fs = require('fs'),
-    Promise = require('q'),
-    /** @type{Function|null} */ timeago = require('timeago'),
+var Promise = require('q'),
     _ = require('sequelize').Utils._,
-    setup = require('./setup'),
-    updateUsers = require('./update-users');
+    setup = require('./setup');
 
-var twitter = setup.twitter,
-    logger = setup.logger,
+var logger = setup.logger,
     Action = setup.Action,
-    Block = setup.Block,
-    BtUser = setup.BtUser,
-    TwitterUser = setup.TwitterUser,
-    Subscription = setup.Subscription,
-    SharedBlock = setup.SharedBlock;
+    Subscription = setup.Subscription;
 
 /**
- * Given a block action with cause = external, enqueue a corresponding block
- * action for all subscribers.
+ * Given a block or unblock action with cause = external, enqueue a
+ * corresponding action for all subscribers, with cause = subscription.
  *
- * TODO: Unblocks should not fanout to users that are subscribed to other block
- * lists which still contain the account to be unblocked.
- *
- * TODO: This is currently only called for external blocks. Bulk manual
+ * TODO: This is currently only called for external actions. Bulk manual
  * unblocks (from /my-blocks) should also trigger fanout.
  *
  * @param {Action} An Action to fan out to subscribers.
@@ -51,6 +39,10 @@ function fanout(inputAction) {
             'status': Action.PENDING
           };
         });
+        // For Block Actions, fanout is very simple: Just create all the
+        // corresponding Block Actions. Users who have a previous manual unblock
+        // of the sink_uid (and therefore shouldn't auto-block) will be handled
+        // inside actions.js.
         if (inputAction.type === Action.BLOCK) {
           return Action.bulkCreate(actions);
         } else {
@@ -78,12 +70,20 @@ function fanout(inputAction) {
  * subscription | bulk-manual-block, and cause_uid = the cause_uid of the
  * unblock we are about to enqueue.
  *
+ * TODO: Unblocks should also not fanout to users that are subscribed to other
+ * block lists which still contain the account to be unblocked.
+ *
  * @param {Object} JSON representing an Action to possibly enqueue.
  */
 function unblockFromSubscription(proposedUnblock) {
   var validCauses = [Action.SUBSCRIPTION, Action.BULK_MANUAL_BLOCK];
   var logInfo = proposedUnblock.source_uid + ' --unblock--> ' +
     proposedUnblock.sink_uid;
+  // The separation between which properties get put in the where clause, versus
+  // which ones get checked in the `if' statement below, is a little subtle.
+  // We want to make sure we look at the most recent block, even if it doesn't
+  // match on cause_uid, because we specifically want to notice the case where
+  // the most recent block was manual.
   Action.find({
     where: {
       type: Action.BLOCK,

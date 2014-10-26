@@ -175,7 +175,7 @@ var Subscription = sequelize.define('Subscription', {
   subscriber_uid: Sequelize.STRING
 });
 BtUser.hasMany(Subscription, {foreignKey: 'author_uid', as: 'Subscribers'});
-BtUser.hasMany(Subscription, {foreignKey: 'subscriber_uid'});
+BtUser.hasMany(Subscription, {foreignKey: 'subscriber_uid', as: 'Subscriptions'});
 Subscription.belongsTo(BtUser, {foreignKey: 'author_uid', as: 'Author'});
 Subscription.belongsTo(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
 
@@ -238,6 +238,8 @@ var Action = sequelize.define('Action', {
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
 // And from an Action we want to get a TwitterUser (to show screen name).
 Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+// And also the screen name of the user who caused the action if it was from a
+// subscription.
 Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
 
 _.extend(Action, {
@@ -268,7 +270,7 @@ _.extend(Action, {
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
   NEW_ACCOUNT: 'new-account', // "Block new accounts"
-  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts"
+  LOW_FOLLOWERS: 'low-followers', // "Block accounts with < 15 followers."
   SUBSCRIPTION: 'subscription', // Blocked because of a subscription.
 
   EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.

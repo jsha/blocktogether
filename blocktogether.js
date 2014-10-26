@@ -396,6 +396,10 @@ app.get('/my-blocks',
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
+/**
+ * Show all the shared block lists a user subscribes to, and all the users that
+ * subscribe to their shared block list, if applicable.
+ */
 app.get('/subscriptions',
   function(req, res, next) {
     var subscriptionsPromise = req.user.getSubscriptions({
@@ -413,6 +417,7 @@ app.get('/subscriptions',
     Promise.spread([subscriptionsPromise, subscribersPromise],
       function(subscriptions, subscribers) {
         var templateData = {
+          logged_in_screen_name: req.user.screen_name,
           subscriptions: subscriptions,
           subscribers: subscribers
         };
@@ -420,7 +425,7 @@ app.get('/subscriptions',
         mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
       }).catch(function(err) {
         logger.error(err);
-        next(new Error('Error.'));
+        next(new Error('Failed to get subscription data.'));
       });
   });
 
@@ -453,9 +458,9 @@ app.get('/show-blocks/:slug',
   });
 
 /**
- * Given a JSON POST from a show-blocks page, enqueue all blocks.
- * For the "Block all" button the JSON POST includes just the
- * shared_blocks_key, and we look up the blocks in the DB.
+ * Subscribe a user to the provided shared block list, and enqueue block actions
+ * for all blocks currently on the list.
+ * Expects two entries in JSON POST: author_uid and shared_blocks_key.
  */
 app.post('/block-all.json',
   function(req, res, next) {
@@ -610,6 +615,10 @@ function getPaginationData(items, perPage, currentPage) {
 
 /**
  * Render the block list for a given BtUser as HTML.
+ *
+ * TODO: When viewing another user's block list, indicate whether already
+ * subscribed and offer unsubscribe button instead of 'Block all and
+ * subscribe.'
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.

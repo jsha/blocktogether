@@ -2,7 +2,7 @@
 (function() {
 
 /**
- * Queueing and procession of actions (block, unblock, mute, etc).
+ * Queueing and processing of actions (block, unblock, mute, etc).
  */
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),

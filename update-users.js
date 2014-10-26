@@ -43,6 +43,9 @@ function findAndUpdateUsers(sqlFilter) {
 /**
  * Find deactivated BtUsers and re-verify their credentials to see if they've
  * been reactivated.
+ *
+ * TODO: Also update the copy of screen_name on BtUser from the copy of
+ * screen_name on TwitterUser in case it changes.
  */
 function reactivateBtUsers() {
   BtUser
