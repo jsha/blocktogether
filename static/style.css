@@ -72,3 +72,11 @@ th, td {
 .all-blocks.own-blocks input[type=checkbox] {
   display: block;
 }
+
+.unsubscribe-working {
+  color: grey;
+}
+
+a.unsubscribe {
+  text-decoration: none;
+}

@@ -479,6 +479,7 @@ app.post('/block-all.json',
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+            // TODO: Don't create a subscription if it already exists.
             Subscription.create({
               author_uid: author.uid,
               subscriber_uid: req.user.uid
@@ -520,6 +521,39 @@ app.post('/block-all.json',
         error: 'Invalid parameters.'
       }));
     }
+  });
+
+/**
+ * Unsubscribe the authenticated user from a given shared block list, or
+ * force-unsubscribe a given user from the authenticated user's shared
+ * block list.
+ *
+ * Expects input of exactly one of author_uid or subscriber_uid, and will
+ * unsubscribe authenticated user or force-unsubscribe another user depending on
+ * which is present.
+ */
+app.post('/unsubscribe.json',
+  function(req, res, next) {
+    res.header('Content-Type', 'application/json');
+    var params = null;
+    if (req.body.author_uid) {
+      params = {
+        author_uid: req.body.author_uid,
+        subscriber_uid: req.user.uid
+      };
+    } else if (req.body.subscriber_uid) {
+      params = {
+        author_uid: req.user.uid,
+        subscriber_uid: req.body.subscriber_uid
+      };
+    } else {
+      next(new Error('Invalid parameters.'));
+    }
+    Subscription.destroy(params).then(function() {
+      res.end(JSON.stringify({}));
+    }).catch(function(err) {
+      next(new Error('Sequelize error.'));
+    });
   });
 
 /**

@@ -16,6 +16,9 @@ module.exports = {
     }).then(function() {
       migration.addIndex('Subscriptions', ['author_uid']);
       migration.addIndex('Subscriptions', ['subscriber_uid']);
+      migration.addIndex('Subscriptions', ['author_uid', 'subscriber_uid'], {
+        indicesType: 'UNIQUE'
+      });
       migration.addIndex('SharedBlocks', ['author_uid']);
       migration.addIndex('SharedBlocks', ['sink_uid']);
     }).then(done);
