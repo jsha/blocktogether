@@ -24,6 +24,9 @@ var twitter = setup.twitter,
  * TODO: Unblocks should not fanout to users that are subscribed to other block
  * lists which still contain the account to be unblocked.
  *
+ * TODO: This is currently only called for external blocks. Bulk manual
+ * unblocks (from /my-blocks) should also trigger fanout.
+ *
  * @param {Action} An Action to fan out to subscribers.
  * @returns {Promise<Action[]>}
  */
@@ -53,6 +56,8 @@ function fanout(inputAction) {
         } else {
           // For Unblock Actions, we only want to fan out the unblock to users
           // who originally blocked the given user due to a subscription.
+          // Pass each Action through unblockFromSubscription to check the cause
+          // of the most recent corresponding block, if any.
           return Promise.all(actions.map(unblockFromSubscription));
         }
       } else {
@@ -62,7 +67,7 @@ function fanout(inputAction) {
       logger.error(err);
     })
   } else {
-    logger.error('Bad arguments to fanout.');
+    logger.error('Bad argument to fanout:', inputAction);
     return [];
   }
 }
@@ -72,12 +77,14 @@ function fanout(inputAction) {
  * that the most recent Block of that account had cause:
  * subscription | bulk-manual-block, and cause_uid = the cause_uid of the
  * unblock we are about to enqueue.
+ *
+ * @param {Object} JSON representing an Action to possibly enqueue.
  */
 function unblockFromSubscription(proposedUnblock) {
   var validCauses = [Action.SUBSCRIPTION, Action.BULK_MANUAL_BLOCK];
-  var logInfo = proposedUnblock.source_uid + '---unblock--->' +
+  var logInfo = proposedUnblock.source_uid + ' --unblock--> ' +
     proposedUnblock.sink_uid;
-  Actions.find({
+  Action.find({
     where: {
       type: Action.BLOCK,
       source_uid: proposedUnblock.source_uid,
@@ -90,7 +97,7 @@ function unblockFromSubscription(proposedUnblock) {
       logger.debug('Subscription-unblock: no previous unblock found', logInfo);
     } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
       _.contains(validCauses, prevAction.cause)) {
-      return Action.create(action);
+      return Action.create(proposedUnblock);
     } else {
       logger.debug('Subscription-unblock: previous block not matched', logInfo);
     }
@@ -98,67 +105,6 @@ function unblockFromSubscription(proposedUnblock) {
     logger.error(err);
   });
 }
-
-/**
- * Find a user who hasn't had their blocks updated recently and update them.
- */
-function fulfillSubscriptionsForUser(user) {
-  var subscribedBlocksPromise = Subscription.findAll({
-    where: {
-      subscriber_uid: user.uid
-    }
-  }).then(function(subscriptions) {
-    if (subscriptions && subscriptions.length > 0) {
-      return SharedBlock.findAll({
-        where: {
-          author_uid: _.pluck(subscriptions, 'author_uid')
-        }
-      });
-    } else {
-      return Promise.resolve([]);
-    }
-  });
-
-  var currentBlocksPromise = user.getBlockBatches({
-    limit: 1,
-    order: 'updatedAt desc'
-  }).then(function(blockBatch) {
-    if (!blockBatch) {
-      return Promise.reject('No blocks available for', user);
-    } else {
-      return Block.findAll({
-        where: {
-          BlockBatchId: blockBatch.id
-        }
-      });
-    }
-  });
-
-  var blockActionsPromise = Action.findAll({
-    where: {
-      source_uid: user.uid,
-      type: Action.UNBLOCK,
-      status: Action.DONE,
-      cause: [Action.EXTERNAL, Action.BULK_MANUAL_BLOCK],
-    }
-  });
-
-  Promise.spread([
-    subscribedBlocksPromise, currentBlocksPromise, blockActionsPromise],
-    finishSubscriptionsForUser)
-    .catch(function(err) {
-      logger.error(err);
-    });
-}
-
-function finishSubscriptionsForUser(
-  user, subscribedBlocks, currentBlocks, blockActions) {
-  logger.info('SubscribedBlocks: ', _.pluck(subscribedBlocks, 'dataValues'));
-  logger.info('CurrentBlocks: ', _.pluck(currentBlocks, 'dataValues'));
-  logger.info('BlockActions: ', _.pluck(blockActions, 'dataValues'));
-}
-
-//BtUser.find({screen_name: 'twestact4'}).then(fulfillSubscriptionsForUser);
 
 module.exports = {
   fanout: fanout,
