@@ -21,6 +21,9 @@ var twitter = setup.twitter,
  * Given a block action with cause = external, enqueue a corresponding block
  * action for all subscribers.
  *
+ * TODO: Unblocks should not fanout to users that are subscribed to other block
+ * lists which still contain the account to be unblocked.
+ *
  * @param {Action} An Action to fan out to subscribers.
  * @returns {Promise<Action[]>}
  */
