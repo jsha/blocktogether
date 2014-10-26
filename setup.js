@@ -238,6 +238,7 @@ var Action = sequelize.define('Action', {
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
 // And from an Action we want to get a TwitterUser (to show screen name).
 Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
 
 _.extend(Action, {
   // Constants for the valid values of `status'.

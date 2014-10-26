@@ -713,6 +713,10 @@ function showActions(req, res, next) {
     include: [{
       model: TwitterUser,
       required: false
+    }, {
+      model: BtUser,
+      as: 'CauseUser',
+      required: false
     }]
   }).error(function(err) {
     logger.error(err);

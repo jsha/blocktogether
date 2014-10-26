@@ -38,15 +38,15 @@
       <td title="{{updatedAt}}">{{prettyUpdated}}</td>
       <td>{{cause}}</td>
       <td>
-        {{#causeUser.screen_name}}
+        {{#causeUser}}
           <a href='https://mobile.twitter.com/{{causeUser.screen_name}}'
              class='screen-name'>{{causeUser.screen_name}}</a>
-        {{/causeUser.screen_name}}
-        {{^causeUser.screen_name}}
+        {{/causeUser}}
+        {{^causeUser}}
           {{! Otherwise, use uid. }}
           <a href='https://mobile.twitter.com/intent/user?user_id={{cause_uid}}'
             >{{cause_uid}}</a>
-        {{/causeUser.screen_name}}
+        {{/causeUser}}
        </td>
     </tr>
   {{/item_rows}}
