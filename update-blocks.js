@@ -5,6 +5,7 @@ var twitterAPI = require('node-twitter-api'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
+    subscriptions = require('./subscriptions'),
     updateUsers = require('./update-users');
 
 var twitter = setup.twitter,
@@ -203,7 +204,8 @@ function diffBatchWithPrevious(currentBatch) {
   BlockBatch.findAll({
     where: {
       source_uid: source_uid,
-      id: { lte: currentBatch.id }
+      id: { lte: currentBatch.id },
+      complete: true
     },
     order: 'id DESC',
     limit: 2
@@ -331,22 +333,24 @@ function recordAction(source_uid, sink_uid, type) {
     where: _.extend(actionContents, {
       updatedAt: {
         // Look only at actions updated within the last day.
-        gt: new Date(new Date() - 60000)
+        gt: new Date(new Date() - 86400 * 1000)
       }
     })
-  }).error(function(err) {
-    logger.error(err)
-  }).success(function(prevAction) {
+  }).then(function(prevAction) {
     // No previous action found, so create one. Add the cause and cause_uid
     // fields, which we didn't use for the query.
     if (!prevAction) {
-      Action.create(_.extend(actionContents, {
+      return Action.create(_.extend(actionContents, {
         cause: Action.EXTERNAL,
         cause_uid: null
-      })).error(function(err) {
-        logger.error(err);
-      })
+      }));
+    } else {
+      return null;
     }
+  // Enqueue blocks and unblocks for subscribing users.
+  }).then(subscriptions.fanout)
+  .catch(function(err) {
+    logger.error(err)
   })
 }
 

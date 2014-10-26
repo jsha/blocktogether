@@ -266,8 +266,10 @@ _.extend(Action, {
 
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
-  NEW_ACCOUNT: 'new-account', // "Block new accounts" blocked this user.
-  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts" block this user.
+  NEW_ACCOUNT: 'new-account', // "Block new accounts"
+  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts"
+  SUBSCRIPTION: 'subscription', // Blocked because of a subscription.
+
   EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
 
