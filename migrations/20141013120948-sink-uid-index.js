@@ -7,12 +7,12 @@ module.exports = {
     // Optimizes this query from actions.js:
     // SELECT * FROM `Actions` WHERE `source_uid` = 'NNNNNNNN' AND `status` =
     // 'pending' AND `type` = 'block' ORDER BY updatedAt ASC LIMIT 100;
-    migration.addIndex('Actions', ['source_uid', 'status', 'type', 'updatedAt']);
+    migration.addIndex('Actions', ['source_uid', 'status', 'type', 'createdAt']);
     done()
   },
   down: function(migration, DataTypes, done) {
     migration.removeIndex('Actions', ['status', 'source_uid']);
-    migration.removeIndex('Actions', ['source_uid', 'status', 'type', 'updatedAt']);
+    migration.removeIndex('Actions', ['source_uid', 'status', 'type', 'createdAt']);
     done()
   }
 }
