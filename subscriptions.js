@@ -27,26 +27,34 @@ var twitter = setup.twitter,
  * @param {Action} An Action to fan out to subscribers.
  * @returns {Promise<Action[]>}
  */
-function fanout(action) {
-  if (action &&
-      action.cause === Action.EXTERNAL) {
+function fanout(inputAction) {
+  if (inputAction &&
+      inputAction.cause === Action.EXTERNAL &&
+      (inputAction.type === Action.BLOCK ||
+       inputAction.type === Action.UNBLOCK)) {
     Subscription.findAll({
       where: {
-        author_uid: action.source_uid
+        author_uid: inputAction.source_uid
       }
     }).then(function(subscriptions) {
       if (subscriptions && subscriptions.length > 0) {
         var actions = subscriptions.map(function(subscription) {
           return {
             source_uid: subscription.subscriber_uid,
-            sink_uid: action.sink_uid,
-            type: action.type,
+            sink_uid: inputAction.sink_uid,
+            type: inputAction.type,
             cause: Action.SUBSCRIPTION,
-            cause_uid: action.source_uid,
+            cause_uid: inputAction.source_uid,
             'status': Action.PENDING
           };
         });
-        return Action.bulkCreate(actions);
+        if (inputAction.type === Action.BLOCK) {
+          return Action.bulkCreate(actions);
+        } else {
+          // For Unblock Actions, we only want to fan out the unblock to users
+          // who originally blocked the given user due to a subscription.
+          return Promise.all(actions.map(unblockFromSubscription));
+        }
       } else {
         return [];
       }
@@ -54,8 +62,41 @@ function fanout(action) {
       logger.error(err);
     })
   } else {
+    logger.error('Bad arguments to fanout.');
     return [];
   }
+}
+
+/**
+ * Given a subscription-based Unblock that we are about to enqueue, first check
+ * that the most recent Block of that account had cause:
+ * subscription | bulk-manual-block, and cause_uid = the cause_uid of the
+ * unblock we are about to enqueue.
+ */
+function unblockFromSubscription(proposedUnblock) {
+  var validCauses = [Action.SUBSCRIPTION, Action.BULK_MANUAL_BLOCK];
+  var logInfo = proposedUnblock.source_uid + '---unblock--->' +
+    proposedUnblock.sink_uid;
+  Actions.find({
+    where: {
+      type: Action.BLOCK,
+      source_uid: proposedUnblock.source_uid,
+      sink_uid: proposedUnblock.sink_uid,
+      status: Action.DONE
+    },
+    order: 'updatedAt DESC'
+  }).then(function(prevAction) {
+    if (!prevAction) {
+      logger.debug('Subscription-unblock: no previous unblock found', logInfo);
+    } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
+      _.contains(validCauses, prevAction.cause)) {
+      return Action.create(action);
+    } else {
+      logger.debug('Subscription-unblock: previous block not matched', logInfo);
+    }
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
