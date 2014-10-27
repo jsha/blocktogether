@@ -158,8 +158,11 @@ function checkPastMentions(user) {
  * @param {BtUser} user The user whose stream ended.
  */
 function endCallback(user, httpIncomingMessage) {
-  logger.warn('Ending stream for', user, httpIncomingMessage.statusCode);
-  user.verifyCredentials();
+  var statusCode = httpIncomingMessage.statusCode;
+  logger.warn('Ending stream for', user, statusCode);
+  if (statusCode === 401 || statusCode === 403) {
+    user.verifyCredentials();
+  }
   delete streams[user.uid];
 }
 
