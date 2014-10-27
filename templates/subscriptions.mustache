@@ -1,0 +1,52 @@
+  {{>header.mustache}}
+  <script defer type='text/javascript' src='/static/subscriptions.js'></script>
+
+  <p>
+  This page shows whose block lists you subscribe to, and who subscribes to your
+  block list, if you have chosen to share one. You can unsubscribe from a shared
+  block list by clicking the
+  <span class="unsubscribe glyphicon glyphicon-remove"></span> next to the
+  screen name.
+  </p>
+
+  <p>
+  By default, subscriptions continue even when you make your shared block list
+  inaccessible using the <a href='/settings'>Settings page</a>. Once you've made
+  your shared block list inaccessible, you can also force unsubscribe people
+  using this interface. Note that if your shared block list is still accessible,
+  those people can choose to re-subscribe.
+  </p>
+
+  {{#subscriptions.length}}
+  <p>You subscribe to block lists from:</p>
+  <ul class='subscriptions'>
+    {{#subscriptions}}
+    <li class='subscription-item'>@{{author.screen_name}}
+      <a data-author-uid='{{author.uid}}'
+        class="unsubscribe glyphicon glyphicon-remove"
+        title="Unsubscribe from @{{author.screen_name}}'s shared blocks."
+        ></a>
+    </li>
+    {{/subscriptions}}
+  </ul>
+  {{/subscriptions.length}}
+
+  {{^subscriptions}}
+  <p>You do not currently subscribe to any shared block lists.</p>
+  {{/subscriptions}}
+
+  {{#subscribers.length}}
+  <p>These people subscribe to your shared block list.</p>
+  <ul class='subscribers'>
+    {{#subscribers}}
+    <li class='subscription-item'>@{{subscriber.screen_name}}
+      <a data-subscriber-uid='{{subscriber.uid}}'
+        title="Force {{author.screen_name}} to stop subscribing to your shared blocks."
+        class="unsubscribe glyphicon glyphicon-remove"></a>
+    </li>
+    {{/subscribers}}
+  </ul>
+  {{/subscribers.length}}
+  {{^subscribers.length}}
+  You do not currently have any subscribers.
+  {{/subscribers.length}}
