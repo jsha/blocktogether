@@ -150,7 +150,7 @@ function storeUser(twitterUserResponse) {
     .error(function(err) {
       logger.error(err);
     }).success(function(user, created) {
-      user = _.extend(user, twitterUserResponse);
+      _.assign(user, twitterUserResponse);
       // This field is special because it needs to be parsed as a date, and
       // because the default name 'created_at' is too confusing alongside
       // Sequelize's built-in createdAt.
