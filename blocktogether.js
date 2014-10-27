@@ -441,7 +441,8 @@ app.get('/show-blocks/:slug',
     }
     BtUser
       .find({
-        where: ['shared_blocks_key LIKE ?', slug.slice(0, 10) + '%']
+        where: ['deactivatedAt IS NULL AND shared_blocks_key LIKE ?',
+          slug.slice(0, 10) + '%']
       }).error(function(err) {
         logger.error(err);
       }).success(function(user) {
