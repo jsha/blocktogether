@@ -445,10 +445,10 @@ app.get('/show-blocks/:slug',
       }).error(function(err) {
         logger.error(err);
       }).success(function(user) {
-        // To avoid timing attacks to try and incremental discover shared block
-        // slugs, use only the first part of the slug for lookup, and check the
-        // rest using constantTimeEquals. For details about timing attacks see
-        // http://codahale.com/a-lesson-in-timing-attacks/
+        // To avoid timing attacks that try and incrementally discover shared
+        // block slugs, use only the first part of the slug for lookup, and
+        // check the rest using constantTimeEquals. For details about timing
+        // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
@@ -484,7 +484,10 @@ app.post('/block-all.json',
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
-            // TODO: Don't create a subscription if it already exists.
+            // Note: because of a uniqueness constraint on the [author,
+            // subscriber] pair, this will fail if the subscription already
+            // exists. But that's fine: It shouldn't be possible to create a
+            // duplicate through the UI.
             Subscription.create({
               author_uid: author.uid,
               subscriber_uid: req.user.uid
@@ -615,37 +618,43 @@ function getPaginationData(items, perPage, currentPage) {
 
 /**
  * Render the block list for a given BtUser as HTML.
- *
- * TODO: When viewing another user's block list, indicate whether already
- * subscribed and offer unsubscribe button instead of 'Block all and
- * subscribe.'
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
+  if (req.user) {
+    logged_in_screen_name = req.user.screen_name;
+  }
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
   }
-  if (req.user) {
-    logged_in_screen_name = req.user.screen_name;
-  }
+
   BlockBatch.find({
     where: { source_uid: btUser.uid },
-    limit: 1,
     // We prefer a the most recent complete BlockBatch, but if none is
     // available we will choose the most recent non-complete BlockBatch.
+    // Additionally, for users with more than 75k blocks, updateBlocks will run
+    // into the rate limit before finishing updating the blocks. The updating
+    // will finish after waiting for the rate limit to lift, but in the meantime
+    // it's possible to have multiple non-complete BlockBatches. In that case,
+    // prefer ones with non-null currentCursors, i.e. those that have stored at
+    // least some blocks.
     order: 'complete desc, currentCursor is null, updatedAt desc'
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(blockBatch) {
+  }).then(function(blockBatch) {
     if (!blockBatch) {
       next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
-      // Find, count, and prepare block data for display:
-      Block.findAll({
+      // Check whether the authenticated user is subscribed to this block list.
+      var subscriptionPromise =
+        Subscription.find({
+          author_uid: btUser.uid,
+          subscriber_uid: req.user.uid
+        });
+
+      var blocksPromise = Block.findAll({
         where: {
           blockBatchId: blockBatch.id
         },
@@ -655,45 +664,49 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           model: TwitterUser,
           required: false
         }]
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(blocks) {
-        var paginationData = getPaginationData({
-          count: blockBatch.size || 0,
-          rows: blocks
-        }, perPage, currentPage);
-        // Create a list of users that has at least a uid entry even if the
-        // TwitterUser doesn't yet exist in our DB.
-        paginationData.item_rows = paginationData.item_rows.map(function(block) {
-          if (block.twitterUser) {
-            var user = block.twitterUser;
-            return _.extend(user, {
-              account_age: timeago(user.account_created_at)
-            });
-          } else {
-            return {uid: block.sink_uid};
-          }
-        });
-        var templateData = {
-          updated: timeago(new Date(blockBatch.createdAt)),
-          // The name of the logged-in user, for the nav bar.
-          logged_in_screen_name: logged_in_screen_name,
-          // The name of the user whose blocks we are viewing.
-          author_screen_name: btUser.screen_name,
-          // The uid of the user whose blocks we are viewing.
-          author_uid: btUser.uid,
-          // Base URL for appending pagination querystring.
-          path_name: url.parse(req.url).pathname,
-          shared_blocks_key: req.params.slug,
-          // Whether this is /my-blocks (rather than /show-blocks/foo)
-          own_blocks: ownBlocks
-        };
-        // Merge pagination metadata with template-specific fields.
-        _.extend(templateData, paginationData);
-        res.header('Content-Type', 'text/html');
-        mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
       });
+
+      // Find, count, and prepare block data for display:
+      return [subscriptionPromise, blockBatch, blocksPromise];
     }
+  }).spread(function(subscription, blockBatch, blocks) {
+    var paginationData = getPaginationData({
+      count: blockBatch.size || 0,
+      rows: blocks
+    }, perPage, currentPage);
+    // Create a list of users that has at least a uid entry even if the
+    // TwitterUser doesn't yet exist in our DB.
+    paginationData.item_rows = paginationData.item_rows.map(function(block) {
+      if (block.twitterUser) {
+        var user = block.twitterUser;
+        return _.extend(user, {
+          account_age: timeago(user.account_created_at)
+        });
+      } else {
+        return {uid: block.sink_uid};
+      }
+    });
+    var templateData = {
+      updated: timeago(new Date(blockBatch.createdAt)),
+      // The name of the logged-in user, for the nav bar.
+      logged_in_screen_name: logged_in_screen_name,
+      // The name of the user whose blocks we are viewing.
+      author_screen_name: btUser.screen_name,
+      // The uid of the user whose blocks we are viewing.
+      author_uid: btUser.uid,
+      // Base URL for appending pagination querystring.
+      path_name: url.parse(req.url).pathname,
+      shared_blocks_key: req.params.slug,
+      // Whether this is /my-blocks (rather than /show-blocks/foo)
+      own_blocks: ownBlocks,
+      subscribed: !!subscription
+    };
+    // Merge pagination metadata with template-specific fields.
+    _.extend(templateData, paginationData);
+    res.header('Content-Type', 'text/html');
+    mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 

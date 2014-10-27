@@ -43,6 +43,12 @@
   {{! When displaying someone else's blocks, give an option to block and
       subscribe. }}
   {{^own_blocks}}
+  {{#subscribed}}
+  You are subscribed to this block list and will auto-block new accounts that
+  are added to it. To unsubscribe, visit <a href='/subscriptions'>the
+  Subscriptions page</a>.
+  {{/subscribed}}
+  {{^subscribed}}
   <div>
     <button class='btn btn-primary block-all'>Block All and Subscribe</button>
     <div class='block-all-processing'>
@@ -55,6 +61,7 @@
       visit <a href='/subscriptions'>the Subscriptions page</a>.
     </div>
   </div>
+  {{/subscribed}}
   {{/own_blocks}}
 
   <table
