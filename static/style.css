@@ -80,3 +80,11 @@ th, td {
 a.unsubscribe {
   text-decoration: none;
 }
+
+ul.subscriptions {
+  list-style: none;
+}
+
+p {
+  max-width: 35em;
+}

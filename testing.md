@@ -165,11 +165,40 @@ Manual tests to run before a release:
 - Verify there is one unblock entry for @twestact9.
 - Reload /my-blocks twice, verify @twestact9 is not blocked.
 
-- propagation of blocks
-- propagation of unblocks
-- no propagation of new-account blocks
-- no propagation of subscription blocks
-- no propagation of unblocks where previous block was not caused by author
+- As @blocksAlot visit /subscriptions.
+- Verify @twestact3 is still a subscriber.
+- Visit /settings, set 'block accounts < 7 days' to true.
+
+- As @new, mention @blocksAlot.
+
+- As @blocksAlot, visit /actions.
+- Verify there is a block action listed for @new, with cause = new-account.
+- Verify @new is listed on /my-blocks.
+
+- As @twestact3, visit /actions.
+- Verify there is no recent block action listed for @new (there will be one from
+  previous tests). I.e., auto-blocks should not propagate.
+
+- As @blocksAlot, on Twitter, block @twestact9.
+- Reload /my-blocks twice, verify @twestact9 are listed.
+
+- As @twestact5, visit /actions/.
+- Verify there is *no* recent block action for @twestact9.
+  I.e., blocks should not propagate transitively through subscription chains.
+
+- As @twestact3, visit /actions.
+- Verify there is a block action for @twestact9.
+- Visit /my-blocks.
+- Verify @twestact6 is still blocked (from previous test).
+
+- As @blocksAlot, on Twitter, unblock @twestact6 (was blocked from a previous
+  test).
+- Visit /actions, verify an unblock of @twestact6 is listed.
+
+- As @twestact3, visit /actions.
+- Verify there is *no* unblock action for @twestact6.
+  I.e., blocks that were triggered externally should not be unblocked because a
+  subscribed author unblocks them.
 
 ## Revoking the app
 
