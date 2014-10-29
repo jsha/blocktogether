@@ -45,7 +45,7 @@ $(function(){
       dataType: 'json',
       data: JSON.stringify({
         author_uid: $('.all-blocks').data('author-uid'),
-        shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString(),
+        shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString()
       }),
       success: function(data, textStatus, jqXHR) {
         $('.block-all-processing').show();

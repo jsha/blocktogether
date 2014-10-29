@@ -6,7 +6,7 @@ module.exports = {
     migration.addIndex('Actions', ['status', 'source_uid']);
     // Optimizes this query from actions.js:
     // SELECT * FROM `Actions` WHERE `source_uid` = 'NNNNNNNN' AND `status` =
-    // 'pending' AND `type` = 'block' ORDER BY updatedAt ASC LIMIT 100;
+    // 'pending' AND `type` = 'block' ORDER BY createdAt ASC LIMIT 100;
     migration.addIndex('Actions', ['source_uid', 'status', 'type', 'createdAt']);
     done()
   },
