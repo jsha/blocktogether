@@ -38,7 +38,6 @@ Manual tests to run before a release:
 
 - With @twestact3, enable block_new_accounts. Verify "Saved" appears.
 - Reload /settings and verify block_new_accounts still checked.
-- (other window) Use @new to mention @twestact3 again.
 - Visit /actions, verify that a block of @new shows up.
 - Visit /my-blocks, verify that a block of @new shows up, and that screen name
    is listed.
