@@ -640,10 +640,12 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     } else {
       // Check whether the authenticated user is subscribed to this block list.
       var subscriptionPromise =
-        Subscription.find({
-          author_uid: btUser.uid,
-          subscriber_uid: req.user.uid
-        });
+        req.user ? Subscription.find({
+          where: {
+            author_uid: btUser.uid,
+            subscriber_uid: req.user.uid
+          }
+        }) : null;
 
       var blocksPromise = Block.findAll({
         where: {
