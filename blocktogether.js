@@ -15,6 +15,7 @@ var express = require('express'), // Web framework
     setup = require('./setup'),
     actions = require('./actions'),
     updateBlocks = require('./update-blocks'),
+    updateUsers = require('./update-users'),
     _ = require('sequelize').Utils._;
 
 var config = setup.config,
@@ -111,39 +112,28 @@ function makeApp() {
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
   var uid = profile._json.id_str;
+  var screen_name = profile._json.screen_name;
+  updateUsers.storeUser(profile._json);
+
   BtUser
     .findOrCreate({ uid: uid })
-    .error(function(err) {
+    .then(function(btUser) {
+      // The user's access token may have changed since last login, or they may
+      // have been previously deactivated. Overwrite appropriate values with
+      // their latest version.
+      _.assign(btUser, {
+        screen_name: screen_name,
+        access_token: accessToken,
+        access_token_secret: accessTokenSecret,
+        deactivatedAt: null
+      });
+      return btUser.save();
+    }).then(function(btUser) {
+      updateBlocks.updateBlocks(btUser);
+      done(null, btUser);
+    }).catch(function(err) {
       logger.error(err);
       done(null, undefined);
-    }).success(function(btUser) {
-      TwitterUser
-        .findOrCreate({ uid: uid })
-        .error(function(err) {
-          logger.error(err);
-          done(null, undefined);
-        }).success(function(twitterUser) {
-          _.extend(twitterUser, profile._json);
-          twitterUser.save().error(function(err) {
-            logger.error(err);
-          });
-
-          btUser.screen_name = twitterUser.screen_name;
-          btUser.access_token = accessToken;
-          btUser.access_token_secret = accessTokenSecret;
-          btUser.setTwitterUser(twitterUser);
-          btUser.deactivatedAt = null;
-          btUser
-            .save()
-            .error(function(err) {
-              logger.error(err);
-              done(null, undefined);
-            }).success(function(btUser) {
-              // When a user logs in, begin an fetch of their latest blocks.
-              updateBlocks.updateBlocks(btUser);
-              done(null, btUser);
-            });
-        });
     });
 }
 
