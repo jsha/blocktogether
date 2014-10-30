@@ -4,8 +4,10 @@
   {{^own_blocks}}
     User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
-    is blocking {{item_count}} users on Twitter (updated {{updated}}). Showing
-    {{per_page}} per page:
+    is blocking {{item_count}} users on Twitter (updated {{updated}}).
+    {{#paginate}}
+    Showing {{per_page}} per page:
+    {{/paginate}}
   </p>
   {{/own_blocks}}
   {{#own_blocks}}
@@ -38,19 +40,33 @@
     </div>
   {{/own_blocks}}
 
-  {{! When displaying someone else's blocks, give an option to block all the
-      same ones on this page.  }}
+  {{! When displaying someone else's blocks, give an option to block and
+      subscribe. }}
   {{^own_blocks}}
+  {{#subscribed}}
+  You are subscribed to this block list and will auto-block new accounts that
+  are added to it. To unsubscribe, visit <a href='/subscriptions'>the
+  Subscriptions page</a>.
+  {{/subscribed}}
+  {{^subscribed}}
+  <p>
+  If you subscribe to to @{{author_screen_name}}'s block list, they will be able
+  to see that you are a subscriber and will have the option to unsubscribe you.
+  They will not receive a notification.
+  </p>
   <div>
-    <button class='btn btn-primary block-all'>Block All {{item_count}}</button>
+    <button class='btn btn-primary block-all'>Block All and Subscribe</button>
     <div class='block-all-processing'>
       Block Together will now block
       <span id='blocked-users'></span>
-      users using your account @{{logged_in_screen_name}}.
-      This may take some time. You can check on progress at
-      <a href='/actions'>the Actions page</a>.
+      users on your behalf. This may take some time. You can check on progress
+      at <a href='/actions'>the Actions page</a>. When @{{author_screen_name}}
+      blocks new accounts, you will automatically block those accounts too.
+      To stop auto-blocking accounts blocked by @{{author_screen_name}},
+      visit <a href='/subscriptions'>the Subscriptions page</a>.
     </div>
   </div>
+  {{/subscribed}}
   {{/own_blocks}}
 
   <table

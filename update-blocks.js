@@ -5,6 +5,7 @@ var twitterAPI = require('node-twitter-api'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
+    subscriptions = require('./subscriptions'),
     updateUsers = require('./update-users');
 
 var twitter = setup.twitter,
@@ -46,7 +47,7 @@ function findAndUpdateBlocks() {
         limit: 1,
         order: 'updatedAt desc'
       }).error(function(err) {
-        logger.err(err);
+        logger.error(err);
       }).success(function(batches) {
         // HACK: mark the user as updated. This allows us to iterate through the
         // BtUsers table looking for users that haven't had their blocks updated
@@ -203,7 +204,8 @@ function diffBatchWithPrevious(currentBatch) {
   BlockBatch.findAll({
     where: {
       source_uid: source_uid,
-      id: { lte: currentBatch.id }
+      id: { lte: currentBatch.id },
+      complete: true
     },
     order: 'id DESC',
     limit: 2
@@ -324,29 +326,39 @@ function recordAction(source_uid, sink_uid, type) {
     source_uid: source_uid,
     sink_uid: sink_uid,
     type: type,
+    // Ignore previous externally-caused actions, because the user may have
+    // blocked, unblocked, and reblocked an account.
+    cause: {
+      not: Action.EXTERNAL
+    },
     'status': Action.DONE
   }
 
   Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
-        // Look only at actions updated within the last day.
-        gt: new Date(new Date() - 60000)
+        // Look only at actions updated within the last minute.
+        // TODO: For this to be correct, we need to ensure that updateBlocks is
+        // always called within a minute of performing a block or unblock
+        // action.
+        gt: new Date(new Date() - 60 * 1000)
       }
     })
-  }).error(function(err) {
-    logger.error(err)
-  }).success(function(prevAction) {
+  }).then(function(prevAction) {
     // No previous action found, so create one. Add the cause and cause_uid
     // fields, which we didn't use for the query.
     if (!prevAction) {
-      Action.create(_.extend(actionContents, {
+      return Action.create(_.extend(actionContents, {
         cause: Action.EXTERNAL,
         cause_uid: null
-      })).error(function(err) {
-        logger.error(err);
-      })
+      }));
+    } else {
+      return null;
     }
+  // Enqueue blocks and unblocks for subscribing users.
+  }).then(subscriptions.fanout)
+  .catch(function(err) {
+    logger.error(err)
   })
 }
 

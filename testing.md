@@ -38,7 +38,6 @@ Manual tests to run before a release:
 
 - With @twestact3, enable block_new_accounts. Verify "Saved" appears.
 - Reload /settings and verify block_new_accounts still checked.
-- (other window) Use @new to mention @twestact3 again.
 - Visit /actions, verify that a block of @new shows up.
 - Visit /my-blocks, verify that a block of @new shows up, and that screen name
    is listed.
@@ -91,7 +90,7 @@ Manual tests to run before a release:
 - Verify list of blocks appears.
 - Verify no username shows up in header.
 - Verify "Log On" shows up in header.
-- Click "Block all". Verify popup says "Please log on to block people."
+- Click "Block all and subscribe". Verify popup says "Please log on."
 - Click "Log On" link in header.
 - If prompted, authorize Block Together app for @twestact3.
 - Verify redirected to /settings. TODO: Fix this:
@@ -100,8 +99,8 @@ Manual tests to run before a release:
 - Verify list of blocks appears.
 - Verify username shows up in header.
 - Verify "Log Off" shows up in header.
-- Click "Block all". Verify line appears on page saying "...will
-   now block N users using your account..."
+- Click "Block all and subscribe". Verify line appears on page saying "...will
+   now block N users..."
 - Visit /actions. Verify a list of blocks appears.
 - Reload /actions until none are listed as pending anymore.
 - Verify the action for @twestact3 is 'cancelled-self'.
@@ -110,6 +109,95 @@ Manual tests to run before a release:
 - Verify the action for @twestact8 is 'done'.
 
 - TODO: Find a good way to test cancelled-suspended.
+
+## Subscriptions viewing and editing.
+
+- As @twestact3, visit /subscriptions.
+- Verify that @twestact3 is subscribed to @blocksAlot and has no subscribers.
+- Click the 'x' next to @blocksAlot, verify that entry disappears.
+- Reload /subscriptions, verify there are no subscriptions and no subscribers.
+- Visit @blocksAlot's shared block lists and subscribe again.
+
+- As @blocksAlot, visit /subscriptions.
+- Verify that @blocksAlot is subscribed to no-one and has @twestact3 as a
+  subscriber.
+- Click the 'x' next to @twestact3, verify that entry disappears.
+- Reload /subscriptions, verify there are no subscriptions and no subscribers.
+
+- As each of @twestact3, @twestact4, subscribe to @blocksAlot.
+- As @twestact3, share a block list.
+- As @twestact4, subscribe to @twestact3's block list.
+- As @twestact5, subscribe to @twestact3's block list.
+
+## Block diffs
+
+- Log on with @blocksAlot
+- On Twitter, block @twestact9.
+- Reload /my-blocks (triggers a fresh block fetch).
+- Reload /my-blocks again, verify @twestact9 shows up as blocked.
+- Visit /actions.
+- Verify a block appears at the top of the list for @twestact9, with cause:
+  external and no Cause user.
+
+- In a different window, log on with @twestact9.
+- Deactivate @twestact9.
+- As @blocksAlot, reload /my-blocks twice.
+- Verify @twestact9 no longer shows up in /my-blocks.
+- Visit /actions, verify there is no unblock for @twestact9.
+
+- On Twitter, as @twestact9, reactivate @twestact9.
+- As @blocksAlot, reload /my-blocks twice.
+- Verify @twestact9 shows up again in /my-blocks.
+- Visit /actions, verify there *is* a block for @twestact9 (this is non-ideal
+  behavior but it's fine).
+
+- On Twitter, unblock @twestact9.
+- Reload /my-blocks twice, verify @twestact9 no longer shows up as blocked.
+- Visit /actions.
+- Verify an unblock appears at the top of the list for @twestact9.
+
+## Subscriptions, propagation of blocks
+
+- As @twestact3, visit /actions.
+- Verify there are two block entries for @twestact9, one of which should be
+  cancelled-duplicate.
+- Verify there is one unblock entry for @twestact9.
+- Reload /my-blocks twice, verify @twestact9 is not blocked.
+
+- As @blocksAlot visit /subscriptions.
+- Verify @twestact3 is still a subscriber.
+- Visit /settings, set 'block accounts < 7 days' to true.
+
+- As @new, mention @blocksAlot.
+
+- As @blocksAlot, visit /actions.
+- Verify there is a block action listed for @new, with cause = new-account.
+- Verify @new is listed on /my-blocks.
+
+- As @twestact3, visit /actions.
+- Verify there is no recent block action listed for @new (there will be one from
+  previous tests). I.e., auto-blocks should not propagate.
+
+- As @blocksAlot, on Twitter, block @twestact9.
+- Reload /my-blocks twice, verify @twestact9 are listed.
+
+- As @twestact5, visit /actions/.
+- Verify there is *no* recent block action for @twestact9.
+  I.e., blocks should not propagate transitively through subscription chains.
+
+- As @twestact3, visit /actions.
+- Verify there is a block action for @twestact9.
+- Visit /my-blocks.
+- Verify @twestact6 is still blocked (from previous test).
+
+- As @blocksAlot, on Twitter, unblock @twestact6 (was blocked from a previous
+  test).
+- Visit /actions, verify an unblock of @twestact6 is listed.
+
+- As @twestact3, visit /actions.
+- Verify there is *no* unblock action for @twestact6.
+  I.e., blocks that were triggered externally should not be unblocked because a
+  subscribed author unblocks them.
 
 ## Revoking the app
 

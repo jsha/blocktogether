@@ -10,6 +10,7 @@ var express = require('express'), // Web framework
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
+    Promise = require('q'),
     timeago = require('timeago'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
@@ -26,7 +27,8 @@ var config = setup.config,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block,
-    TwitterUser = setup.TwitterUser;
+    TwitterUser = setup.TwitterUser,
+    Subscription = setup.Subscription;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
@@ -88,7 +90,8 @@ function makeApp() {
       // the HMAC on the session cookie should prevent an attacker from
       // submitting arbitrary valid sessions, but this is nice defence in depth
       // against timing attacks in case the cookie secret gets out.
-      if (constantTimeEquals(user.access_token, sessionUser.accessToken) &&
+      if (user &&
+          constantTimeEquals(user.access_token, sessionUser.accessToken) &&
           constantTimeEquals(user.access_token_secret, sessionUser.accessTokenSecret)) {
         done(null, user);
       } else {
@@ -383,22 +386,60 @@ app.get('/my-blocks',
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
+/**
+ * Show all the shared block lists a user subscribes to, and all the users that
+ * subscribe to their shared block list, if applicable.
+ */
+app.get('/subscriptions',
+  function(req, res, next) {
+    var subscriptionsPromise = req.user.getSubscriptions({
+      include: [{
+        model: BtUser,
+        as: 'Author'
+      }]
+    });
+    var subscribersPromise = req.user.getSubscribers({
+      include: [{
+        model: BtUser,
+        as: 'Subscriber'
+      }]
+    });
+    Promise.spread([subscriptionsPromise, subscribersPromise],
+      function(subscriptions, subscribers) {
+        var templateData = {
+          logged_in_screen_name: req.user.screen_name,
+          subscriptions: subscriptions,
+          subscribers: subscribers
+        };
+        res.header('Content-Type', 'text/html');
+        mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
+      }).catch(function(err) {
+        logger.error(err);
+        next(new Error('Failed to get subscription data.'));
+      });
+  });
+
+function validSharedBlocksKey(key) {
+  return key && key.match(/^[a-f0-9]{96}$/);
+}
+
 app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
-    if (!slug.match(/^[a-f0-9]{96}$/)) {
+    if (!validSharedBlocksKey(slug)) {
       next(new Error('No such block list.'));
     }
     BtUser
       .find({
-        where: ['shared_blocks_key LIKE ?', slug.slice(0, 10) + '%']
+        where: ['deactivatedAt IS NULL AND shared_blocks_key LIKE ?',
+          slug.slice(0, 10) + '%']
       }).error(function(err) {
         logger.error(err);
       }).success(function(user) {
-        // To avoid timing attacks to try and incremental discover shared block
-        // slugs, use only the first part of the slug for lookup, and check the
-        // rest using constantTimeEquals. For details about timing attacks see
-        // http://codahale.com/a-lesson-in-timing-attacks/
+        // To avoid timing attacks that try and incrementally discover shared
+        // block slugs, use only the first part of the slug for lookup, and
+        // check the rest using constantTimeEquals. For details about timing
+        // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
@@ -408,21 +449,21 @@ app.get('/show-blocks/:slug',
   });
 
 /**
- * Given a JSON POST from a show-blocks page, enqueue all blocks.
- * For the "Block all" button the JSON POST includes just the
- * shared_blocks_key, and we look up the blocks in the DB.
+ * Subscribe a user to the provided shared block list, and enqueue block actions
+ * for all blocks currently on the list.
+ * Expects two entries in JSON POST: author_uid and shared_blocks_key.
  */
 app.post('/block-all.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
-    if (req.body.shared_blocks_key &&
-        typeof req.body.shared_blocks_key === 'string' &&
-        req.body.shared_blocks_key.length < 100) {
+    var shared_blocks_key = req.body.shared_blocks_key;
+    if (req.body.author_uid &&
+        validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
           where: {
-            shared_blocks_key: req.body.shared_blocks_key,
+            uid: req.body.author_uid,
             deactivatedAt: null
           }
         }).error(function(err) {
@@ -432,7 +473,20 @@ app.post('/block-all.json',
           // If the shared_blocks_key is valid, find the most recent BlockBatch
           // from that share block list author, and copy each uid onto the
           // blocking user's list.
-          if (author) {
+          if (author &&
+              constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+            // Note: because of a uniqueness constraint on the [author,
+            // subscriber] pair, this will fail if the subscription already
+            // exists. But that's fine: It shouldn't be possible to create a
+            // duplicate through the UI.
+            Subscription.create({
+              author_uid: author.uid,
+              subscriber_uid: req.user.uid
+            }).then(req.user.addSubscription.bind(req.user))
+            .catch(function(err) {
+              logger.error(err);
+            });
+
             author.getBlockBatches({
               limit: 1,
               order: 'complete desc, currentCursor is null, updatedAt desc'
@@ -466,6 +520,39 @@ app.post('/block-all.json',
         error: 'Invalid parameters.'
       }));
     }
+  });
+
+/**
+ * Unsubscribe the authenticated user from a given shared block list, or
+ * force-unsubscribe a given user from the authenticated user's shared
+ * block list.
+ *
+ * Expects input of exactly one of author_uid or subscriber_uid, and will
+ * unsubscribe authenticated user or force-unsubscribe another user depending on
+ * which is present.
+ */
+app.post('/unsubscribe.json',
+  function(req, res, next) {
+    res.header('Content-Type', 'application/json');
+    var params = null;
+    if (req.body.author_uid) {
+      params = {
+        author_uid: req.body.author_uid,
+        subscriber_uid: req.user.uid
+      };
+    } else if (req.body.subscriber_uid) {
+      params = {
+        author_uid: req.user.uid,
+        subscriber_uid: req.body.subscriber_uid
+      };
+    } else {
+      next(new Error('Invalid parameters.'));
+    }
+    Subscription.destroy(params).then(function() {
+      res.end(JSON.stringify({}));
+    }).catch(function(err) {
+      next(new Error('Sequelize error.'));
+    });
   });
 
 /**
@@ -526,29 +613,41 @@ function getPaginationData(items, perPage, currentPage) {
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
+  if (req.user) {
+    logged_in_screen_name = req.user.screen_name;
+  }
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
   }
-  if (req.user) {
-    logged_in_screen_name = req.user.screen_name;
-  }
+
   BlockBatch.find({
     where: { source_uid: btUser.uid },
-    limit: 1,
     // We prefer a the most recent complete BlockBatch, but if none is
     // available we will choose the most recent non-complete BlockBatch.
+    // Additionally, for users with more than 75k blocks, updateBlocks will run
+    // into the rate limit before finishing updating the blocks. The updating
+    // will finish after waiting for the rate limit to lift, but in the meantime
+    // it's possible to have multiple non-complete BlockBatches. In that case,
+    // prefer ones with non-null currentCursors, i.e. those that have stored at
+    // least some blocks.
     order: 'complete desc, currentCursor is null, updatedAt desc'
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(blockBatch) {
+  }).then(function(blockBatch) {
     if (!blockBatch) {
       next(new Error('No blocks fetched yet. Please try again soon.'));
     } else {
-      // Find, count, and prepare block data for display:
-      Block.findAll({
+      // Check whether the authenticated user is subscribed to this block list.
+      var subscriptionPromise =
+        req.user ? Subscription.find({
+          where: {
+            author_uid: btUser.uid,
+            subscriber_uid: req.user.uid
+          }
+        }) : null;
+
+      var blocksPromise = Block.findAll({
         where: {
           blockBatchId: blockBatch.id
         },
@@ -558,45 +657,49 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           model: TwitterUser,
           required: false
         }]
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(blocks) {
-        var paginationData = getPaginationData({
-          count: blockBatch.size || 0,
-          rows: blocks
-        }, perPage, currentPage);
-        // Create a list of users that has at least a uid entry even if the
-        // TwitterUser doesn't yet exist in our DB.
-        paginationData.item_rows = paginationData.item_rows.map(function(block) {
-          if (block.twitterUser) {
-            var user = block.twitterUser;
-            return _.extend(user, {
-              account_age: timeago(user.account_created_at)
-            });
-          } else {
-            return {uid: block.sink_uid};
-          }
-        });
-        var templateData = {
-          updated: timeago(new Date(blockBatch.createdAt)),
-          // The name of the logged-in user, for the nav bar.
-          logged_in_screen_name: logged_in_screen_name,
-          // The name of the user whose blocks we are viewing.
-          author_screen_name: btUser.screen_name,
-          // The uid of the user whose blocks we are viewing.
-          author_uid: btUser.uid,
-          // Base URL for appending pagination querystring.
-          path_name: url.parse(req.url).pathname,
-          shared_blocks_key: req.params.slug,
-          // Whether this is /my-blocks (rather than /show-blocks/foo)
-          own_blocks: ownBlocks
-        };
-        // Merge pagination metadata with template-specific fields.
-        _.extend(templateData, paginationData);
-        res.header('Content-Type', 'text/html');
-        mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
       });
+
+      // Find, count, and prepare block data for display:
+      return [subscriptionPromise, blockBatch, blocksPromise];
     }
+  }).spread(function(subscription, blockBatch, blocks) {
+    var paginationData = getPaginationData({
+      count: blockBatch.size || 0,
+      rows: blocks
+    }, perPage, currentPage);
+    // Create a list of users that has at least a uid entry even if the
+    // TwitterUser doesn't yet exist in our DB.
+    paginationData.item_rows = paginationData.item_rows.map(function(block) {
+      if (block.twitterUser) {
+        var user = block.twitterUser;
+        return _.extend(user, {
+          account_age: timeago(user.account_created_at)
+        });
+      } else {
+        return {uid: block.sink_uid};
+      }
+    });
+    var templateData = {
+      updated: timeago(new Date(blockBatch.createdAt)),
+      // The name of the logged-in user, for the nav bar.
+      logged_in_screen_name: logged_in_screen_name,
+      // The name of the user whose blocks we are viewing.
+      author_screen_name: btUser.screen_name,
+      // The uid of the user whose blocks we are viewing.
+      author_uid: btUser.uid,
+      // Base URL for appending pagination querystring.
+      path_name: url.parse(req.url).pathname,
+      shared_blocks_key: req.params.slug,
+      // Whether this is /my-blocks (rather than /show-blocks/foo)
+      own_blocks: ownBlocks,
+      subscribed: !!subscription
+    };
+    // Merge pagination metadata with template-specific fields.
+    _.extend(templateData, paginationData);
+    res.header('Content-Type', 'text/html');
+    mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
@@ -624,6 +727,10 @@ function showActions(req, res, next) {
     // Get the associated TwitterUser so we can display screen names.
     include: [{
       model: TwitterUser,
+      required: false
+    }, {
+      model: BtUser,
+      as: 'CauseUser',
       required: false
     }]
   }).error(function(err) {

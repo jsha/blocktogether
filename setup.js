@@ -170,6 +170,28 @@ var BtUser = sequelize.define('BtUser', {
 });
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
 
+var Subscription = sequelize.define('Subscription', {
+  author_uid: Sequelize.STRING,
+  subscriber_uid: Sequelize.STRING
+});
+BtUser.hasMany(Subscription, {foreignKey: 'author_uid', as: 'Subscribers'});
+BtUser.hasMany(Subscription, {foreignKey: 'subscriber_uid', as: 'Subscriptions'});
+Subscription.belongsTo(BtUser, {foreignKey: 'author_uid', as: 'Author'});
+Subscription.belongsTo(BtUser, {foreignKey: 'subscriber_uid', as: 'Subscriber'});
+
+/**
+ * SharedBlocks differ from Blocks because they represent a long-term curated
+ * set of blocks, and are meant to be explicitly shared. Blocks and BlockBatches
+ * are a simple representation of the current state of a user's blocks based on
+ * what the Twitter API returns.
+ */
+var SharedBlock = sequelize.define('SharedBlock', {
+  author_uid: Sequelize.STRING,
+  sink_uid: Sequelize.STRING
+});
+SharedBlock.belongsTo(BtUser, {foreignKey: 'author_uid'});
+SharedBlock.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+
 var Block = sequelize.define('Block', {
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING
@@ -216,6 +238,9 @@ var Action = sequelize.define('Action', {
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
 // And from an Action we want to get a TwitterUser (to show screen name).
 Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+// And also the screen name of the user who caused the action if it was from a
+// subscription.
+Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
 
 _.extend(Action, {
   // Constants for the valid values of `status'.
@@ -244,8 +269,10 @@ _.extend(Action, {
 
   // Constants for the valid values of 'cause'
   BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
-  NEW_ACCOUNT: 'new-account', // "Block new accounts" blocked this user.
-  LOW_FOLLOWERS: 'low-followers', // "Block unpopular accounts" block this user.
+  NEW_ACCOUNT: 'new-account', // "Block new accounts"
+  LOW_FOLLOWERS: 'low-followers', // "Block accounts with < 15 followers."
+  SUBSCRIPTION: 'subscription', // Blocked because of a subscription.
+
   EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
 });
 
@@ -264,15 +291,17 @@ BtUser.find({
 });
 
 module.exports = {
-  config: config,
-  twitter: twitter,
-  sequelize: sequelize,
-  logger: logger,
-  userToFollow: userToFollow,
-  TwitterUser: TwitterUser,
-  BtUser: BtUser,
+  Action: Action,
   Block: Block,
   BlockBatch: BlockBatch,
-  Action: Action
+  BtUser: BtUser,
+  TwitterUser: TwitterUser,
+  Subscription: Subscription,
+  SharedBlock: SharedBlock,
+  config: config,
+  logger: logger,
+  sequelize: sequelize,
+  twitter: twitter,
+  userToFollow: userToFollow
 };
 })();

@@ -2,7 +2,7 @@
 (function() {
 
 /**
- * Script to block a list of screen names using credentials for a given user id
+ * Queueing and processing of actions (block, unblock, mute, etc).
  */
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
@@ -117,6 +117,12 @@ function processActionsForUserId(uid) {
  * btUser and actions. If there is an error or there are no actions, callback
  * will not be called.
  *
+ * TODO: Order across action types can be important, for instance when there are
+ * both a block and an unblock action enqueued. Instead of always getting 100 of
+ * a given type, we should get the maximum number of actions of a given type
+ * that have a continuous run of createdAt times without running into a
+ * different action type.
+ *
  * @param {BtUser} btUser The user whose actions we're going to process.
  * @param {string} type The type of actions to look for.
  * @param {Function} callback A function taking (BtUser, Action[]). Called only
@@ -131,12 +137,12 @@ function getActions(btUser, type, callback) {
   // very wasteful.
   btUser.getActions({
     // Out of the available pending block actions on this user,
-    // pick up to 100 with the earliest updatedAt times.
+    // pick up to 100 with the earliest createdAt times.
     where: {
       status: 'pending',
       type: type
     },
-    order: 'updatedAt ASC',
+    order: 'createdAt ASC',
     limit: 100
   }).error(function(err) {
     logger.error(err);

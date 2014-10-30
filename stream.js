@@ -158,9 +158,32 @@ function checkPastMentions(user) {
  * @param {BtUser} user The user whose stream ended.
  */
 function endCallback(user, httpIncomingMessage) {
-  logger.warn('Ending stream for', user, httpIncomingMessage.statusCode);
-  user.verifyCredentials();
-  delete streams[user.uid];
+  var statusCode = httpIncomingMessage.statusCode;
+  logger.warn('Ending stream for', user, statusCode);
+  if (statusCode === 401 || statusCode === 403) {
+    user.verifyCredentials();
+  }
+  // The streaming API will return 420 Enhance Your Calm
+  // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
+  // to the streaming API too many times. If we get that, wait fifteen minutes
+  // before reconnecting. This is an attempt to fix a bug where, under heavy
+  // load, stream.js would lose track of some connections and reconnect too
+  // fast, leading to an unproductive high-CPU loop of trying to restart those
+  // loops once a second.
+  if (statusCode === 420) {
+    var stream = streams[user.uid];
+    setTimeout(function() {
+      // Double-check it's still the same stream before deleting.
+      if (stream === streams[user.uid]) {
+        delete streams[user.uid];
+      } else {
+        // This shouldn't happen.
+        logger.error('Tried to delete stream but it had already been replaced', user);
+      }
+    }, 15 * 60 * 1000);
+  } else {
+    delete streams[user.uid];
+  }
 }
 
 /**

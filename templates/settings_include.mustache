@@ -18,14 +18,14 @@
   <input id=share_blocks name=share_blocks type=checkbox
     {{#shared_blocks_key}}checked{{/shared_blocks_key}} />
   <label for='share_blocks'>
-    Generate an unlisted URL to share your block list with friends
+    Share your block list with friends
   </label>
     <a class="example-block-list"
   href="https://blocktogether.org/show-blocks/fb15e0c2779d14cce477a9172860700aa31fbf010ff504719e11cf9273a175debe9545b09aa649c17bd512cd3757f8b3"
     >(Example block list)</a>.
   {{#shared_blocks_key}}
   <p>
-  Use this URL to share your block list:<br/>
+  Use this unlisted, unguessable URL to share your block list:<br/>
   <a href='/show-blocks/{{shared_blocks_key}}'>/show-blocks/{{shared_blocks_key}}</a>
   </p>
   {{/shared_blocks_key}}
