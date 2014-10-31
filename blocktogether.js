@@ -2,7 +2,8 @@
 (function() {
 // TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
-var express = require('express'), // Web framework
+var cluster = require('cluster'),
+    express = require('express'), // Web framework
     url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -459,6 +460,7 @@ app.post('/block-all.json',
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
     if (req.body.author_uid &&
+        req.body.author_uid !== req.user.uid &&
         validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
@@ -756,12 +758,19 @@ function showActions(req, res, next) {
   });
 }
 
-if (process.argv.length > 2) {
-  var socket = process.argv[2];
-  logger.info('Starting server on UNIX socket ' + socket);
-  app.listen(socket);
+if (cluster.isMaster) {
+  logger.info('Starting workers.');
+  for (var i = 0; i < 2; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', function(worker, code, signal) {
+    console.log('worker ' + worker.process.pid + ' died');
+  });
 } else {
-  logger.info('Starting server.');
   app.listen(config.port);
+  logger.info('Worker up.');
 }
+
+
 })();
