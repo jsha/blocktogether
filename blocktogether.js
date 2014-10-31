@@ -769,7 +769,7 @@ if (cluster.isMaster) {
   });
 } else {
   app.listen(config.port);
-  logger.info('Worker up.');
+  logger.info('Worker', cluster.worker.id, 'up.');
 }
 
 
