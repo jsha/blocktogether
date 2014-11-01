@@ -2,6 +2,14 @@
  * Handle events for /show-blocks/:slug and /my-blocks.
  */
 $(function(){
+  var author_uid = $('.all-blocks').data('author-uid');
+  var user_uid = $('body').data('user-uid');
+
+  // Prevent people from subscribing to their own block lists.
+  if (author_uid === user_uid) {
+    $('button.block-all').prop('disabled', true);
+  }
+
   function errorHandler(jqXHR, textStatus, errorThrown) {
     alert('Error: ' + textStatus + errorThrown);
   }
@@ -44,7 +52,7 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
-        author_uid: $('.all-blocks').data('author-uid'),
+        author_uid: author_uid,
         shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString()
       }),
       success: function(data, textStatus, jqXHR) {

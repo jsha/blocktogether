@@ -618,9 +618,13 @@ function getPaginationData(items, perPage, currentPage) {
 function showBlocks(req, res, next, btUser, ownBlocks) {
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
-  if (req.user) {
-    logged_in_screen_name = req.user.screen_name;
+  var user_uid = undefined;
+  var user = req.user;
+  if (user) {
+    logged_in_screen_name = user.screen_name;
+    user_uid = user.uid;
   }
+
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
@@ -697,7 +701,9 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       shared_blocks_key: req.params.slug,
       // Whether this is /my-blocks (rather than /show-blocks/foo)
       own_blocks: ownBlocks,
-      subscribed: !!subscription
+      subscribed: !!subscription,
+      // uid of the authenticated user.
+      user_uid: user_uid
     };
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
