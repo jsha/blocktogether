@@ -539,7 +539,7 @@ app.post('/block-all.json',
 app.post('/unsubscribe.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
-    var params = null;
+    var params = NaN;
     if (req.body.author_uid) {
       params = {
         author_uid: req.body.author_uid,
@@ -551,7 +551,7 @@ app.post('/unsubscribe.json',
         subscriber_uid: req.body.subscriber_uid
       };
     } else {
-      next(new Error('Invalid parameters.'));
+      return next(new Error('Invalid parameters.'));
     }
     Subscription.destroy(params).then(function() {
       res.end(JSON.stringify({}));
