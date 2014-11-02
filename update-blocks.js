@@ -1,6 +1,7 @@
 'use strict';
 (function() {
 var twitterAPI = require('node-twitter-api'),
+    Q = require('q'),
     fs = require('fs'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
@@ -22,22 +23,19 @@ var ONE_DAY_IN_MILLIS = 86400 * 1000;
  * Find a user who hasn't had their blocks updated recently and update them.
  */
 function findAndUpdateBlocks() {
-  BtUser
-    .find({
-      where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
-      order: 'BtUsers.updatedAt ASC'
-    }).error(function(err) {
-      logger.error(err);
-    }).success(function(user) {
-      // Gracefully exit function if no BtUser matches criteria above.
-      if (user === null) {
-        logger.trace("No users need blocks updated at this time.");
-        return null;
-      }
-      // We structure this as a nested fetch rather than using sequelize's include
+  return BtUser.find({
+    where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
+    order: 'BtUsers.updatedAt ASC'
+  }).then(function(user) {
+    // Gracefully exit function if no BtUser matches criteria above.
+    if (user === null) {
+      logger.info("No users need blocks updated at this time.");
+      return Q.resolve(null);
+    } else {
+      // We structure this as a second fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
-      user.getBlockBatches({
+      return user.getBlockBatches({
         // Get the latest BlockBatch for the user and skip if < 1 day old.
         // Note: We count even incomplete BlockBatches towards being 'recently
         // updated'. This prevents the setInterval from repeatedly initiating
@@ -46,29 +44,33 @@ function findAndUpdateBlocks() {
         // some time to fill it and mark it complete).
         limit: 1,
         order: 'updatedAt desc'
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(batches) {
-        // HACK: mark the user as updated. This allows us to iterate through the
-        // BtUsers table looking for users that haven't had their blocks updated
-        // recently, instead of having to iterate on a join of BlockBatches with
-        // BtUsers.
-        user.updatedAt = new Date();
-        user.save().error(function(err) {
-          logger.error(err);
-        });
-        if (batches && batches.length > 0) {
-          var batch = batches[0];
-          logger.debug('User', user.uid, 'has updated blocks from',
-            timeago(new Date(batch.createdAt)));
-          if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
-            updateBlocks(user);
-          }
-        } else {
-          logger.warn('User', user.uid, 'has no updated blocks ever.');
-        }
       });
+    }
+  }).then(function(batches) {
+    // HACK: mark the user as updated. This allows us to iterate through the
+    // BtUsers table looking for users that haven't had their blocks updated
+    // recently, instead of having to iterate on a join of BlockBatches with
+    // BtUsers.
+    user.updatedAt = new Date();
+    user.save().catch(function(err) {
+      logger.error(err);
     });
+    if (batches && batches.length > 0) {
+      var batch = batches[0];
+      logger.debug('User', user.uid, 'has updated blocks from',
+        timeago(new Date(batch.createdAt)));
+      if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
+        return updateBlocks(user);
+      } else {
+        return Q.resolve(null);
+      }
+    } else {
+      logger.warn('User', user.uid, 'has no updated blocks ever.');
+      return updateBlocks(user);
+    }
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
@@ -77,39 +79,81 @@ function findAndUpdateBlocks() {
  * @param {BtUser} user The user whose blocks we want to fetch.
  */
 function updateBlocks(user) {
-  BlockBatch.create({
-    source_uid: user.uid
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(blockBatch) {
-    fetchAndStoreBlocks(user, blockBatch);
-  });
-}
+  var blockBatch = null;
 
-/**
- * For a given BtUser, fetch all current blocks and store in DB.
- *
- * @param {BtUser} user The user whose blocks we want to fetch.
- * @param {BlockBatch|null} blockBatch The current block batch in which we will
- *   store the blocks. Null for the first fetch, set if cursoring is needed.
- * @param {string|null} cursor When cursoring, the current cursor for the
- *   Twitter API.
- */
-function fetchAndStoreBlocks(user, blockBatch, cursor) {
-  logger.info('Fetching blocks for', blockBatch.source_uid);
-  // A function that can simply be called again to run this once more with an
-  // updated cursor.
-  var getMore = fetchAndStoreBlocks.bind(null,
-    user, blockBatch);
-  var currentCursor = cursor || '-1';
-  twitter.blocks('ids', {
-      // Stringify ids is very important, or we'll get back numeric ids that
-      // will get subtly mangled by JS.
-      stringify_ids: true,
-      cursor: currentCursor
-    },
-    user.access_token, user.access_token_secret,
-    handleIds.bind(null, blockBatch, currentCursor, getMore));
+  /**
+   * For a given BtUser, fetch all current blocks and store in DB.
+   *
+   * @param {BtUser} user The user whose blocks we want to fetch.
+   * @param {BlockBatch|null} blockBatch The current block batch in which we will
+   *   store the blocks. Null for the first fetch, set after successful first
+   *   request.
+   * @param {string|null} cursor When cursoring, the current cursor for the
+   *   Twitter API.
+   */
+  function fetchAndStoreBlocks(user, blockBatch, cursor) {
+    logger.info('Fetching blocks for', user);
+    // A function that can simply be called again to run this once more with an
+    // updated cursor.
+    var getMore = fetchAndStoreBlocks.bind(null, user, blockBatch);
+    var currentCursor = cursor || '-1';
+    return Q.ninvoke(twitter,
+      'blocks', 'ids', {
+        // Stringify ids is very important, or we'll get back numeric ids that
+        // will get subtly mangled by JS.
+        stringify_ids: true,
+        cursor: currentCursor
+      },
+      user.access_token,
+      user.access_token_secret
+    ).then(function(results) {
+      // Lazily create a BlockBatch after Twitter responds successfully. Avoids
+      // creating excess BlockBatches only to get rate limited.
+      if (!blockBatch) {
+        return BlockBatch.create({
+          source_uid: user.uid,
+          size: 0
+        }).then(function(createdBlockBatch) {
+          blockBatch = createdBlockBatch;
+          return handleIds(blockBatch, currentCursor, results[0]);
+        });
+      } else {
+        return handleIds(blockBatch, currentCursor, results[0]);
+      }
+    }).then(function(nextCursor) {
+      // Check whether we're done or need to grab the items at the next cursor.
+      if (nextCursor === '0') {
+        return finalizeBlockBatch(blockBatch);
+      } else {
+        logger.debug('Cursoring ', nextCursor);
+        return fetchAndStoreBlocks(user, blockBatch, nextCursor);
+      }
+    }).catch(function (err) {
+      if (err.statusCode === 429) {
+        // The rate limit for /blocks/ids is 15 requests per 15 minute window.
+        // Since the endpoint returns up to 5,000 users, that means users with
+        // greater than 15 * 5,000 = 75,000 blocks will always get rate limited
+        // when we try to update blocks. So we have to remember state and keep
+        // trying after a delay to let the rate limit expire.
+        if (!blockBatch) {
+          logger.info('Rate limited /blocks/ids', user);
+          return Q.resolve(null);
+        } else {
+          logger.info('Rate limited /blocks/ids', user,
+            'Trying again in 15 minutes.');
+          return Q.delay(15 * 60 * 1000)
+            .then(function() {
+              return fetchAndStoreBlocks(user, blockBatch, currentCursor);
+            });
+        }
+      } else {
+        logger.error('Error /blocks/ids', err.statusCode, err.data, err);
+        return Q.resolve(null);
+      }
+    });
+  }
+
+  fetchAndStoreBlocks(user, null, null);
 }
 
 /**
@@ -117,27 +161,13 @@ function fetchAndStoreBlocks(user, blockBatch, cursor) {
  * @param {BlockBatch|null} blockBatch BlockBatch to add blocks to. Null for the
  *   first batch, set if cursoring is needed.
  * @param {string} currentCursor
- * @param {Function} getMore
- * @param {TwitterError} err
  * @param {Object} results
  */
-function handleIds(blockBatch, currentCursor, getMore, err, results) {
-  if (err) {
-    if (err.statusCode === 429) {
-      logger.info('Rate limited. Trying again in 15 minutes.');
-      setTimeout(function() {
-        getMore(currentCursor);
-      }, 15 * 60 * 1000);
-    } else {
-      logger.error('Error /blocks/ids', err.statusCode, err.data);
-    }
-    return;
-  }
-
-  // Update the current cursor stored with the blockBatch. Not currently used,
-  // but may be useful to resume fetching blocks across restarts of this script.
+function handleIds(blockBatch, currentCursor, results) {
+  // Update the current cursor stored with the blockBatch.
   blockBatch.currentCursor = currentCursor;
-  blockBatch.save();
+  blockBatch.size += results.length;
+  var blockBatchPromise = blockBatch.save();
 
   // First, add any new uids to the TwitterUser table if they aren't already
   // there (note ignoreDuplicates so we don't overwrite fleshed-out users).
@@ -146,7 +176,8 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
   var usersToCreate = results.ids.map(function(id) {
     return {uid: id};
   });
-  TwitterUser.bulkCreate(usersToCreate, { ignoreDuplicates: true });
+  var twitterUserPromise =
+    TwitterUser.bulkCreate(usersToCreate, { ignoreDuplicates: true });
 
   // Now we create block entries for all the blocked ids. Note: setting
   // BlockBatchId explicitly here doesn't show up in the documentation,
@@ -157,18 +188,11 @@ function handleIds(blockBatch, currentCursor, getMore, err, results) {
       BlockBatchId: blockBatch.id
     };
   });
-  Block
-    .bulkCreate(blocksToCreate)
-    .error(function(err) {
-      logger.error(err);
-    }).success(function(blocks) {
-      // Check whether we're done or need to grab the items at the next cursor.
-      if (results.next_cursor_str === '0') {
-        finalizeBlockBatch(blockBatch);
-      } else {
-        logger.debug('Cursoring ', results.next_cursor_str);
-        getMore(results.next_cursor_str);
-      }
+  var blockPromise = Block.bulkCreate(blocksToCreate);
+
+  return Q.all([blockBatchPromise, twitterUserPromise, blockPromise])
+    .then(function() {
+      return Q.resolve(results.next_cursor_str);
     });
 }
 
@@ -226,10 +250,14 @@ function diffBatchWithPrevious(currentBatch) {
           'old', oldBlocks.length, 'ids', batches[0].id, batches[1].id);
         var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
         var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
+        var start = process.hrtime();
         var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
         var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
+        var elapsed = process.hrtime(start)[1] / 1000000;
         logger.debug('Block diff for', source_uid,
-          'added:', addedBlockIds, 'removed:', removedBlockIds);
+          'added:', addedBlockIds, 'removed:', removedBlockIds,
+          'current size:', currentBlockIds.length,
+          'time:', elapsed);
         addedBlockIds.forEach(function(sink_uid) {
           recordAction(source_uid, sink_uid, Action.BLOCK);
         });
@@ -367,7 +395,11 @@ module.exports = {
 };
 
 if (require.main === module) {
-  findAndUpdateBlocks();
-  setInterval(findAndUpdateBlocks, 5000);
+  //findAndUpdateBlocks();
+  //setInterval(findAndUpdateBlocks, 5000);
+  Q.delay(15 * 60 * 1000).then(function() {
+    BtUser.find({where:{screen_name: 'blocksAlot2'}})
+      .success(updateBlocks);
+  });
 }
 })();
