@@ -166,7 +166,7 @@ function updateBlocks(user) {
 function handleIds(blockBatch, currentCursor, results) {
   // Update the current cursor stored with the blockBatch.
   blockBatch.currentCursor = currentCursor;
-  blockBatch.size += results.length;
+  blockBatch.size += results.ids.length;
   var blockBatchPromise = blockBatch.save();
 
   // First, add any new uids to the TwitterUser table if they aren't already
@@ -384,8 +384,13 @@ function recordAction(source_uid, sink_uid, type) {
       return null;
     }
   // Enqueue blocks and unblocks for subscribing users.
-  }).then(subscriptions.fanout)
-  .catch(function(err) {
+  }).then(function(newAction) {
+    if (newAction) {
+      return subscriptions.fanout(newAction);
+    } else {
+      return null;
+    }
+  }).catch(function(err) {
     logger.error(err)
   })
 }
@@ -397,9 +402,7 @@ module.exports = {
 if (require.main === module) {
   //findAndUpdateBlocks();
   //setInterval(findAndUpdateBlocks, 5000);
-  Q.delay(15 * 60 * 1000).then(function() {
-    BtUser.find({where:{screen_name: 'blocksAlot2'}})
-      .success(updateBlocks);
-  });
+  BtUser.find({where:{screen_name: 'blocksAlot2'}})
+    .success(updateBlocks);
 }
 })();
