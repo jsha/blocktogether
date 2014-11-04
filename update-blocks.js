@@ -29,13 +29,12 @@ function findAndUpdateBlocks() {
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
-      logger.info("No users need blocks updated at this time.");
-      return Q.resolve(null);
+      return Q.reject("No users need blocks updated at this time.");
     } else {
       // We structure this as a second fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
-      return user.getBlockBatches({
+      return [user, user.getBlockBatches({
         // Get the latest BlockBatch for the user and skip if < 1 day old.
         // Note: We count even incomplete BlockBatches towards being 'recently
         // updated'. This prevents the setInterval from repeatedly initiating
@@ -44,17 +43,16 @@ function findAndUpdateBlocks() {
         // some time to fill it and mark it complete).
         limit: 1,
         order: 'updatedAt desc'
-      });
+      })];
     }
-  }).then(function(batches) {
+  }).spread(function(user, batches) {
     // HACK: mark the user as updated. This allows us to iterate through the
     // BtUsers table looking for users that haven't had their blocks updated
     // recently, instead of having to iterate on a join of BlockBatches with
     // BtUsers.
     user.updatedAt = new Date();
-    user.save().catch(function(err) {
-      logger.error(err);
-    });
+    return [user.save(), batches];
+  }).spread(function(user, batches) {
     if (batches && batches.length > 0) {
       var batch = batches[0];
       logger.debug('User', user.uid, 'has updated blocks from',
@@ -73,13 +71,19 @@ function findAndUpdateBlocks() {
   });
 }
 
+var activeFetches = {};
+
 /**
  * For a given BtUser, fetch all current blocks and store in DB.
  *
  * @param {BtUser} user The user whose blocks we want to fetch.
  */
 function updateBlocks(user) {
-  var blockBatch = null;
+  // Don't create multiple pending block update requests at the same time.
+  if (activeFetches[user.uid]) {
+    logger.warn('User', user, 'already has a pending block update request.');
+    return Q.resolve(null);
+  }
 
   /**
    * For a given BtUser, fetch all current blocks and store in DB.
@@ -153,7 +157,8 @@ function updateBlocks(user) {
     });
   }
 
-  fetchAndStoreBlocks(user, null, null);
+  activeFetches[user.uid] = fetchAndStoreBlocks(user, null, null);
+  return activeFetches[user.uid];
 }
 
 /**
@@ -200,22 +205,15 @@ function finalizeBlockBatch(blockBatch) {
   logger.info('Finished fetching blocks for user', blockBatch.source_uid);
   // Mark the BlockBatch as complete and save that bit.
   blockBatch.complete = true;
-  Block.count({
-    where: {
-      BlockBatchId: blockBatch.id
-    }
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(count) {
-    blockBatch.size = count;
-    blockBatch.save().error(function(err) {
-      logger.error(err);
-    }).success(function(blockBatch) {
+  return blockBatch
+    .save()
+    .then(function(blockBatch) {
       diffBatchWithPrevious(blockBatch);
       // Prune older BlockBatches for this user from the DB.
       destroyOldBlocks(blockBatch.source_uid);
+      delete activeFetches[blockBatch.source_uid];
+      return Q.resolve(blockBatch);
     });
-  });
 }
 
 /**
@@ -233,9 +231,7 @@ function diffBatchWithPrevious(currentBatch) {
     },
     order: 'id DESC',
     limit: 2
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(batches) {
+  }).then(function(batches) {
     if (batches && batches.length === 2) {
       var currentBatch = batches[0];
       var oldBatch = batches[1];
@@ -266,6 +262,8 @@ function diffBatchWithPrevious(currentBatch) {
     } else {
       logger.warn('Insufficient block batches to diff.');
     }
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
@@ -330,20 +328,20 @@ function destroyOldBlocks(userId) {
     },
     offset: 4,
     order: 'id DESC'
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(blockBatches) {
+  }).then(function(blockBatches) {
     if (blockBatches && blockBatches.length > 0) {
-      BlockBatch.destroy({
+      return BlockBatch.destroy({
         id: {
           in: _.pluck(blockBatches, 'id')
         }
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(destroyedCount) {
-        logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
-      });
+      })
+    } else {
+      return Q.resolve(0);
     }
+  }).then(function(destroyedCount) {
+    logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
@@ -400,9 +398,6 @@ module.exports = {
 };
 
 if (require.main === module) {
-  //findAndUpdateBlocks();
-  //setInterval(findAndUpdateBlocks, 5000);
-  BtUser.find({where:{screen_name: 'blocksAlot2'}})
-    .success(updateBlocks);
+  setInterval(findAndUpdateBlocks, 5000);
 }
 })();
