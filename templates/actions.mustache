@@ -24,6 +24,7 @@
       <td>{{type}}</td>
       <td>
       {{! If TwitterUser is available and has a screen name, use that. }}
+      {{#twitterUser}}
       {{#twitterUser.screen_name}}
         <a href='https://mobile.twitter.com/{{twitterUser.screen_name}}'
            class='screen-name'>{{twitterUser.screen_name}}</a>
@@ -33,6 +34,13 @@
         <a href='https://mobile.twitter.com/intent/user?user_id={{sink_uid}}'
           >{{sink_uid}}</a>
       {{/twitterUser.screen_name}}
+      {{/twitterUser}}
+      {{^twitterUser}}
+        {{! Occasionally the TwitterUser uid may not have been inserted in the DB
+            for some reason. In that case also use uid. }}
+        <a href='https://mobile.twitter.com/intent/user?user_id={{sink_uid}}'
+          >{{sink_uid}}</a>
+      {{/twitterUser}}
       </td>
       <td>{{status}}</td>
       <td title="{{updatedAt}}">{{prettyUpdated}}</td>
