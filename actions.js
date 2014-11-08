@@ -6,6 +6,7 @@
  */
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    https = require('https'),
     _ = require('sequelize').Utils._,
     setup = require('./setup');
 
@@ -13,6 +14,8 @@ var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action;
+
+https.globalAgent.maxSockets = 300;
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -429,6 +432,6 @@ if (require.main === module) {
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
   processActions();
-  setInterval(processActions, 60 * 1000);
+  setInterval(processActions, 120 * 1000);
 }
 })();
