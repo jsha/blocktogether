@@ -774,7 +774,8 @@ if (cluster.isMaster) {
   }
 
   cluster.on('exit', function(worker, code, signal) {
-    console.log('worker ' + worker.process.pid + ' died');
+    logger.error('worker', worker.process.pid, 'died, resurrecting.');
+    cluster.fork();
   });
 } else {
   app.listen(config.port);
