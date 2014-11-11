@@ -27,6 +27,13 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
     GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
+sudo su...
+  openssl genrsa -out server-key.pem 2048
+  openssl req -new -key server-key.pem -out server.csr -subj /CN=mysql.blocktogether.org
+  openssl x509 -req -days 3650 -in server.csr -signkey server-key.pem -out server-cert.pem
+  rm server.csr
+  chown mysql.mysql *.pem
+
 EOSQL
 fi
 
