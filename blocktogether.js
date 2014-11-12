@@ -431,7 +431,7 @@ app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      next(new Error('No such block list.'));
+      res.status(404).end('No such block list.');
     }
     BtUser
       .find({
@@ -447,7 +447,7 @@ app.get('/show-blocks/:slug',
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          next(new Error('No such block list.'));
+          res.status(404).end('No such block list.');
         }
       });
   });
