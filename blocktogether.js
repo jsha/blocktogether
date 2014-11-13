@@ -384,9 +384,9 @@ app.get('/my-blocks',
     // Temporarily disabled; In the presence of rate limiting this can cause
     // issues with empty block lists. Plan: Don't create a BlockBatch until
     // after the first response.
-    //if (!req.query.page) {
-    //  updateBlocks.updateBlocks(req.user);
-    //}
+    if (!req.query.page) {
+      updateBlocks.updateBlocks(req.user);
+    }
     showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
