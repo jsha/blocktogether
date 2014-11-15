@@ -2,6 +2,9 @@
 (function() {
 var fs = require('fs'),
     path = require('path'),
+    tls = require('tls'),
+    upnode = require('upnode'),
+    Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
@@ -290,6 +293,32 @@ BtUser.find({
   _.assign(userToFollow, user);
 });
 
+var updateBlocksService = null;
+upnode.connect({
+  createStream: function() {
+    return tls.connect({
+      host: 'localhost',
+      port: 7000,
+      ca: fs.readFileSync('/etc/blocktogether/rpc.crt'),
+      // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+      servername: 'blocktogether-rpc'
+    });
+  }
+})(function(remote) {
+  updateBlocksService = remote;
+});
+
+// Call the updateBlocksService to update blocks for a user, and return a
+// promise.
+function remoteUpdateBlocksForUid(uid) {
+  var deferred = Q.defer();
+  logger.info('Trying remote update blocks');
+  updateBlocksService.updateBlocksForUid(uid, function(result) {
+    deferred.resolve(result);
+  });
+  return deferred.promise;
+}
+
 module.exports = {
   Action: Action,
   Block: Block,
@@ -302,6 +331,7 @@ module.exports = {
   logger: logger,
   sequelize: sequelize,
   twitter: twitter,
-  userToFollow: userToFollow
+  userToFollow: userToFollow,
+  remoteUpdateBlocksForUid: remoteUpdateBlocksForUid
 };
 })();

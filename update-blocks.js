@@ -33,10 +33,15 @@ function findAndUpdateBlocks() {
     if (user === null) {
       return Q.reject("No users need blocks updated at this time.");
     } else {
+      // HACK: mark the user as updated. This allows us to iterate through the
+      // BtUsers table looking for users that haven't had their blocks updated
+      // recently, instead of having to iterate on a join of BlockBatches with
+      // BtUsers.
+      user.updatedAt = new Date();
       // We structure this as a second fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
-      return [user, user.getBlockBatches({
+      return [user.save(), user.getBlockBatches({
         // Get the latest BlockBatch for the user and skip if < 1 day old.
         // Note: We count even incomplete BlockBatches towards being 'recently
         // updated'. This prevents the setInterval from repeatedly initiating
@@ -47,13 +52,6 @@ function findAndUpdateBlocks() {
         order: 'updatedAt desc'
       })];
     }
-  }).spread(function(user, batches) {
-    // HACK: mark the user as updated. This allows us to iterate through the
-    // BtUsers table looking for users that haven't had their blocks updated
-    // recently, instead of having to iterate on a join of BlockBatches with
-    // BtUsers.
-    user.updatedAt = new Date();
-    return [user.save(), batches];
   }).spread(function(user, batches) {
     if (batches && batches.length > 0) {
       var batch = batches[0];
@@ -74,6 +72,13 @@ function findAndUpdateBlocks() {
 }
 
 var activeFetches = {};
+
+function updateBlocksForUid(uid) {
+  logger.info('Updating blocks for uid', uid);
+  return BtUser.find(uid).then(updateBlocks).catch(function (err) {
+    logger.error(err);
+  });
+}
 
 /**
  * For a given BtUser, fetch all current blocks and store in DB.
@@ -397,16 +402,18 @@ function recordAction(source_uid, sink_uid, type) {
 
 function setupServer() {
   var opts = {
-      key : fs.readFileSync('/etc/blocktogether/rpc.key'),
-      cert : fs.readFileSync('/etc/blocktogether/rpc.crt'),
+    key: fs.readFileSync('/etc/blocktogether/rpc.key'),
+    cert: fs.readFileSync('/etc/blocktogether/rpc.crt'),
   };
   var server = tls.createServer(opts, function (stream) {
-      var up = upnode(function (client, conn) {
-          this.updateBlocks = function (uid, cb) {
-            updateBlocks(user);
-          };
-      });
-      up.pipe(stream).pipe(up);
+    var up = upnode(function(client, conn) {
+      this.updateBlocksForUid = function(uid, cb) {
+        updateBlocksForUid(uid).then(function() {
+          cb();
+        });
+      };
+    });
+    up.pipe(stream).pipe(up);
   });
   server.listen(7000);
 }
