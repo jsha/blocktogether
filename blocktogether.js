@@ -11,7 +11,7 @@ var cluster = require('cluster'),
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
-    Promise = require('q'),
+    Q = require('q'),
     timeago = require('timeago'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
@@ -376,18 +376,20 @@ app.get('/actions',
 
 app.get('/my-blocks',
   function(req, res, next) {
-    // HACK: Each time a user reloads their own blocks page, fetch an updated
-    // copy of their blocks. This won't show up on the first render, since we
-    // don't want to wait for results if it's a multi-page response, but it
-    // means subsequent reloads will get the correct results.
-    // Only trigger this for the first page worth of blocks.
-    // Temporarily disabled; In the presence of rate limiting this can cause
-    // issues with empty block lists. Plan: Don't create a BlockBatch until
-    // after the first response.
-    //if (!req.query.page) {
-    //  updateBlocks.updateBlocks(req.user);
-    //}
-    showBlocks(req, res, next, req.user, true /* ownBlocks */);
+    var show = showBlocks.bind(undefined, req, res, next,
+      req.user, true /* ownBlocks */);
+    // Each time a user reloads their own blocks page, fetch an updated copy. If
+    // it takes too long, render anyhow. Only do this for first page or
+    // non-paginated blocks, otherwise you increase chance of making the
+    // pagination change with block update.
+    if (!req.query.page) {
+      updateBlocks.updateBlocks(req.user)
+        .timeout(300 /* ms */)
+        .then(show)
+        .catch(show);
+    } else {
+      show();
+    }
   });
 
 /**
@@ -408,7 +410,7 @@ app.get('/subscriptions',
         as: 'Subscriber'
       }]
     });
-    Promise.spread([subscriptionsPromise, subscribersPromise],
+    Q.spread([subscriptionsPromise, subscribersPromise],
       function(subscriptions, subscribers) {
         var templateData = {
           logged_in_screen_name: req.user.screen_name,
@@ -431,7 +433,7 @@ app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      next(new Error('No such block list.'));
+      res.status(404).end('No such block list.');
     }
     BtUser
       .find({
@@ -447,7 +449,7 @@ app.get('/show-blocks/:slug',
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          next(new Error('No such block list.'));
+          res.status(404).end('No such block list.');
         }
       });
   });
@@ -724,11 +726,18 @@ function showActions(req, res, next) {
   if (currentPage < 1) {
     currentPage = 1;
   }
-  // Find, count, and prepare action data for display:
-  Action.findAndCountAll({
-    where: {
-      source_uid: req.user.uid
-    },
+  // Find, count, and prepare action data for display. We avoid findAndCountAll
+  // because of a Sequelize bug that does a join for the count because of the
+  // include fields. That makes doing the count very slow for users with lots of
+  // Actions.
+  var whereClause = {
+    source_uid: req.user.uid
+  };
+  var countPromise = Action.count({
+    where: whereClause
+  });
+  var actionsPromise = Action.findAll({
+    where: whereClause,
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
@@ -744,10 +753,13 @@ function showActions(req, res, next) {
       as: 'CauseUser',
       required: false
     }]
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(actions) {
-    var paginationData = getPaginationData(actions, perPage, currentPage);
+  });
+
+  Q.spread([countPromise, actionsPromise], function(count, actions) {
+    var paginationData = getPaginationData({
+      count: 1000,
+      rows: actions
+    }, perPage, currentPage);
     // Decorate the actions with human-friendly times
     paginationData.item_rows = paginationData.item_rows.map(function(action) {
       return _.extend(action, {
@@ -764,6 +776,8 @@ function showActions(req, res, next) {
     _.extend(templateData, paginationData);
     res.header('Content-Type', 'text/html');
     mu.compileAndRender('actions.mustache', templateData).pipe(res);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
