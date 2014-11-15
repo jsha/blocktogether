@@ -18,27 +18,30 @@ if [ ! -f /usr/sbin/mysqld ] ; then
   sudo debconf-set-selections <<<"mysql-server mysql-server/root_password_again password $DB_ROOT_PASS"
 fi
 
+CONF=/etc/blocktogether
 DB_PASS=$(openssl rand -hex 20)
 sudo apt-get update
 sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg
-SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
+SEQUELIZE_CONFIG=${CONF}/sequelize.json
 if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
+  openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
+    -keyout ${CONF}/mysql.key -out ${CONF}/mysql.pem \
+    -subj /CN=blocktogether-rpc
+  sudo chwon mysql.mysql ${CONF}/mysql.{key,pem}
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
     GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
-sudo su...
-  openssl genrsa -out server-key.pem 2048
-  openssl req -new -key server-key.pem -out server.csr -subj /CN=mysql.blocktogether.org
-  openssl x509 -req -days 3650 -in server.csr -signkey server-key.pem -out server-cert.pem
-  rm server.csr
-  chown mysql.mysql *.pem
 
 EOSQL
 fi
 
 COOKIE_SECRET=$(openssl rand -hex 20)
 sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
+
+  openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
+    -keyout ${CONF}/rpc.key -out ${CONF}/rpc.pem \
+    -subj /CN=blocktogether-rpc
 
 if ! crontab -l >/dev/null; then
   crontab - <<EOCRON
