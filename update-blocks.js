@@ -2,6 +2,8 @@
 (function() {
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    tls = require('tls'),
+    upnode = require('upnode'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
@@ -362,6 +364,22 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+function setupServer() {
+  var opts = {
+      key : fs.readFileSync('/etc/blocktogether/rpc.key'),
+      cert : fs.readFileSync('/etc/blocktogether/rpc.crt'),
+  };
+  var server = tls.createServer(opts, function (stream) {
+      var up = upnode(function (client, conn) {
+          this.updateBlocks = function (uid, cb) {
+            updateBlocks(user);
+          };
+      });
+      up.pipe(stream).pipe(up);
+  });
+  server.listen(7000);
+}
+
 module.exports = {
   updateBlocks: updateBlocks
 };
@@ -369,5 +387,6 @@ module.exports = {
 if (require.main === module) {
   findAndUpdateBlocks();
   setInterval(findAndUpdateBlocks, 5000);
+  setupServer();
 }
 })();
