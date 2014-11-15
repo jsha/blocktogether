@@ -320,7 +320,8 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    updateBlocks.updateBlocks(recipientBtUser);
+    // Temporarily disabling block updates from stream.js to reduce CPU usage.
+    //updateBlocks.updateBlocks(recipientBtUser);
   }, 1000);
 }
 

@@ -433,7 +433,7 @@ app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      next(new Error('No such block list.'));
+      res.status(404).end('No such block list.');
     }
     BtUser
       .find({
@@ -449,7 +449,7 @@ app.get('/show-blocks/:slug',
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          next(new Error('No such block list.'));
+          res.status(404).end('No such block list.');
         }
       });
   });
@@ -776,7 +776,8 @@ if (cluster.isMaster) {
   }
 
   cluster.on('exit', function(worker, code, signal) {
-    console.log('worker ' + worker.process.pid + ' died');
+    logger.error('worker', worker.process.pid, 'died, resurrecting.');
+    cluster.fork();
   });
 } else {
   app.listen(config.port);

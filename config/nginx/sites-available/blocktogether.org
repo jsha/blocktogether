@@ -10,6 +10,9 @@ server {
         location / {
                 proxy_pass http://localhost:2078/;
         }
+        location /favicon.ico {
+            alias /usr/local/blocktogether/current/static/favicon.ico;
+        }
         location /static/ {
             alias /usr/local/blocktogether/current/static/;
         }
