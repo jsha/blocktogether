@@ -376,18 +376,20 @@ app.get('/actions',
 
 app.get('/my-blocks',
   function(req, res, next) {
-    // HACK: Each time a user reloads their own blocks page, fetch an updated
-    // copy of their blocks. This won't show up on the first render, since we
-    // don't want to wait for results if it's a multi-page response, but it
-    // means subsequent reloads will get the correct results.
-    // Only trigger this for the first page worth of blocks.
-    // Temporarily disabled; In the presence of rate limiting this can cause
-    // issues with empty block lists. Plan: Don't create a BlockBatch until
-    // after the first response.
+    var show = showBlocks.bind(undefined, req, res, next,
+      req.user, true /* ownBlocks */);
+    // Each time a user reloads their own blocks page, fetch an updated copy. If
+    // it takes too long, render anyhow. Only do this for first page or
+    // non-paginated blocks, otherwise you increase chance of making the
+    // pagination change with block update.
     if (!req.query.page) {
-      updateBlocks.updateBlocks(req.user);
+      updateBlocks.updateBlocks(req.user)
+        .timeout(300 /* ms */)
+        .then(show)
+        .catch(show);
+    } else {
+      show();
     }
-    showBlocks(req, res, next, req.user, true /* ownBlocks */);
   });
 
 /**
