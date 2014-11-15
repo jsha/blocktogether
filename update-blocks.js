@@ -367,7 +367,7 @@ function recordAction(source_uid, sink_uid, type) {
         // TODO: For this to be correct, we need to ensure that updateBlocks is
         // always called within a minute of performing a block or unblock
         // action.
-        gt: new Date(new Date() - 60 * 1000)
+        gt: new Date(new Date() - 86400 * 1000)
       }
     })
   }).then(function(prevAction) {
