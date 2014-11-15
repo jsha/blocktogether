@@ -421,7 +421,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-  // TODO: It's possible for one run of processActions could take more than 60
+  // TODO: It's possible for one run of processActions could take more than 120
   // seconds, in which case we wind up with multiple instances running
   // concurrently. This probably won't happen since each run only processes 100
   // items per user, but with a lot of users it could, and would lead to some
@@ -429,6 +429,6 @@ if (require.main === module) {
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
   processActions();
-  setInterval(processActions, 60 * 1000);
+  setInterval(processActions, 120 * 1000);
 }
 })();
