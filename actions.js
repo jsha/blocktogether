@@ -5,6 +5,7 @@
  * Queueing and processing of actions (block, unblock, mute, etc).
  */
 var twitterAPI = require('node-twitter-api'),
+    https = require('https'),
     fs = require('fs'),
     _ = require('sequelize').Utils._,
     setup = require('./setup');
@@ -13,6 +14,8 @@ var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action;
+
+https.globalAgent.maxSockets = 300;
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
