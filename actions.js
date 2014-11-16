@@ -212,7 +212,9 @@ function processUnblocksForUser(btUser, actions) {
     unBlock(btUser, action.sink_uid, function(err, results) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
-      if (err && err.statusCode === 404) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
@@ -233,7 +235,9 @@ function processMutesForUser(btUser, actions) {
       logger.error("Shouldn't happen: non-mute action", btUser);
     }
     mute(btUser, action.sink_uid, function(err, results) {
-      if (err && err.statusCode === 404) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
