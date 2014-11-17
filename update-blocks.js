@@ -400,6 +400,11 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+/**
+ * Set up a dnode RPC server (using the upnode library, which can handle TLS
+ * transport) so other daemons can send requests to update blocks.
+ * TODO: Require client authentication with a cert.
+ */
 function setupServer() {
   var opts = {
     key: fs.readFileSync('/etc/blocktogether/rpc.key'),
