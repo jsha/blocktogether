@@ -363,11 +363,11 @@ function recordAction(source_uid, sink_uid, type) {
   Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
-        // Look only at actions updated within the last minute.
-        // TODO: For this to be correct, we need to ensure that updateBlocks is
-        // always called within a minute of performing a block or unblock
-        // action.
-        gt: new Date(new Date() - 86400 * 1000)
+        // Look only at actions updated within the last day.
+        // Note: For this to be correct, we need to ensure that updateBlocks is
+        // always called within a day of performing a block or unblock
+        // action, which is true because of the regular update process.
+        gt: new Date(new Date() - ONE_DAY_IN_MILLIS)
       }
     })
   }).then(function(prevAction) {
@@ -398,6 +398,6 @@ module.exports = {
 };
 
 if (require.main === module) {
-  setInterval(findAndUpdateBlocks, 5000);
+  setInterval(findAndUpdateBlocks, 60 * 1000);
 }
 })();
