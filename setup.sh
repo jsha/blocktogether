@@ -21,27 +21,33 @@ fi
 CONF=/etc/blocktogether
 DB_PASS=$(openssl rand -hex 20)
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg
+sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg capistrano
 SEQUELIZE_CONFIG=${CONF}/sequelize.json
 if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
-  openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
-    -keyout ${CONF}/mysql.key -out ${CONF}/mysql.pem \
-    -subj /CN=blocktogether-rpc
-  sudo chwon mysql.mysql ${CONF}/mysql.{key,pem}
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
     GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
-
 EOSQL
 fi
 
 COOKIE_SECRET=$(openssl rand -hex 20)
 sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
 
+# Create TLS keys. First, for MySQL
+if [ ! -f ${CONF}/mysql.key ] ; then
   openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
+    -keyout ${CONF}/mysql.key -out ${CONF}/mysql.pem \
+    -subj /CN=blocktogether.org
+  sudo chown mysql.mysql ${CONF}/mysql.{key,pem}
+fi
+
+# Second, for Node-to-Node RPCs.
+if [ ! -f ${CONF}/rpc.key ] ; then
+  openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
     -keyout ${CONF}/rpc.key -out ${CONF}/rpc.pem \
     -subj /CN=blocktogether-rpc
+fi
 
 if ! crontab -l >/dev/null; then
   crontab - <<EOCRON
@@ -50,3 +56,6 @@ if ! crontab -l >/dev/null; then
     23 10 * * * bash /usr/local/blocktogether/current/util/cron.sh
 EOCRON
 fi
+
+sudo cp config/mysql/blocktogether.cnf /etc/mysql/conf.d/
+sudo chown mysql.mysql /etc/mysql/conf.d/blocktogether.conf
