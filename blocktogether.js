@@ -51,7 +51,10 @@ function makeApp() {
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret,
-    callbackURL: config.callbackUrl
+    callbackURL: config.callbackUrl,
+    // Normally Passport makes a second request on login to get a user's full
+    // profile, but we only need screen name, so skip the request.
+    skipExtendedUserProfile: true
   }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
@@ -109,9 +112,9 @@ function makeApp() {
  *                        created.
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
-  var uid = profile._json.id_str;
-  var screen_name = profile._json.screen_name;
-  updateUsers.storeUser(profile._json);
+  logger.info(profile);
+  var uid = profile.id;
+  var screen_name = profile.username;
 
   BtUser
     .findOrCreate({ uid: uid })
