@@ -48,12 +48,6 @@ function makeApp() {
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
 
-  // Error handler.
-  app.use(function(err, req, res, next){
-    logger.error(err.stack);
-    res.status(500).send('Something broke!');
-  });
-
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret,
@@ -584,6 +578,17 @@ app.post('/do-actions.json',
       }));
     }
   });
+
+
+// Error handler. Must come after all routes.
+app.use(function(err, req, res, next){
+  logger.error(err.stack);
+  res.status(500);
+  res.header('Content-Type', 'text/html');
+  mu.compileAndRender('error.mustache', {
+    error: err.message
+  }).pipe(res);
+});
 
 /**
  * Create pagination metadata object for items retrieved with findAndCountAll().
