@@ -627,6 +627,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     user_uid = user.uid;
   }
 
+  res.header('Content-Type', 'text/html');
+
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
@@ -647,7 +649,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     order: 'complete desc, currentCursor is null, updatedAt desc'
   }).then(function(blockBatch) {
     if (!blockBatch) {
-      next(new Error('No blocks fetched yet. Please try again soon.'));
+      res.end('No blocks fetched yet. Please try again soon.');
+      return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
     } else {
       // Check whether the authenticated user is subscribed to this block list.
       var subscriptionPromise =
@@ -709,7 +712,6 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     };
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
-    res.header('Content-Type', 'text/html');
     mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
   }).catch(function(err) {
     logger.error(err);
