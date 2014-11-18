@@ -36,7 +36,7 @@ var logger = log4js.getLogger(scriptName);
 
 // Once a second log how many pending HTTPS requests there are.
 function logPendingRequests() {
-  var requests = https.globalAgent.requests;
+  var requests = twitter.keepAliveAgent.requests;
   if (Object.keys(requests).length === 0) {
     logger.trace('Pending requests: 0');
   } else {
@@ -44,7 +44,7 @@ function logPendingRequests() {
       logger.trace('Pending requests to', host, ':', requests[host].length);
     }
   }
-  var sockets = https.globalAgent.sockets;
+  var sockets = twitter.keepAliveAgent.sockets;
   if (Object.keys(sockets).length === 0) {
     logger.trace('Open sockets: 0');
   } else {

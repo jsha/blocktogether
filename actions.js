@@ -5,6 +5,7 @@
  * Queueing and processing of actions (block, unblock, mute, etc).
  */
 var twitterAPI = require('node-twitter-api'),
+    https = require('https'),
     fs = require('fs'),
     _ = require('sequelize').Utils._,
     setup = require('./setup');
@@ -13,6 +14,8 @@ var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action;
+
+https.globalAgent.maxSockets = 300;
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -212,7 +215,9 @@ function processUnblocksForUser(btUser, actions) {
     unBlock(btUser, action.sink_uid, function(err, results) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
-      if (err && err.statusCode === 404) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
@@ -233,7 +238,9 @@ function processMutesForUser(btUser, actions) {
       logger.error("Shouldn't happen: non-mute action", btUser);
     }
     mute(btUser, action.sink_uid, function(err, results) {
-      if (err && err.statusCode === 404) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
@@ -421,7 +428,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-  // TODO: It's possible for one run of processActions could take more than 120
+  // TODO: It's possible for one run of processActions could take more than 180
   // seconds, in which case we wind up with multiple instances running
   // concurrently. This probably won't happen since each run only processes 100
   // items per user, but with a lot of users it could, and would lead to some
@@ -429,6 +436,6 @@ if (require.main === module) {
   // instance. Figure out a way to prevent this while being robust (i.e. not
   // having to make sure every possible code path calls a finishing callback).
   processActions();
-  setInterval(processActions, 120 * 1000);
+  setInterval(processActions, 180 * 1000);
 }
 })();
