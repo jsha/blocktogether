@@ -13,6 +13,7 @@ var twitterAPI = require('node-twitter-api'),
 
 var twitter = setup.twitter,
     logger = setup.logger,
+    configDir = setup.configDir,
     BtUser = setup.BtUser,
     TwitterUser = setup.TwitterUser,
     Action = setup.Action,
@@ -407,8 +408,11 @@ function recordAction(source_uid, sink_uid, type) {
  */
 function setupServer() {
   var opts = {
-    key: fs.readFileSync('/etc/blocktogether/rpc.key'),
-    cert: fs.readFileSync('/etc/blocktogether/rpc.crt'),
+    key: fs.readFileSync(configDir + 'rpc.key'),
+    cert: fs.readFileSync(configDir + 'rpc.crt'),
+    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    requestCert: true,
+    rejectUnauthorized: true
   };
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {

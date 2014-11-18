@@ -293,13 +293,21 @@ BtUser.find({
   _.assign(userToFollow, user);
 });
 
+/**
+ * A dnode client to call out to the update-blocks process to trigger block
+ * updating when necessary. This ensures all processing of blocks (which can be
+ * expensive) happens in a separate process from, e.g. the frontend or the
+ * streaming daemon.
+ */
 var updateBlocksService = null;
 upnode.connect({
   createStream: function() {
     return tls.connect({
       host: 'localhost',
       port: 7000,
-      ca: fs.readFileSync('/etc/blocktogether/rpc.crt'),
+      ca: fs.readFileSync(configDir + 'rpc.crt'),
+      cert: fs.readFileSync(configDir + 'rpc.crt'),
+      key: fs.readFileSync(configDir + 'rpc.key'),
       // The name on the self-signed cert is verified; it's "blocktogether-rpc".
       servername: 'blocktogether-rpc'
     });
@@ -328,6 +336,7 @@ module.exports = {
   Subscription: Subscription,
   SharedBlock: SharedBlock,
   config: config,
+  configDir: configDir,
   logger: logger,
   sequelize: sequelize,
   twitter: twitter,
