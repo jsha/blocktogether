@@ -12,7 +12,7 @@ var twitterAPI = require('node-twitter-api'),
 var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
-    remoteUpdateBlocksForUid = setup.remoteUpdateBlocksForUid,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     Action = setup.Action,
     BtUser = setup.BtUser;
 
@@ -320,7 +320,7 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    remoteUpdateBlocksForUid(recipientBtUser.uid);
+    remoteUpdateBlocks(recipientBtUser);
   }, 2000);
 }
 

@@ -23,7 +23,7 @@ var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
     userToFollow = setup.userToFollow,
-    remoteUpdateBlocksForUid = setup.remoteUpdateBlocksForUid,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -133,7 +133,7 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
       });
       return btUser.save();
     }).then(function(btUser) {
-      remoteUpdateBlocksForUid(btUser.uid);
+      remoteUpdateBlocks(btUser);
       done(null, btUser);
     }).catch(function(err) {
       logger.error(err);
@@ -383,7 +383,7 @@ app.get('/my-blocks',
     // non-paginated blocks, otherwise you increase chance of making the
     // pagination change with block update.
     if (!req.query.page) {
-      remoteUpdateBlocksForUid(req.user.uid)
+      remoteUpdateBlocks(req.user)
         .timeout(300 /* ms */)
         .then(show)
         .catch(show);

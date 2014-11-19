@@ -305,9 +305,11 @@ upnode.connect({
     return tls.connect({
       host: 'localhost',
       port: 7000,
-      ca: fs.readFileSync(configDir + 'rpc.crt'),
+      // Provide a client certificate so the server knows it's us.
       cert: fs.readFileSync(configDir + 'rpc.crt'),
       key: fs.readFileSync(configDir + 'rpc.key'),
+      // For validating the self-signed server cert
+      ca: fs.readFileSync(configDir + 'rpc.crt'),
       // The name on the self-signed cert is verified; it's "blocktogether-rpc".
       servername: 'blocktogether-rpc'
     });
@@ -318,10 +320,10 @@ upnode.connect({
 
 // Call the updateBlocksService to update blocks for a user, and return a
 // promise.
-function remoteUpdateBlocksForUid(uid) {
+function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
-  logger.info('Trying remote update blocks');
-  updateBlocksService.updateBlocksForUid(uid, function(result) {
+  logger.debug('Requesting block update for', user);
+  updateBlocksService.updateBlocksForUid(user.uid, function(result) {
     deferred.resolve(result);
   });
   return deferred.promise;
@@ -341,6 +343,6 @@ module.exports = {
   sequelize: sequelize,
   twitter: twitter,
   userToFollow: userToFollow,
-  remoteUpdateBlocksForUid: remoteUpdateBlocksForUid
+  remoteUpdateBlocks: remoteUpdateBlocks
 };
 })();
