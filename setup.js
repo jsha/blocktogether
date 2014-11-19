@@ -299,8 +299,7 @@ BtUser.find({
  * expensive) happens in a separate process from, e.g. the frontend or the
  * streaming daemon.
  */
-var updateBlocksService = null;
-upnode.connect({
+var updateBlocksService = upnode.connect({
   createStream: function() {
     return tls.connect({
       host: 'localhost',
@@ -314,8 +313,6 @@ upnode.connect({
       servername: 'blocktogether-rpc'
     });
   }
-})(function(remote) {
-  updateBlocksService = remote;
 });
 
 // Call the updateBlocksService to update blocks for a user, and return a
@@ -323,8 +320,12 @@ upnode.connect({
 function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
   logger.debug('Requesting block update for', user);
-  updateBlocksService.updateBlocksForUid(user.uid, function(result) {
-    deferred.resolve(result);
+  // Note: We can't just call this once and store 'remote', because upnode
+  // queues the request in case the remote server is down.
+  updateBlocksService(function(remote) {
+    remote.updateBlocksForUid(user.uid, function(result) {
+      deferred.resolve(result);
+    });
   });
   return deferred.promise;
 }
