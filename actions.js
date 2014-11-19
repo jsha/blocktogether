@@ -389,7 +389,9 @@ function cancelOrPerformBlocks(
     logger.debug('Creating block', sourceBtUser.screen_name,
       '--block-->', friendship.screen_name, sink_uid);
     block(sourceBtUser, sink_uid, function(err, results) {
-      if (err) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err) {
         logger.error('Error /blocks/create', err.statusCode,
           sourceBtUser.screen_name, sourceBtUser.uid,
           '--block-->', friendship.screen_name, friendship.id_str,
