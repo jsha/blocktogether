@@ -48,16 +48,13 @@ function makeApp() {
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
 
-  // Error handler.
-  app.use(function(err, req, res, next){
-    logger.error(err.stack);
-    res.status(500).send('Something broke!');
-  });
-
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret,
-    callbackURL: config.callbackUrl
+    callbackURL: config.callbackUrl,
+    // Normally Passport makes a second request on login to get a user's full
+    // profile, but we only need screen name, so skip the request.
+    skipExtendedUserProfile: true
   }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
@@ -115,9 +112,9 @@ function makeApp() {
  *                        created.
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
-  var uid = profile._json.id_str;
-  var screen_name = profile._json.screen_name;
-  updateUsers.storeUser(profile._json);
+  logger.info(profile);
+  var uid = profile.id;
+  var screen_name = profile.username;
 
   BtUser
     .findOrCreate({ uid: uid })
@@ -585,6 +582,17 @@ app.post('/do-actions.json',
     }
   });
 
+
+// Error handler. Must come after all routes.
+app.use(function(err, req, res, next){
+  logger.error(err.stack);
+  res.status(500);
+  res.header('Content-Type', 'text/html');
+  mu.compileAndRender('error.mustache', {
+    error: err.message
+  }).pipe(res);
+});
+
 /**
  * Create pagination metadata object for items retrieved with findAndCountAll().
  * @param {Object} items Result of findAndCountAll() with count and rows fields.
@@ -627,6 +635,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     user_uid = user.uid;
   }
 
+  res.header('Content-Type', 'text/html');
+
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
@@ -647,7 +657,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     order: 'complete desc, currentCursor is null, updatedAt desc'
   }).then(function(blockBatch) {
     if (!blockBatch) {
-      next(new Error('No blocks fetched yet. Please try again soon.'));
+      res.end('No blocks fetched yet. Please try again soon.');
+      return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
     } else {
       // Check whether the authenticated user is subscribed to this block list.
       var subscriptionPromise =
@@ -709,7 +720,6 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     };
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
-    res.header('Content-Type', 'text/html');
     mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
   }).catch(function(err) {
     logger.error(err);
