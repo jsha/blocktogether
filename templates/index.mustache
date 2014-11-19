@@ -3,18 +3,7 @@
   <div class="description">
     <h1>Block Together (beta)</h1>
     <p>
-    An app intended to help cope with harassers and abusers on
-    Twitter. When you sign up for Block Together, you can view a list of your
-    own blocks. You can also use the auto-block and block sharing options
-    listed below.
-    </p>
-    <p>
-    <b>Update 2014-10-31</b>: You can now subscribe to block lists, so
-      when new accounts are added you will auto-block them. Block list authors
-      can see who subscribes to their list. You can end a subscription at any
-      time.  Design doc at <a
-      href="https://blocktogether.org/docs/block-subscription-design.html"
-      >https://blocktogether.org/docs/block-subscription-design.html</a>.
+    A web app intended to help cope with harassment and abuse on Twitter.
     </p>
   </div>
   {{^logged_in_screen_name}}
@@ -27,8 +16,8 @@
     <br>
     <div>
     Block Together will not tweet on your behalf, but it needs read/write
-    access to your account in order to block people when you ask it to.
-    Twitter describes that permission as 'Post tweets for you.'
+    access so it can block people when you ask it to. Twitter describes
+    that permission as 'Post tweets for you.'
     </div>
   </div>
   <div class="log-on-prompt">
@@ -42,26 +31,87 @@
   <div class="development">
     <h2>Details</h2>
     <p>
-    When you share your list of blocks with friends, they will have the option
-    to sign up for Block Together and block some or all of the people on your
-    list. In the future, Block Together will also allow you to subscribe to
-    friends' block lists so that you automatically block any new users they
-    add.
+    Block Together is designed to reduce the burden of blocking when
+    many accounts are attacking you, or when a few accounts are
+    attacking many people in your community. It uses the Twitter
+    API. If you choose to share your list of blocks, your friends
+    can subscribe to your list so that when you block an account,
+    they block that account automatically. You can also use Block
+    Together without sharing your blocks with anyone.
     </p>
+
     <p>
-    Block Together records all actions it takes on your behalf and lists them
-    under the 'Actions' tab, so you can figure out why someone is blocked.
-    Block Together will not block someone you are already following, even if
-    they are included in a friend's block list that you block. It will also
-    not re-block someone if it blocked them through the 'block new accounts'
-    feature and you then unblocked them.
+    Sometimes, attackers who get blocked will create new
+    accounts (called "<a
+    href='http://en.wikipedia.org/wiki/Sockpuppet_(Internet)'>sockpuppets</a>")
+    to get around the block. To deal with sockpuppet accounts, Block Together
+    has options to let you auto-block accounts meeting certain criteria: created
+    less than seven days ago and/or having fewer than 15 followers. Block
+    Together uses Twitter's Streaming API to find such accounts when they
+    mention you, so it can usually block them in under a second.
     </p>
+
+    <a name='incorrect-blocks' href='#incorrect-blocks'>
+    <h3>Protections from incorrect blocks</h3>
+    </a>
     <p>
-    This is very much beta software. My hope is to provide something useful
-    enough to be interesting, and build a community to help develop it.
-    Everyone is welcome. Skills especially needed: Graphic design, UX design,
-    HTML, CSS, and Javascript coding (the backend is in Node), and Ops.
+    Block Together will never block an account you follow, even if it meets one
+    of the above criteria. Similarly, if Block Together incorrectly
+    blocks an account (for instance, a friend's new account), you can
+    unblock that account on Twitter. Block Together will notice the
+    fact and avoid blocking that account again in the future. Also,
+    every time Block Together blocks someone, the event is recorded on the
+    'Actions' tab, so you can check who's been blocked and fix any issues.
     </p>
+
+    <a name='propagating-forgiveness' href='#propagating-forgiveness'>
+    <h3>Propagating forgiveness</h3>
+    </a>
+    <p>
+    If you subscribe to a block list, you will block every account currently on
+    that list. Later, if the author of that block list blocks more
+    accounts, you will automatically block those as well. If the author of the
+    list unblocks an account, you will automatically unblock it too, but
+    only if you originally blocked it through the shared list. If you blocked
+    the account independently, it will not be unblocked.
+    </p>
+
+    <a name='sharing-block-list' href='#sharing-block-list'>
+    <h3>Sharing your block list</h3>
+    </a>
+    <p>
+    If you choose to share your block list with friends, Block Together will
+    create an unlisted, unguessable URL to access your block list. You can share
+    the URL by email or Direct Message if you want to keep it private among
+    friends, or you can tweet the URL if you are okay sharing your block list
+    publicly. You can always disable sharing from the Settings page. If you do
+    so, the URL to access your blocks will be deleted forever. If you choose to
+    share again in the future, you will create a new, different URL.
+    If you choose to disable sharing, you have to separately remove any
+    subscribers you no longer want, on the Subscriptions page.
+    </p>
+
+    <p>
+    Many people find that they don't want to share their block list because they
+    find there are accounts on it they don't remember blocking, or that aren't
+    particularly abusive. This is partly because Twitter, for a long time, did
+    not offer Mute. So if you wanted to stop seeing a merely unfunny account
+    that gets frequently retweeted, blocking used to be the only fix. Now
+    Twitter offers Mute, so you can Mute those accounts instead. Block Together
+    makes it easy to remove them from your shared block list with the
+    'Unblock and Mute' button on the My Blocks page.
+    </p>
+
+    <a name='make-it-better' href='#make-it-better'>
+    <h3>Make Block Together better</h3>
+    </a>
+    <p>
+    This is beta software. My hope is to build a community to help develop
+    Block Together. Everyone is welcome. Skills especially needed:
+    Graphic design, UX design, HTML, CSS, and Javascript coding (the backend
+    is in Node), and Ops.
+    </p>
+
     <p>
     Code is <a href="https://github.com/jsha/blocktogether">here</a>.
     To get involved:
