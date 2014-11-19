@@ -390,7 +390,7 @@ function cancelOrPerformBlocks(
       '--block-->', friendship.screen_name, sink_uid);
     block(sourceBtUser, sink_uid, function(err, results) {
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        btUser.verifyCredentials();
+        sourceBtUser.verifyCredentials();
       } else if (err) {
         logger.error('Error /blocks/create', err.statusCode,
           sourceBtUser.screen_name, sourceBtUser.uid,
