@@ -3,7 +3,7 @@
   "name": "blocktogether",
   "description": "Share your blocks",
   "repository": "https://github.com/jsha/blocktogether.git",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "dependencies": {
     "express": "~4.8.2",
     "body-parser": "~1.6.2",
