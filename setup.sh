@@ -35,7 +35,7 @@ sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
 
 if [ ! -f ${CONF}/rpc.key ] ; then
   openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
-    -keyout ${CONF}/rpc.key -out ${CONF}/rpc.pem \
+    -keyout ${CONF}/rpc.key -out ${CONF}/rpc.crt \
     -subj /CN=blocktogether-rpc
 fi
 
