@@ -7,12 +7,12 @@ var twitterAPI = require('node-twitter-api'),
     _ = require('sequelize').Utils._,
     actions = require('./actions'),
     updateUsers = require('./update-users'),
-    updateBlocks = require('./update-blocks'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     Action = setup.Action,
     BtUser = setup.BtUser;
 
@@ -320,9 +320,8 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    // Temporarily disabling block updates from stream.js to reduce CPU usage.
-    //updateBlocks.updateBlocks(recipientBtUser);
-  }, 1000);
+    remoteUpdateBlocks(recipientBtUser);
+  }, 2000);
 }
 
 /**

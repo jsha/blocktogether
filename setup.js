@@ -2,6 +2,9 @@
 (function() {
 var fs = require('fs'),
     path = require('path'),
+    tls = require('tls'),
+    upnode = require('upnode'),
+    Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
@@ -290,6 +293,43 @@ BtUser.find({
   _.assign(userToFollow, user);
 });
 
+/**
+ * A dnode client to call out to the update-blocks process to trigger block
+ * updating when necessary. This ensures all processing of blocks (which can be
+ * expensive) happens in a separate process from, e.g. the frontend or the
+ * streaming daemon.
+ */
+var updateBlocksService = upnode.connect({
+  createStream: function() {
+    return tls.connect({
+      host: 'localhost',
+      port: 7000,
+      // Provide a client certificate so the server knows it's us.
+      cert: fs.readFileSync(configDir + 'rpc.crt'),
+      key: fs.readFileSync(configDir + 'rpc.key'),
+      // For validating the self-signed server cert
+      ca: fs.readFileSync(configDir + 'rpc.crt'),
+      // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+      servername: 'blocktogether-rpc'
+    });
+  }
+});
+
+// Call the updateBlocksService to update blocks for a user, and return a
+// promise.
+function remoteUpdateBlocks(user) {
+  var deferred = Q.defer();
+  logger.debug('Requesting block update for', user);
+  // Note: We can't just call this once and store 'remote', because upnode
+  // queues the request in case the remote server is down.
+  updateBlocksService(function(remote) {
+    remote.updateBlocksForUid(user.uid, function(result) {
+      deferred.resolve(result);
+    });
+  });
+  return deferred.promise;
+}
+
 module.exports = {
   Action: Action,
   Block: Block,
@@ -299,9 +339,11 @@ module.exports = {
   Subscription: Subscription,
   SharedBlock: SharedBlock,
   config: config,
+  configDir: configDir,
   logger: logger,
   sequelize: sequelize,
   twitter: twitter,
-  userToFollow: userToFollow
+  userToFollow: userToFollow,
+  remoteUpdateBlocks: remoteUpdateBlocks
 };
 })();

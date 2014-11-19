@@ -16,7 +16,6 @@ var cluster = require('cluster'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
     actions = require('./actions'),
-    updateBlocks = require('./update-blocks'),
     updateUsers = require('./update-users'),
     _ = require('sequelize').Utils._;
 
@@ -24,6 +23,7 @@ var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
     userToFollow = setup.userToFollow,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -130,7 +130,7 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
       });
       return btUser.save();
     }).then(function(btUser) {
-      updateBlocks.updateBlocks(btUser);
+      remoteUpdateBlocks(btUser);
       done(null, btUser);
     }).catch(function(err) {
       logger.error(err);
@@ -380,7 +380,7 @@ app.get('/my-blocks',
     // non-paginated blocks, otherwise you increase chance of making the
     // pagination change with block update.
     if (!req.query.page) {
-      updateBlocks.updateBlocks(req.user)
+      remoteUpdateBlocks(req.user)
         .timeout(300 /* ms */)
         .then(show)
         .catch(show);
