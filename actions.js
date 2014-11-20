@@ -439,5 +439,26 @@ if (require.main === module) {
   // having to make sure every possible code path calls a finishing callback).
   processActions();
   setInterval(processActions, 180 * 1000);
+
+  // Once a second log how many pending HTTPS requests there are.
+  var logPendingRequests = function() {
+    var requests = twitter.keepAliveAgent.requests;
+    if (Object.keys(requests).length === 0) {
+      logger.trace('Pending requests: 0');
+    } else {
+      for (var host in requests) {
+        logger.trace('Pending requests to', host, ':', requests[host].length);
+      }
+    }
+    var sockets = twitter.keepAliveAgent.sockets;
+    if (Object.keys(sockets).length === 0) {
+      logger.trace('Open sockets: 0');
+    } else {
+      for (host in sockets) {
+        logger.trace('Open sockets to', host, ':', sockets[host].length);
+      }
+    }
+  }
+  setInterval(logPendingRequests, 5000);
 }
 })();
