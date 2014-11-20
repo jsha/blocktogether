@@ -37,27 +37,6 @@ log4js.configure(configDir + nodeEnv + '/log4js.json', {
 var scriptName = path.basename(require.main.filename).replace(".js", "");
 var logger = log4js.getLogger(scriptName);
 
-// Once a second log how many pending HTTPS requests there are.
-function logPendingRequests() {
-  var requests = twitter.keepAliveAgent.requests;
-  if (Object.keys(requests).length === 0) {
-    logger.trace('Pending requests: 0');
-  } else {
-    for (var host in requests) {
-      logger.trace('Pending requests to', host, ':', requests[host].length);
-    }
-  }
-  var sockets = twitter.keepAliveAgent.sockets;
-  if (Object.keys(sockets).length === 0) {
-    logger.trace('Open sockets: 0');
-  } else {
-    for (host in sockets) {
-      logger.trace('Open sockets to', host, ':', sockets[host].length);
-    }
-  }
-}
-setInterval(logPendingRequests, 5000);
-
 var sequelizeConfigData = fs.readFileSync(
   configDir + 'sequelize.json', 'utf8');
 var c = JSON.parse(sequelizeConfigData)[nodeEnv];
@@ -139,6 +118,14 @@ var BtUser = sequelize.define('BtUser', {
      * Ask Twitter to verify a user's credentials. If they not valid,
      * store the current time in user's deactivatedAt. If they are valid, clear
      * the user's deactivatedAt. Save the user to DB if it's changed.
+     * A user can be deactivated because of suspension, deactivation, or revoked
+     * app. Each of these states (even revocation!) can be undone, and we'd
+     * like the app to resume working normally if that happens. So instead of
+     * deleting the user when we get one of these codes, store a 'deactivatedAt'
+     * timestamp on the user object. Users with a non-null deactivatedAt
+     * get their credentials retried once per day for 30 days, after which (TOD)
+     * they should be deleted. Regular operations like checking blocks or
+     * streaming are not performed for users with non-null deactivatedAt.
      */
     verifyCredentials: function() {
       var user = this;
