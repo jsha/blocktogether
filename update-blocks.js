@@ -89,8 +89,10 @@ function updateBlocksForUid(uid) {
 function updateBlocks(user) {
   // Don't create multiple pending block update requests at the same time.
   if (activeFetches[user.uid]) {
-    logger.warn('User', user, 'already has a pending block update request.');
+    logger.info('User', user, 'already updating blocks, skipping duplicate.');
     return Q.resolve(null);
+  } else {
+    logger.info('Updating blocks for', user);
   }
 
   /**
@@ -104,7 +106,6 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    logger.info('Fetching blocks for', user);
     // A function that can simply be called again to run this once more with an
     // updated cursor.
     var getMore = fetchAndStoreBlocks.bind(null, user, blockBatch);
