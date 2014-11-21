@@ -175,9 +175,9 @@ function updateBlocks(user) {
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
-    delete activeFetches[blockBatch.source_uid];
+    delete activeFetches[user.uid];
   }).catch(function() {
-    delete activeFetches[blockBatch.source_uid];
+    delete activeFetches[user.uid];
   });
 
   return fetchPromise;
