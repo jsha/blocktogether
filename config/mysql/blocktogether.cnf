@@ -1,0 +1,10 @@
+[mysqld]
+innodb_file_per_table = 1
+log-slow-queries = /data/mysql/mysql-slow.log
+long_query_time = 1
+log-queries-not-using-indexes
+ssl=1
+ssl-ca=/etc/blocktogether/mysql-cert.pem
+ssl-cert=/etc/blocktogether/mysql-cert.pem
+ssl-key=/etc/blocktogether/mysql-key.pem
+ssl-cipher=DHE-RSA-AES256-SHA
