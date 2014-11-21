@@ -149,6 +149,9 @@ function updateBlocks(user) {
         // when we try to update blocks. So we have to remember state and keep
         // trying after a delay to let the rate limit expire.
         if (!blockBatch) {
+          // If we got rate limited on the very first request, when we haven't
+          // yet created a blockBatch object, don't bother retrying, just finish
+          // now.
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
@@ -166,8 +169,18 @@ function updateBlocks(user) {
     });
   }
 
-  activeFetches[user.uid] = fetchAndStoreBlocks(user, null, null);
-  return activeFetches[user.uid];
+  fetchPromise = fetchAndStoreBlocks(user, null, null);
+  // Remember there is a fetch running for a user so we don't overlap.
+  activeFetches[user.uid] = fetchPromise;
+  // Once the promise resolves, success or failure, delete the entry in
+  // activeFetches so future fetches can proceed.
+  fetchPromise.then(function() {
+    delete activeFetches[blockBatch.source_uid];
+  }).catch(function() {
+    delete activeFetches[blockBatch.source_uid];
+  });
+
+  return return fetchPromise;
 }
 
 /**
@@ -210,7 +223,6 @@ function finalizeBlockBatch(blockBatch) {
       diffBatchWithPrevious(blockBatch);
       // Prune older BlockBatches for this user from the DB.
       destroyOldBlocks(blockBatch.source_uid);
-      delete activeFetches[blockBatch.source_uid];
       return Q.resolve(blockBatch);
     });
 }
