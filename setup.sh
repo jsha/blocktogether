@@ -41,6 +41,10 @@ MCERT=${MYSQL}/mysql-cert.pem
 if [ ! -f ${MKEY} ] ; then
   sudo openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
     -keyout ${MKEY} -out ${MCERT} -subj /CN=blocktogether.org
+  # MySQL only accepts the old-style PKCS#1 format keys, i.e.
+  # starting with BEGIN RSA PRIVATE KEY rather than PKCS#8, starting
+  # with BEGIN PRIVATE KEY and specifying key type internally.
+  sudo openssl rsa -in ${MKEY} -out ${MKEY}
   sudo chown mysql.mysql ${MKEY} ${MCERT}
   sudo chmod 0600 ${MKEY}
 fi
