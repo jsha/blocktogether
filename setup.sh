@@ -60,6 +60,3 @@ if ! crontab -l >/dev/null; then
     23 10 * * * bash /usr/local/blocktogether/current/util/cron.sh
 EOCRON
 fi
-
-sudo cp config/mysql/blocktogether.cnf /etc/mysql/conf.d/
-sudo chown mysql.mysql /etc/mysql/conf.d/blocktogether.cnf

@@ -3,7 +3,7 @@ set :repository,  "https://github.com/jsha/blocktogether.git"
 
 set :scm, :git
 
-set :deploy_to, "/usr/local/blocktogether"
+set :deploy_to, "/data/blocktogether"
 
 set :deploy_via, :remote_cache
 set :copy_exclude, [ '.git' ]
@@ -22,6 +22,10 @@ end
 
 task :production do
   role :app, *%w[ blocktogether ]
+end
+
+task :db do
+  role :app, *%w[ bt-db ]
 end
 
 after "deploy:create_symlink" do
@@ -50,7 +54,7 @@ end
 before "deploy:setup" do
   dirs = %w{
           /etc/blocktogether
-          /usr/local/blocktogether
+          /data/blocktogether
           /usr/local/blocktogether/releases
           /data/mysql-backup
         }
@@ -62,6 +66,10 @@ before "deploy:setup" do
   upload "config/sequelize.json", "/tmp/sequelize.json", :mode => 0600
   upload "config/production.json", "/tmp/config.json", :mode => 0600
   run "cp -n /tmp/sequelize.json /tmp/config.json #{ETC_BLOCKTOGETHER}"
+  upload "config/mysql/blocktogether.cnf", "/tmp/blocktogether.cnf"
+  run "sudo cp -n /tmp/blocktogether.cnf /etc/mysql/conf.d"
+  run "sudo chown mysql.mysql /etc/mysql/conf.d/blocktogether.cnf"
+  run "sudo service mysql restart"
   upload "setup.sh", "#{ETC_BLOCKTOGETHER}/setup.sh", :mode => 0700
   run "#{ETC_BLOCKTOGETHER}/setup.sh"
 end
