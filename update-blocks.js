@@ -180,7 +180,7 @@ function updateBlocks(user) {
     delete activeFetches[blockBatch.source_uid];
   });
 
-  return return fetchPromise;
+  return fetchPromise;
 }
 
 /**
