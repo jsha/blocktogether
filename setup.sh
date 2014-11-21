@@ -40,13 +40,15 @@ if [ ! -f ${CONF}/mysql.key ] ; then
     -keyout ${CONF}/mysql.key -out ${CONF}/mysql.pem \
     -subj /CN=blocktogether.org
   sudo chown mysql.mysql ${CONF}/mysql.{key,pem}
+  sudo chmod 0600 ${CONF}/mysql.key
 fi
 
 # Second, for Node-to-Node RPCs.
 if [ ! -f ${CONF}/rpc.key ] ; then
   openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
-    -keyout ${CONF}/rpc.key -out ${CONF}/rpc.pem \
+    -keyout ${CONF}/rpc.key -out ${CONF}/rpc.crt \
     -subj /CN=blocktogether-rpc
+  chmod 0600 ${CONF}/rpc.key
 fi
 
 if ! crontab -l >/dev/null; then

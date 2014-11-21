@@ -3,6 +3,8 @@
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
+    tls = require('tls'),
+    upnode = require('upnode'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
@@ -11,6 +13,7 @@ var twitterAPI = require('node-twitter-api'),
 
 var twitter = setup.twitter,
     logger = setup.logger,
+    configDir = setup.configDir,
     BtUser = setup.BtUser,
     TwitterUser = setup.TwitterUser,
     Action = setup.Action,
@@ -31,10 +34,15 @@ function findAndUpdateBlocks() {
     if (user === null) {
       return Q.reject("No users need blocks updated at this time.");
     } else {
+      // HACK: mark the user as updated. This allows us to iterate through the
+      // BtUsers table looking for users that haven't had their blocks updated
+      // recently, instead of having to iterate on a join of BlockBatches with
+      // BtUsers.
+      user.updatedAt = new Date();
       // We structure this as a second fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
-      return [user, user.getBlockBatches({
+      return [user.save(), user.getBlockBatches({
         // Get the latest BlockBatch for the user and skip if < 1 day old.
         // Note: We count even incomplete BlockBatches towards being 'recently
         // updated'. This prevents the setInterval from repeatedly initiating
@@ -45,13 +53,6 @@ function findAndUpdateBlocks() {
         order: 'updatedAt desc'
       })];
     }
-  }).spread(function(user, batches) {
-    // HACK: mark the user as updated. This allows us to iterate through the
-    // BtUsers table looking for users that haven't had their blocks updated
-    // recently, instead of having to iterate on a join of BlockBatches with
-    // BtUsers.
-    user.updatedAt = new Date();
-    return [user.save(), batches];
   }).spread(function(user, batches) {
     if (batches && batches.length > 0) {
       var batch = batches[0];
@@ -73,6 +74,13 @@ function findAndUpdateBlocks() {
 
 var activeFetches = {};
 
+function updateBlocksForUid(uid) {
+  logger.info('Updating blocks for uid', uid);
+  return BtUser.find(uid).then(updateBlocks).catch(function (err) {
+    logger.error(err);
+  });
+}
+
 /**
  * For a given BtUser, fetch all current blocks and store in DB.
  *
@@ -81,8 +89,10 @@ var activeFetches = {};
 function updateBlocks(user) {
   // Don't create multiple pending block update requests at the same time.
   if (activeFetches[user.uid]) {
-    logger.warn('User', user, 'already has a pending block update request.');
+    logger.info('User', user, 'already updating blocks, skipping duplicate.');
     return Q.resolve(null);
+  } else {
+    logger.info('Updating blocks for', user);
   }
 
   /**
@@ -96,7 +106,6 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    logger.info('Fetching blocks for', user);
     // A function that can simply be called again to run this once more with an
     // updated cursor.
     var getMore = fetchAndStoreBlocks.bind(null, user, blockBatch);
@@ -140,6 +149,9 @@ function updateBlocks(user) {
         // when we try to update blocks. So we have to remember state and keep
         // trying after a delay to let the rate limit expire.
         if (!blockBatch) {
+          // If we got rate limited on the very first request, when we haven't
+          // yet created a blockBatch object, don't bother retrying, just finish
+          // now.
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
@@ -157,8 +169,18 @@ function updateBlocks(user) {
     });
   }
 
-  activeFetches[user.uid] = fetchAndStoreBlocks(user, null, null);
-  return activeFetches[user.uid];
+  fetchPromise = fetchAndStoreBlocks(user, null, null);
+  // Remember there is a fetch running for a user so we don't overlap.
+  activeFetches[user.uid] = fetchPromise;
+  // Once the promise resolves, success or failure, delete the entry in
+  // activeFetches so future fetches can proceed.
+  fetchPromise.then(function() {
+    delete activeFetches[blockBatch.source_uid];
+  }).catch(function() {
+    delete activeFetches[blockBatch.source_uid];
+  });
+
+  return return fetchPromise;
 }
 
 /**
@@ -174,16 +196,6 @@ function handleIds(blockBatch, currentCursor, results) {
   blockBatch.size += results.ids.length;
   var blockBatchPromise = blockBatch.save();
 
-  // First, add any new uids to the TwitterUser table if they aren't already
-  // there (note ignoreDuplicates so we don't overwrite fleshed-out users).
-  // Note: even though the field name is 'ids', these are actually stringified
-  // ids because we specified that in the request.
-  var usersToCreate = results.ids.map(function(id) {
-    return {uid: id};
-  });
-  var twitterUserPromise =
-    TwitterUser.bulkCreate(usersToCreate, { ignoreDuplicates: true });
-
   // Now we create block entries for all the blocked ids. Note: setting
   // BlockBatchId explicitly here doesn't show up in the documentation,
   // but it seems to work.
@@ -195,7 +207,7 @@ function handleIds(blockBatch, currentCursor, results) {
   });
   var blockPromise = Block.bulkCreate(blocksToCreate);
 
-  return Q.all([blockBatchPromise, twitterUserPromise, blockPromise])
+  return Q.all([blockBatchPromise, blockPromise])
     .then(function() {
       return Q.resolve(results.next_cursor_str);
     });
@@ -211,9 +223,23 @@ function finalizeBlockBatch(blockBatch) {
       diffBatchWithPrevious(blockBatch);
       // Prune older BlockBatches for this user from the DB.
       destroyOldBlocks(blockBatch.source_uid);
-      delete activeFetches[blockBatch.source_uid];
       return Q.resolve(blockBatch);
     });
+}
+
+/**
+ * Given a list of uids newly observed, add them to the TwitterUsers table in
+ * case they are not currently there. This triggers update-users.js to fetch
+ * data about that uid, like screen name and display name.
+ * @param {Array.<string>} idList A list of stringified Twitter uids.
+ */
+function addIdsToTwitterUsers(idList) {
+  return TwitterUser.bulkCreate(idList.map(function(id) {
+    return {uid: id};
+  }), {
+    // Use ignoreDuplicates so we don't overwrite already fleshed-out users.
+    ignoreDuplicates: true
+  });
 }
 
 /**
@@ -233,7 +259,6 @@ function diffBatchWithPrevious(currentBatch) {
     limit: 2
   }).then(function(batches) {
     if (batches && batches.length === 2) {
-      var currentBatch = batches[0];
       var oldBatch = batches[1];
       var currentBlocks = [];
       var oldBlocks = [];
@@ -257,10 +282,19 @@ function diffBatchWithPrevious(currentBatch) {
         addedBlockIds.forEach(function(sink_uid) {
           recordAction(source_uid, sink_uid, Action.BLOCK);
         });
+        // Make sure any new ids are in the TwitterUsers table.
+        addIdsToTwitterUsers(addedBlockIds);
         recordUnblocksUnlessDeactivated(source_uid, removedBlockIds);
       });
     } else {
       logger.warn('Insufficient block batches to diff.');
+      // If it's the first block fetch for this user, make sure all the blocked
+      // uids are in TwitterUsers.
+      if (currentBatch) {
+        currentBatch.getBlocks().then(function(blocks) {
+          addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+        });
+      }
     }
   }).catch(function(err) {
     logger.error(err);
@@ -393,11 +427,38 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+/**
+ * Set up a dnode RPC server (using the upnode library, which can handle TLS
+ * transport) so other daemons can send requests to update blocks.
+ * TODO: Require client authentication with a cert.
+ */
+function setupServer() {
+  var opts = {
+    key: fs.readFileSync(configDir + 'rpc.key'),
+    cert: fs.readFileSync(configDir + 'rpc.crt'),
+    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    requestCert: true,
+    rejectUnauthorized: true
+  };
+  var server = tls.createServer(opts, function (stream) {
+    var up = upnode(function(client, conn) {
+      this.updateBlocksForUid = function(uid, cb) {
+        updateBlocksForUid(uid).then(function() {
+          cb();
+        });
+      };
+    });
+    up.pipe(stream).pipe(up);
+  });
+  server.listen(7000);
+}
+
 module.exports = {
   updateBlocks: updateBlocks
 };
 
 if (require.main === module) {
   setInterval(findAndUpdateBlocks, 60 * 1000);
+  setupServer();
 }
 })();
