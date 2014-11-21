@@ -169,7 +169,7 @@ function updateBlocks(user) {
     });
   }
 
-  fetchPromise = fetchAndStoreBlocks(user, null, null);
+  var fetchPromise = fetchAndStoreBlocks(user, null, null);
   // Remember there is a fetch running for a user so we don't overlap.
   activeFetches[user.uid] = fetchPromise;
   // Once the promise resolves, success or failure, delete the entry in
