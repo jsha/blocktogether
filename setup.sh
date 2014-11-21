@@ -34,13 +34,15 @@ fi
 COOKIE_SECRET=$(openssl rand -hex 20)
 sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
 
+MYSQL=/etc/mysql
+MKEY=${MYSQL}/mysql-key.pem
+MCERT=${MYSQL}/mysql-cert.pem
 # Create TLS keys. First, for MySQL
-if [ ! -f ${CONF}/mysql.key ] ; then
-  openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
-    -keyout ${CONF}/mysql.key -out ${CONF}/mysql.pem \
-    -subj /CN=blocktogether.org
-  sudo chown mysql.mysql ${CONF}/mysql.{key,pem}
-  sudo chmod 0600 ${CONF}/mysql.key
+if [ ! -f ${MKEY} ] ; then
+  sudo openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
+    -keyout ${MKEY} -out ${MCERT} -subj /CN=blocktogether.org
+  sudo chown mysql.mysql ${MKEY} ${MCERT}
+  sudo chmod 0600 ${MKEY}
 fi
 
 # Second, for Node-to-Node RPCs.
@@ -60,4 +62,4 @@ EOCRON
 fi
 
 sudo cp config/mysql/blocktogether.cnf /etc/mysql/conf.d/
-sudo chown mysql.mysql /etc/mysql/conf.d/blocktogether.conf
+sudo chown mysql.mysql /etc/mysql/conf.d/blocktogether.cnf
