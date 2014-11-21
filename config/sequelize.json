@@ -4,10 +4,14 @@
     "password": "__PASSWORD__",
     "database": "blocktogether",
     "host": "127.0.0.1",
-    "dialect": "mysql",
+    "dialect": "mariadb",
     "dialectOptions": {
       "charset": "utf8mb4",
       "collate": "utf8mb4_unicode_ci"
+    },
+    "ssl": {
+      "ca": "/etc/mysql/mysql-cert.pem",
+      "cipher": "ECDHE-RSA-AES128-GCM-SHA256"
     }
   },
   "production": {
@@ -15,10 +19,14 @@
     "password": "__PASSWORD__",
     "database": "blocktogether",
     "host": "127.0.0.1",
-    "dialect": "mysql",
+    "dialect": "mariadb",
     "dialectOptions": {
       "charset": "utf8mb4",
       "collate": "utf8mb4_unicode_ci"
+    },
+    "ssl": {
+      "ca": "/etc/mysql/mysql-cert.pem",
+      "cipher": "ECDHE-RSA-AES128-GCM-SHA256"
     }
   }
 }

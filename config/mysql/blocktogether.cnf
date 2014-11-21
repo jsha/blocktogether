@@ -7,4 +7,4 @@ ssl=1
 ssl-ca=/etc/mysql/mysql-cert.pem
 ssl-cert=/etc/mysql/mysql-cert.pem
 ssl-key=/etc/mysql/mysql-key.pem
-ssl-cipher=DHE-RSA-AES256-SHA
+ssl-cipher=ECDHE-RSA-AES128-GCM-SHA256

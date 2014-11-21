@@ -39,7 +39,9 @@ MKEY=${MYSQL}/mysql-key.pem
 MCERT=${MYSQL}/mysql-cert.pem
 # Create TLS keys. First, for MySQL
 if [ ! -f ${MKEY} ] ; then
-  sudo openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
+  # Prebuilt MySQL 5.5 uses yaSSL, which appears to have trouble negotiating
+  # with a sha256 cert. So we use a sha1 cert.
+  sudo openssl req -sha1 -new -newkey rsa:2048 -nodes -days 10000 -x509 \
     -keyout ${MKEY} -out ${MCERT} -subj /CN=blocktogether.org
   # MySQL only accepts the old-style PKCS#1 format keys, i.e.
   # starting with BEGIN RSA PRIVATE KEY rather than PKCS#8, starting
