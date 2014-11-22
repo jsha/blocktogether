@@ -38,6 +38,8 @@ MYSQL=/etc/mysql
 MKEY=${MYSQL}/mysql-key.pem
 MCERT=${MYSQL}/mysql-cert.pem
 # Create TLS keys. First, for MySQL
+# XXX NOTE: If the remote server doesn't offer SSL, the mariadb sql dialect we
+# use simply connects via plaintext.
 if [ ! -f ${MKEY} ] ; then
   # Prebuilt MySQL 5.5 uses yaSSL, which appears to have trouble negotiating
   # with a sha256 cert. So we use a sha1 cert.
