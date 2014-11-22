@@ -317,6 +317,10 @@ function remoteUpdateBlocks(user) {
   return deferred.promise;
 }
 
+function gracefulShutdown() {
+  updateBlocksService.close();
+}
+
 module.exports = {
   Action: Action,
   Block: Block,
@@ -331,6 +335,7 @@ module.exports = {
   sequelize: sequelize,
   twitter: twitter,
   userToFollow: userToFollow,
-  remoteUpdateBlocks: remoteUpdateBlocks
+  remoteUpdateBlocks: remoteUpdateBlocks,
+  gracefulShutdown: gracefulShutdown
 };
 })();

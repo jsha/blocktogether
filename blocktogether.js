@@ -802,7 +802,16 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
-  app.listen(config.port);
+  var server = app.listen(config.port);
+
+  process.on('SIGTERM', function () {
+    logger.info('Shutting down.');
+    setup.gracefulShutdown();
+    server.close(function () {
+      logger.info('Shut down succesfully.');
+      process.exit(0);
+    });
+  });
   logger.info('Worker', cluster.worker.id, 'up.');
 }
 
