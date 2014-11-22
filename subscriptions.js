@@ -8,6 +8,11 @@ var logger = setup.logger,
     Action = setup.Action,
     Subscription = setup.Subscription;
 
+// TODO: Make this call Subscription.findAll once to be more efficient.
+function fanoutActions(actions) {
+  actions.forEach(fanout);
+}
+
 /**
  * Given a block or unblock action with cause = external, enqueue a
  * corresponding action for all subscribers, with cause = subscription.

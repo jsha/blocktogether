@@ -279,8 +279,18 @@ function diffBatchWithPrevious(currentBatch) {
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
           'time:', elapsed);
-        addedBlockIds.forEach(function(sink_uid) {
-          recordAction(source_uid, sink_uid, Action.BLOCK);
+        var actionPromises = addedBlockIds.map(function(sink_uid) {
+          return recordAction(source_uid, sink_uid, Action.BLOCK);
+        });
+        // Enqueue blocks and unblocks for subscribing users.
+        // TODO: use allSettled so even if some fail, we still fanout the rest
+        Q.all(actionPromises, function(actions) {
+          // Actions are not recorded if they already exist, i.e. are not
+          // external actions. Those come back as null; ignore them.
+          recordedActions = _.filter(actions, null);
+          if (recordedActions.length > 0) {
+            return subscriptions.fanoutActions(recordedActions);
+          }
         });
         // Make sure any new ids are in the TwitterUsers table.
         addIdsToTwitterUsers(addedBlockIds);
@@ -309,13 +319,13 @@ function diffBatchWithPrevious(currentBatch) {
  * table.
  *
  * Note: We don't do this check for blocks, which leads to a bit of asymmetry:
- * if a user deactivates and reactivates, there will be an external block entry
+ * if an account deactivates and reactivates, there will be an external block entry
  * in Actions but no corresponding external unblock. This is fine. The main
- * reason we care about not recording unblocks for users that were really just
+ * reason we care about not recording unblocks for accounts that were really just
  * deactivated is to avoid triggering unblock/reblock waves for subscribers when
- * users frequently deactivate / reactivate. Also, part of the product spec for
- * shared block lists is that blocked users remain on shared lists even if they
- * deactivate.
+ * a shared block list includes accounts that frequently deactivate / reactivate.
+ * Also, part of the product spec for shared block lists is that blocked users
+ * remain on shared lists even if they deactivate.
  *
  * @param {string} source_uid Uid of user doing the unblocking.
  * @param {Array.<string>} sink_uids List of uids that disappeared from a user's
@@ -379,6 +389,18 @@ function destroyOldBlocks(userId) {
   });
 }
 
+/**
+ * Given an observed block or unblock, possibly record it in the Actions table.
+ * The block or unblock may have shown up because the user actually blocked or
+ * unblocked someone in the Twitter app, or it may have shown up because Block
+ * Together recently executed a block or unblock action. In the latter case we
+ * don't want to record a duplicate in the Actions table; The existing record,
+ * in 'done' state, tells the whole story. So we check for such past actions and
+ * don't record a new action if they exist.
+ *
+ * @return {Promise.<Action|null>} createdAction If the action was indeed
+ *   externally triggered and we recorded it, the action created. Otherwise null.
+ */
 function recordAction(source_uid, sink_uid, type) {
   // Most of the contents of the action to be created. Stored here because they
   // are also useful to query for previous actions.
@@ -412,13 +434,6 @@ function recordAction(source_uid, sink_uid, type) {
         cause: Action.EXTERNAL,
         cause_uid: null
       }));
-    } else {
-      return null;
-    }
-  // Enqueue blocks and unblocks for subscribing users.
-  }).then(function(newAction) {
-    if (newAction) {
-      return subscriptions.fanout(newAction);
     } else {
       return null;
     }
