@@ -8,6 +8,7 @@ var twitterAPI = require('node-twitter-api'),
     _ = require('sequelize').Utils._,
     actions = require('./actions'),
     updateUsers = require('./update-users'),
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -43,18 +44,13 @@ function startStreams() {
   // Start a stream for each user, spaced 100 ms apart. Once all users have had
   // their stream started, start the periodic process of checking for any
   // streams that have failed and restarting them.
-  function startAndNext() {
-    var uid = uids.pop();
+  util.slowForEach(uids, 100, function(uid) {
     startStream(allUsers[uid]);
-    if (uids.length) {
-      setTimeout(startAndNext, 100);
-    } else {
-      logger.info('Done with initial stream starts, moving to refresh mode.');
-      setInterval(refreshUsers, 1000);
-      setInterval(refreshStreams, 5000);
-    }
-  }
-  startAndNext();
+  }).then(function() {
+    logger.info('Done with initial stream starts, moving to refresh mode.');
+    setInterval(refreshUsers, 1000);
+    setInterval(refreshStreams, 5000);
+  });
 }
 
 /**

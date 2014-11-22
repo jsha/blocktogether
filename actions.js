@@ -8,6 +8,7 @@ var twitterAPI = require('node-twitter-api'),
     https = require('https'),
     fs = require('fs'),
     _ = require('sequelize').Utils._,
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -16,6 +17,17 @@ var twitter = setup.twitter,
     Action = setup.Action;
 
 https.globalAgent.maxSockets = 300;
+
+var processActionsTimers = {};
+
+function processActionsForUserIdDelayed(uid) {
+  // clearTimeout passes silently if arg is undefined.
+  clearTimeout(processActionsTimers[uid]);
+
+  updateBlocksTimers[uid] = setTimeout(function() {
+    processActionsForUserId(uid);
+  }, 1000);
+}
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -52,11 +64,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
       // for the user. Waiting a bit allows more actions to accumulate so they
       // can be batched better, e.g. during stream startup. Note that we still
       // wind up with a queue of processing requests right on top of each other,
-      // which is not ideal. TODO: Keep track in memory of which users have had
-      // a very recent processing run, and don't add additional ones.
-      setTimeout(function() {
-        processActionsForUserId(source_uid);
-      }, 1000);
+      // which is not ideal.
+      processActionsForUserIdDelayed(source_uid);
     });
 }
 
@@ -88,9 +97,11 @@ function processActions() {
   }).error(function(err) {
     logger.error(err);
   }).success(function(actions) {
-    actions.forEach(function(action) {
-      processActionsForUserId(action.source_uid);
-    });
+    if (actions && actions.length > 0) {
+      logger.info('Processing actions for', actions.length, 'users');
+      var uids = _.pluck(actions, 'source_uid');
+      util.slowForEach(uids, 100, processActionsForUserId);
+    }
   })
 }
 
