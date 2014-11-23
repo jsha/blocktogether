@@ -5,10 +5,12 @@
  * Queueing and processing of actions (block, unblock, mute, etc).
  */
 var twitterAPI = require('node-twitter-api'),
+    https = require('https'),
     fs = require('fs'),
     https = require('https'),
     Q = require('q'),
     _ = require('sequelize').Utils._,
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -16,10 +18,17 @@ var twitter = setup.twitter,
     BtUser = setup.BtUser,
     Action = setup.Action;
 
-// There may be actions for up to 300 users running simultaneously, so make sure
-// there's at least one socket per user. Sockets are not allocated to
-// specific users, but this should ensure enough throughput.
-https.globalAgent.maxSockets = 300;
+
+var processActionsTimers = {};
+
+function processActionsForUserIdDelayed(uid) {
+  // clearTimeout passes silently if arg is undefined.
+  clearTimeout(processActionsTimers[uid]);
+
+  updateBlocksTimers[uid] = setTimeout(function() {
+    processActionsForUserId(uid);
+  }, 1000);
+}
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -56,11 +65,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
       // for the user. Waiting a bit allows more actions to accumulate so they
       // can be batched better, e.g. during stream startup. Note that we still
       // wind up with a queue of processing requests right on top of each other,
-      // which is not ideal. TODO: Keep track in memory of which users have had
-      // a very recent processing run, and don't add additional ones.
-      setTimeout(function() {
-        processActionsForUserId(source_uid);
-      }, 1000);
+      // which is not ideal.
+      processActionsForUserIdDelayed(source_uid);
     });
 }
 
@@ -92,9 +98,11 @@ function processActions() {
   }).error(function(err) {
     logger.error(err);
   }).success(function(actions) {
-    actions.forEach(function(action) {
-      processActionsForUserId(action.source_uid);
-    });
+    if (actions && actions.length > 0) {
+      logger.info('Processing actions for', actions.length, 'users');
+      var uids = _.pluck(actions, 'source_uid');
+      util.slowForEach(uids, 100, processActionsForUserId);
+    }
   })
 }
 
@@ -223,7 +231,9 @@ function processUnblocksForUser(btUser, actions) {
     }).catch(function (err) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
-      if (err.statusCode === 404) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
@@ -242,11 +252,13 @@ function processMutesForUser(btUser, actions) {
     if (action.type != 'mute') {
       logger.error("Shouldn't happen: non-mute action", btUser);
     }
-    return mute(btUser, action.sink_uid).then(function() {
+    mute(btUser, action.sink_uid).then(function() {
       logger.info('Muted', btUser, '-->', action.sink_uid);
       return setActionStatus(action, Action.DONE);
-    }).catch(function (err) {
-      if (err.statusCode === 404) {
+    }).catch(function(err) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        btUser.verifyCredentials();
+      } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
@@ -403,7 +415,9 @@ function cancelOrPerformBlocks(
     logger.debug('Creating block', sourceBtUser.screen_name,
       '--block-->', friendship.screen_name, sink_uid);
     block(sourceBtUser, sink_uid, function(err, results) {
-      if (err) {
+      if (err && (err.statusCode === 401 || err.statusCode === 403)) {
+        sourceBtUser.verifyCredentials();
+      } else if (err) {
         logger.error('Error /blocks/create', err.statusCode,
           sourceBtUser.screen_name, sourceBtUser.uid,
           '--block-->', friendship.screen_name, friendship.id_str,
@@ -443,7 +457,7 @@ module.exports = {
 };
 
 if (require.main === module) {
-  // TODO: It's possible for one run of processActions could take more than 60
+  // TODO: It's possible for one run of processActions could take more than 180
   // seconds, in which case we wind up with multiple instances running
   // concurrently. This probably won't happen since each run only processes 100
   // items per user, but with a lot of users it could, and would lead to some
@@ -453,6 +467,27 @@ if (require.main === module) {
   // When many users are have processing, it takes about 120 seconds to get
   // through all of the batches of 100 blocks.
   processActions();
-  setInterval(processActions, 120 * 1000);
+  setInterval(processActions, 180 * 1000);
+
+  // Once a second log how many pending HTTPS requests there are.
+  var logPendingRequests = function() {
+    var requests = twitter.keepAliveAgent.requests;
+    if (Object.keys(requests).length === 0) {
+      logger.trace('Pending requests: 0');
+    } else {
+      for (var host in requests) {
+        logger.trace('Pending requests to', host, ':', requests[host].length);
+      }
+    }
+    var sockets = twitter.keepAliveAgent.sockets;
+    if (Object.keys(sockets).length === 0) {
+      logger.trace('Open sockets: 0');
+    } else {
+      for (host in sockets) {
+        logger.trace('Open sockets to', host, ':', sockets[host].length);
+      }
+    }
+  }
+  setInterval(logPendingRequests, 5000);
 }
 })();

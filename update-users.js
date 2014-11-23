@@ -135,7 +135,7 @@ function updateUsersCallback(uids, err, response) {
     if (indexedResponses[uid]) {
       storeUser(indexedResponses[uid]);
     } else {
-      logger.warn('Did not find uid', uid, 'probably suspended. Deleting.');
+      logger.warn('Did not find uid', uid, 'probably suspended. Deactivating.');
       deactivateTwitterUser(uid);
     }
   });

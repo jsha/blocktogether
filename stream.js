@@ -2,80 +2,122 @@
 (function() {
 
 var twitterAPI = require('node-twitter-api'),
+    cluster = require('cluster'),
     fs = require('fs'),
     https = require('https'),
     _ = require('sequelize').Utils._,
     actions = require('./actions'),
     updateUsers = require('./update-users'),
-    updateBlocks = require('./update-blocks'),
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
     logger = setup.logger,
     sequelize = setup.sequelize,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     Action = setup.Action,
     BtUser = setup.BtUser;
 
-// An associative array of streams currently running. Indexed by uid.
-var streams = {
-  'dummy': 1 // Start with a dummy uid to make the findAll query simpler.
-};
+var workerId = -1;
+var numWorkers = 2;
 
-// Set the maximum number of sockets higher so we can have a reasonable number
-// of streams going. Note: Currently we use User Streams. According to the
-// Twitter API docs, an app like this would be better suited for Site Streams,
-// but (contrary to the docs) they are not accepting new apps for Site Streams.
-https.globalAgent.maxSockets = 40000;
+// An associative array of streams currently running. Indexed by uid.
+var streams = {};
 
 /**
- * For some random users with stored credentials, start receiving their Twitter user
- * stream, in order to be able to insta-block any new users (< 7 days old)
- * or unpopular accounts (< 15 followers) who @-reply one of our users.
- * Once their stream is started we will record that so we don't repeatedly try
- * to start the same streams.
- *
- * We pick random users because sometimes the setInterval calls that trigger
- * this function get stacked up. That means that we query for users to add many
- * times in succession and get the same users each time, because they are not
- * yet in the active set. That, in turn, means we try to connect to streaming
- * and fetch at-replies many times for the same user, and get rate limited.
+ * Keep an in-memory map of the BtUsers table to be able to easily figure out
+ * which dead streams need to be restarted.
+ * @type {Object.<string>} A map from uids to user objects.
+ */
+var allUsers = {};
+var allUsersLastUpdate = 0;
+
+/**
+ * Do the initial stream startup for all users belonging to this worker.
+ * Stream startup is spaced out every 100ms, and streams that fail will
+ * not be retried until every stream has had a chance at being started.
+ * Once all streams have started, move to a refresh mode that both restarts any
+ * failed streams and updates any new users from the DB.
  */
 function startStreams() {
+  var uids = Object.keys(allUsers);
+  // Start a stream for each user, spaced 100 ms apart. Once all users have had
+  // their stream started, start the periodic process of checking for any
+  // streams that have failed and restarting them.
+  util.slowForEach(uids, 100, function(uid) {
+    startStream(allUsers[uid]);
+  }).then(function() {
+    logger.info('Done with initial stream starts, moving to refresh mode.');
+    setInterval(refreshUsers, 1000);
+    setInterval(refreshStreams, 5000);
+  });
+}
+
+/**
+ * When a stream ends, it is removed from the global streams map. Generally we
+ * will want to restart the stream. This function finds users that are in
+ * allUsers, but not in streams, checks whether they should still be in
+ * allUsers, and if so restarts their stream.
+ */
+function refreshStreams() {
   var streamingIds = Object.keys(streams);
-  var streamingHost = 'userstream.twitter.com:443';
-  var sockets = https.globalAgent.sockets[streamingHost];
-  logger.info('Active streams / open sockets:', streamingIds.length - 1,
-    '/', sockets ? sockets.length : 0);
-  // Find all users who don't already have a running stream. We start streams
-  // even for users that don't have one of the auto-block options
-  // (block_new_accounts or block_low_followers) because it's useful to get
-  // block/unblock information in a timely way. It also gives us early warning
-  // if we start running into limits on number of open streams.
-  BtUser
+  logger.info('Active streams:', streamingIds.length);
+  // Find all users who don't already have a running stream.
+  var missingUserIds = _.difference(Object.keys(allUsers), streamingIds);
+  if (missingUserIds.length) {
+    logger.info('Restarting streams for', missingUserIds.length,
+      'users that had no active stream.');
+  }
+  // Handle at most 20 users at once, to avoid flooding. Choose a random 20, so
+  // if the first 20 have some unexpected issue we don't get stuck on them.
+  _.sample(missingUserIds, 20).forEach(function(userId) {
+    logger.debug('Restarting stream for', userId);
+    BtUser.find(userId)
+      .then(function(user) {
+        if (user && !user.deactivatedAt) {
+          allUsers[userId] = user;
+          startStream(user);
+        } else {
+          logger.info('User', user, 'missing or deactivated.');
+          delete allUsers[userId];
+        }
+      }).catch(function(err) {
+        logger.error(err);
+      });
+  });
+}
+
+/**
+ * Update the global allUsers map with any recently-updated users that belong to
+ * this worker. Uses a simple modulus to decide which users belong to which
+ * workers. Checkpoint the last update time so we can query for only the
+ * updated users.
+ */
+function refreshUsers() {
+  var now = new Date();
+  return BtUser
     .findAll({
-      where: sequelize.and(
-        {
-          uid: { not: streamingIds },
-          deactivatedAt: null
+      where: sequelize.and({
+        deactivatedAt: null,
+        updatedAt: {
+          gt: allUsersLastUpdate
         },
-        // Check for any option that monitors stream for autoblock criteria
-        sequelize.or(
-          {
-            block_new_accounts: true
-          },
-          {
-            block_low_followers: true
-          }
-        )
-      ),
-      limit: 10,
-      // Note: This is inefficient for large tables but for the current ~4k
-      // users it's fine.
-      order: 'RAND()'
+      },
+      ['uid % ? = ?', numWorkers, workerId % numWorkers],
+      // Check for any option that monitors stream for autoblock criteria
+      sequelize.or(
+        {
+          block_new_accounts: true
+        },
+        {
+          block_low_followers: true
+        }
+      ))
+    }).then(function(users) {
+      _.extend(allUsers, _.indexBy(users, 'uid'));
+      allUsersLastUpdate = now;
     }).error(function(err) {
       logger.error(err);
-    }).success(function(users) {
-      users.forEach(startStream);
     });
 }
 
@@ -103,6 +145,7 @@ function startStream(user) {
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
     logger.error('Socket error for', user, err.message);
+    delete streams[user.uid];
   });
   // In normal operation, each open stream should receive an empty data item
   // '{}' every 30 seconds for keepalive. Sometimes a connection will die
@@ -141,9 +184,7 @@ function checkPastMentions(user) {
         // It's common to have a large number of mentions from each user,
         // because of back-and-forth conversations. De-dupe users before
         // checking for block criteria.
-        var mentioningUsers = _.indexBy(mentions.map(function(status) {
-          return status.user;
-        }), 'id_str');
+        var mentioningUsers = _.indexBy(_.pluck(mentions, 'user'), 'id_str');
         Object.keys(mentioningUsers).forEach(function(id_str) {
           checkReplyAndBlock(user, mentioningUsers[id_str]);
         });
@@ -162,15 +203,15 @@ function endCallback(user, httpIncomingMessage) {
   logger.warn('Ending stream for', user, statusCode);
   if (statusCode === 401 || statusCode === 403) {
     user.verifyCredentials();
-  }
-  // The streaming API will return 420 Enhance Your Calm
-  // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
-  // to the streaming API too many times. If we get that, wait fifteen minutes
-  // before reconnecting. This is an attempt to fix a bug where, under heavy
-  // load, stream.js would lose track of some connections and reconnect too
-  // fast, leading to an unproductive high-CPU loop of trying to restart those
-  // loops once a second.
-  if (statusCode === 420) {
+    delete streams[user.uid];
+  } else if (statusCode === 420) {
+    // The streaming API will return 420 Enhance Your Calm
+    // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
+    // to the streaming API too many times. If we get that, wait fifteen minutes
+    // before reconnecting. This is an attempt to fix a bug where, under heavy
+    // load, stream.js would lose track of some connections and reconnect too
+    // fast, leading to an unproductive high-CPU loop of trying to restart those
+    // loops once a second.
     var stream = streams[user.uid];
     setTimeout(function() {
       // Double-check it's still the same stream before deleting.
@@ -204,13 +245,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     //   'twestact4&XXXXXXXXXXXXXXXXXXXXXXXXX-userstream685868461329014147',
     //    reason: 'token revoked for userId 596947990' }
     // Codes 13 and 14 are for user deleted and suspended, respectively.
-    // TODO: Each of these states (even revocation!) can be undone, and we'd
-    // like the app to resume working normally if that happens. So instead of
-    // deleting the user when we get one of these codes, store a 'deactivatedAt'
-    // timestamp on the user object. Users with a non-null deactivatedAt would
-    // get their credentials retried once per day for 30 days, after which they
-    // would be deleted. Regular operations like checking blocks or streaming
-    // would not be performed while their deactivatedAt was non-null.
     if (data.disconnect.code === 6 ||
         data.disconnect.code === 13 ||
         data.disconnect.code === 14) {
@@ -320,8 +354,8 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    updateBlocks.updateBlocks(recipientBtUser);
-  }, 1000);
+    //remoteUpdateBlocks(recipientBtUser);
+  }, 2000);
 }
 
 /**
@@ -337,6 +371,20 @@ function enqueueBlock(sourceUser, sinkUserId, cause) {
     sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
 }
 
-startStreams();
-setInterval(startStreams, 1000);
+if (require.main === module) {
+  if (cluster.isMaster) {
+    logger.info('Starting workers.');
+    for (var i = 0; i < numWorkers; i++) {
+      cluster.fork();
+    }
+    cluster.on('exit', function(worker, code, signal) {
+      logger.error('worker', worker.process.pid, 'died, resurrecting.');
+      cluster.fork();
+    });
+  } else {
+    workerId = cluster.worker.id;
+    refreshUsers()
+      .then(startStreams);
+  }
+}
 })();
