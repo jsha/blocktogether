@@ -33,8 +33,21 @@ function slowForEach(list, interval, f) {
   return deferred.promise;
 }
 
+function runWithoutOverlap(registry, item, f) {
+  if (registry[item]) {
+    logger.info('Skipping call of', f.name + '(' + item + '), already running.');
+  } else {
+    var promise = f(item);
+    registry[item] = promise;
+    promise.finally(function() {
+      delete registry[item];
+    });
+  }
+}
+
 module.exports = {
-  slowForEach: slowForEach
+  slowForEach: slowForEach,
+  runWithoutOverlap: runWithoutOverlap
 };
 
 if (require.main === module) {
