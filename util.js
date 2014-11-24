@@ -1,7 +1,8 @@
 'use strict';
 (function() {
 
-var Q = require('q');
+var Q = require('q'),
+    logger = require('./setup').logger;
 
 /**
  * Run a function for each element in the list, with an interval between each

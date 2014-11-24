@@ -7,7 +7,6 @@
 var twitterAPI = require('node-twitter-api'),
     https = require('https'),
     fs = require('fs'),
-    https = require('https'),
     Q = require('q'),
     _ = require('sequelize').Utils._,
     util = require('./util'),
