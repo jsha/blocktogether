@@ -435,6 +435,8 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+var rpcStreams = [];
+
 /**
  * Set up a dnode RPC server (using the upnode library, which can handle TLS
  * transport) so other daemons can send requests to update blocks.
@@ -451,14 +453,18 @@ function setupServer() {
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {
       this.updateBlocksForUid = function(uid, cb) {
-        updateBlocksForUid(uid).then(function() {
-          cb();
-        });
+        updateBlocksForUid(uid).then(cb);
       };
     });
     up.pipe(stream).pipe(up);
+    // Keep track of open streams to close them on graceful exit.
+    // Note: It seems that simply calling stream.socket.unref() is insufficient,
+    // because upnode's piping make Node stay alive.
+    rpcStreams.push(stream);
   });
-  server.listen(7000);
+  // Don't let the RPC server keep the process alive during a graceful exit.
+  server.unref();
+  server.listen(8100);
   return server;
 }
 
@@ -470,13 +476,20 @@ if (require.main === module) {
   logger.info('Starting up.');
   var interval = setInterval(findAndUpdateBlocks, 60 * 1000);
   var server = setupServer();
-  // TODO: Never finishes exiting.
   var gracefulExit = function() {
-    shuttingDown = true;
-    logger.info('Closing up shop.');
-    clearInterval(interval);
-    server.close();
-    setup.gracefulShutdown();
+    // On the second try, exit straight away.
+    if (shuttingDown) {
+      process.exit(0);
+    } else {
+      shuttingDown = true;
+      logger.info('Closing up shop.');
+      clearInterval(interval);
+      server.close();
+      rpcStreams.forEach(function(stream) {
+        stream.destroy();
+      });
+      setup.gracefulShutdown();
+    }
   }
   process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
 }
