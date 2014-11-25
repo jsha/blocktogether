@@ -63,8 +63,7 @@ function makeApp() {
   passport.serializeUser(function(user, done) {
     done(null, JSON.stringify({
       uid: user.uid,
-      accessToken: user.access_token,
-      accessTokenSecret: user.access_token_secret
+      accessToken: user.access_token
     }));
   });
 
@@ -89,8 +88,7 @@ function makeApp() {
       // submitting arbitrary valid sessions, but this is nice defence in depth
       // against timing attacks in case the cookie secret gets out.
       if (user &&
-          constantTimeEquals(user.access_token, sessionUser.accessToken) &&
-          constantTimeEquals(user.access_token_secret, sessionUser.accessTokenSecret)) {
+          constantTimeEquals(user.access_token, sessionUser.accessToken)) {
         done(null, user);
       } else {
         logger.error('Incorrect access token in session for', user);
