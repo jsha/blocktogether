@@ -124,7 +124,7 @@ function processActionsForUserId(uid) {
   // the full BtUser object, which contains some long strings. This is
   // very wasteful.
   var actionsPromise = Action.findAll({
-    // Out of the available pending block actions on this user,
+    // Out of the available pending actions on this user,
     // pick up to 100 with the earliest createdAt times.
     where: {
       status: 'pending',
