@@ -379,14 +379,34 @@ function recordAction(source_uid, sink_uid, type) {
         cause_uid: null
       }));
     } else {
-      return null;
+      return prevAction;
     }
-  // Enqueue blocks and unblocks for subscribing users.
-  }).then(function(newAction) {
-    if (newAction) {
-      return subscriptions.fanout(newAction);
+  }).then(function(associatedAction) {
+    // TODO: Factor this out into a separate function.
+    if (associatedAction.type === Action.BLOCK) {
+      // Update the user's AnnotatedBlocks. TODO: We should do the original diff
+      // against AnnotatedBlocks, in case we dropped a BlockBatch somehow.
+      // Find an existing AnnotatedBlock if there is one, so we don't run afoul
+      // of the unique constraint on (source_uid, sink_uid).
+      return AnnotatedBlock.findOrCreate({
+        source_uid: associatedAction.source_uid,
+        sink_uid: associatedAction.sink_uid,
+      }).then(function(annotatedBlock) {
+        return _.merge(annotatedBlock, {
+          source_uid: associatedAction.source_uid,
+          sink_uid: associatedAction.sink_uid,
+          ActionId: associatedAction.id,
+          // Only externally-created blocks are shared by default.
+          shared: associatedAction.cause === Action.EXTERNAL
+        }).save();
+      }).thenResolve(associatedAction);
+    } else if (associatedAction.type === Action.UNBLOCK) {
+      return AnnotatedBlock.destroy({ /* where */
+        source_uid: associatedAction.source_uid,
+        sink_uid: associatedAction.sink_uid
+      }).thenResolve(associatedAction);
     } else {
-      return null;
+      return Q.reject('Non-block/unblock passed to recordAction');
     }
   }).catch(function(err) {
     logger.error(err)
