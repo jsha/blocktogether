@@ -242,6 +242,25 @@ Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 // subscription.
 Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
 
+/**
+ * A long-term store for Blocks from a given user. This is updated based on
+ * diffs between BlockBatches, and can keep track of whether a given block is
+ * shared, as well as keeping users on the list when they are deactivated.
+ * In the future this may contain memoized fields from TwitterUser and Action,
+ * like screen name, follower count, cause, and cause_uid. This will allow
+ * efficient sorting and searching in shared block lists. This may also be a
+ * good place to add a 'page' column for efficient pagination of large block
+ * lists.
+ */
+var AnnotatedBlock = sequelize.define('AnnotatedBlock', {
+  source_uid: 'VARCHAR(20)',
+  sink_uid: 'VARCHAR(20)',
+  shared: Sequelize.BOOLEAN,
+});
+AnnotatedBlock.hasOne(Action);
+AnnotatedBlock.belongsTo(BtUser, {foreignKey: 'source_uid'});
+AnnotatedBlock.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
+
 _.extend(Action, {
   // Constants for the valid values of `status'.
   PENDING: 'pending',
