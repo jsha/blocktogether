@@ -326,32 +326,43 @@ function diffBatchWithPrevious(currentBatch) {
  *   /blocks/ids.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
-  while (sink_uids.length > 0) {
-    // Pop 100 uids off of the list.
-    var uidsToQuery = sink_uids.splice(0, 100);
-    twitter.users('lookup', {
-        skip_status: 1,
-        user_id: uidsToQuery.join(',')
-      },
-      setup.config.defaultAccessToken, setup.config.defaultAccessTokenSecret,
-      function(err, response) {
-        if (err && err.statusCode === 404) {
-          logger.info('All unblocked users deactivated, ignoring unblocks.');
-        } else if (err) {
-          logger.error('Error /users/lookup', err.statusCode, err.data, err,
-            'ignoring', uidsToQuery.length, 'unblocks');
-        } else {
-          // If a uid was present in the response, the user is not deactivated,
-          // so go ahead and record it as an unblock.
-          var indexedResponses = _.indexBy(response, 'id_str');
-          uidsToQuery.forEach(function(sink_uid) {
-            if (indexedResponses[sink_uid]) {
-              recordAction(source_uid, sink_uid, Action.UNBLOCK);
+  // Use credentials from the source_uid to check for unblocks. We could use the
+  // defaultAccessToken, but there's a much higher chance of that token being
+  // rate limited for user lookups, causes us to miss unblocks.
+  BtUser.find(source_uid)
+    .then(function(user) {
+      if (!user) {
+        return Q.reject("No user found for " + source_uid);
+      }
+      while (sink_uids.length > 0) {
+        // Pop 100 uids off of the list.
+        var uidsToQuery = sink_uids.splice(0, 100);
+        twitter.users('lookup', {
+            skip_status: 1,
+            user_id: uidsToQuery.join(',')
+          },
+          user.access_token, user.access_token_secret,
+          function(err, response) {
+            if (err && err.statusCode === 404) {
+              logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err) {
+              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+                'ignoring', uidsToQuery.length, 'unblocks');
+            } else {
+              // If a uid was present in the response, the user is not deactivated,
+              // so go ahead and record it as an unblock.
+              var indexedResponses = _.indexBy(response, 'id_str');
+              uidsToQuery.forEach(function(sink_uid) {
+                if (indexedResponses[sink_uid]) {
+                  recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                }
+              });
             }
           });
-        }
-      });
-  }
+      }
+    }).catch(function(err) {
+      logger.error(err);
+    });
 }
 
 /**
