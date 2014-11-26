@@ -287,8 +287,19 @@ function diffBatchWithPrevious(currentBatch) {
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
           'time:', elapsed);
-        addedBlockIds.forEach(function(sink_uid) {
+
+        // XXX TODO: Turn this into an allSettled
+        Q.all(addedBlockIds.map(function(sink_uid) {
           recordAction(source_uid, sink_uid, Action.BLOCK);
+        })).then(function(newActions) {
+          var validActions = _.filter(newActions, null);
+          if (validActions.length > 0) {
+            return subscriptions.fanout(validActions);
+          } else {
+            return Q.resolve(null);
+          }
+        }).catch(function(err) {
+          logger.error(err);
         });
         // Make sure any new ids are in the TwitterUsers table.
         addIdsToTwitterUsers(addedBlockIds);
@@ -423,13 +434,6 @@ function recordAction(source_uid, sink_uid, type) {
     } else {
       return null;
     }
-  // Enqueue blocks and unblocks for subscribing users.
-  }).then(function(newAction) {
-    if (newAction) {
-      return subscriptions.fanout(newAction);
-    } else {
-      return null;
-    }
   }).catch(function(err) {
     logger.error(err)
   })
@@ -440,7 +444,6 @@ var rpcStreams = [];
 /**
  * Set up a dnode RPC server (using the upnode library, which can handle TLS
  * transport) so other daemons can send requests to update blocks.
- * TODO: Require client authentication with a cert.
  */
 function setupServer() {
   var opts = {
