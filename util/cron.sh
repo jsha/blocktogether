@@ -7,6 +7,7 @@ TABLES="`mysql $AUTH -D $DB -e 'show tables' -B --skip-column-names`"
 for TABLE in $TABLES; do
   mysqldump $AUTH \
     --single-transaction \
+    --extended-insert \
     "$DB" "$TABLE" | \
   gpg --encrypt --quiet -r f1faf31d > \
     /data/mysql-backup/"$TABLE".$(date +%Y%m%d).gpg
