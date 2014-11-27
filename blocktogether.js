@@ -11,12 +11,11 @@ var cluster = require('cluster'),
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
-    Promise = require('q'),
+    Q = require('q'),
     timeago = require('timeago'),
     constantTimeEquals = require('scmp'),
     setup = require('./setup'),
     actions = require('./actions'),
-    updateBlocks = require('./update-blocks'),
     updateUsers = require('./update-users'),
     _ = require('sequelize').Utils._;
 
@@ -24,6 +23,7 @@ var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
     userToFollow = setup.userToFollow,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -48,16 +48,13 @@ function makeApp() {
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
 
-  // Error handler.
-  app.use(function(err, req, res, next){
-    logger.error(err.stack);
-    res.status(500).send('Something broke!');
-  });
-
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret,
-    callbackURL: config.callbackUrl
+    callbackURL: config.callbackUrl,
+    // Normally Passport makes a second request on login to get a user's full
+    // profile, but we only need screen name, so skip the request.
+    skipExtendedUserProfile: true
   }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
@@ -115,9 +112,9 @@ function makeApp() {
  *                        created.
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
-  var uid = profile._json.id_str;
-  var screen_name = profile._json.screen_name;
-  updateUsers.storeUser(profile._json);
+  logger.info(profile);
+  var uid = profile.id;
+  var screen_name = profile.username;
 
   BtUser
     .findOrCreate({ uid: uid })
@@ -133,7 +130,7 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
       });
       return btUser.save();
     }).then(function(btUser) {
-      updateBlocks.updateBlocks(btUser);
+      remoteUpdateBlocks(btUser);
       done(null, btUser);
     }).catch(function(err) {
       logger.error(err);
@@ -383,7 +380,7 @@ app.get('/my-blocks',
     // non-paginated blocks, otherwise you increase chance of making the
     // pagination change with block update.
     if (!req.query.page) {
-      updateBlocks.updateBlocks(req.user)
+      remoteUpdateBlocks(req.user)
         .timeout(300 /* ms */)
         .then(show)
         .catch(show);
@@ -410,7 +407,7 @@ app.get('/subscriptions',
         as: 'Subscriber'
       }]
     });
-    Promise.spread([subscriptionsPromise, subscribersPromise],
+    Q.spread([subscriptionsPromise, subscribersPromise],
       function(subscriptions, subscribers) {
         var templateData = {
           logged_in_screen_name: req.user.screen_name,
@@ -585,6 +582,17 @@ app.post('/do-actions.json',
     }
   });
 
+
+// Error handler. Must come after all routes.
+app.use(function(err, req, res, next){
+  logger.error(err.stack);
+  res.status(500);
+  res.header('Content-Type', 'text/html');
+  mu.compileAndRender('error.mustache', {
+    error: err.message
+  }).pipe(res);
+});
+
 /**
  * Create pagination metadata object for items retrieved with findAndCountAll().
  * @param {Object} items Result of findAndCountAll() with count and rows fields.
@@ -627,6 +635,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     user_uid = user.uid;
   }
 
+  res.header('Content-Type', 'text/html');
+
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
@@ -647,7 +657,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     order: 'complete desc, currentCursor is null, updatedAt desc'
   }).then(function(blockBatch) {
     if (!blockBatch) {
-      next(new Error('No blocks fetched yet. Please try again soon.'));
+      res.end('No blocks fetched yet. Please try again soon.');
+      return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
     } else {
       // Check whether the authenticated user is subscribed to this block list.
       var subscriptionPromise =
@@ -709,7 +720,6 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     };
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
-    res.header('Content-Type', 'text/html');
     mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
   }).catch(function(err) {
     logger.error(err);
@@ -726,11 +736,18 @@ function showActions(req, res, next) {
   if (currentPage < 1) {
     currentPage = 1;
   }
-  // Find, count, and prepare action data for display:
-  Action.findAndCountAll({
-    where: {
-      source_uid: req.user.uid
-    },
+  // Find, count, and prepare action data for display. We avoid findAndCountAll
+  // because of a Sequelize bug that does a join for the count because of the
+  // include fields. That makes doing the count very slow for users with lots of
+  // Actions.
+  var whereClause = {
+    source_uid: req.user.uid
+  };
+  var countPromise = Action.count({
+    where: whereClause
+  });
+  var actionsPromise = Action.findAll({
+    where: whereClause,
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
@@ -746,10 +763,13 @@ function showActions(req, res, next) {
       as: 'CauseUser',
       required: false
     }]
-  }).error(function(err) {
-    logger.error(err);
-  }).success(function(actions) {
-    var paginationData = getPaginationData(actions, perPage, currentPage);
+  });
+
+  Q.spread([countPromise, actionsPromise], function(count, actions) {
+    var paginationData = getPaginationData({
+      count: 1000,
+      rows: actions
+    }, perPage, currentPage);
     // Decorate the actions with human-friendly times
     paginationData.item_rows = paginationData.item_rows.map(function(action) {
       return _.extend(action, {
@@ -766,6 +786,8 @@ function showActions(req, res, next) {
     _.extend(templateData, paginationData);
     res.header('Content-Type', 'text/html');
     mu.compileAndRender('actions.mustache', templateData).pipe(res);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
@@ -780,7 +802,16 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
-  app.listen(config.port);
+  var server = app.listen(config.port);
+
+  process.on('SIGTERM', function () {
+    logger.info('Shutting down.');
+    setup.gracefulShutdown();
+    server.close(function () {
+      logger.info('Shut down succesfully.');
+      process.exit(0);
+    });
+  });
   logger.info('Worker', cluster.worker.id, 'up.');
 }
 

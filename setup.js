@@ -2,6 +2,9 @@
 (function() {
 var fs = require('fs'),
     path = require('path'),
+    tls = require('tls'),
+    upnode = require('upnode'),
+    Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
@@ -33,27 +36,6 @@ log4js.configure(configDir + nodeEnv + '/log4js.json', {
 // blocktogether, action, stream, etc.
 var scriptName = path.basename(require.main.filename).replace(".js", "");
 var logger = log4js.getLogger(scriptName);
-
-// Once a second log how many pending HTTPS requests there are.
-function logPendingRequests() {
-  var requests = https.globalAgent.requests;
-  if (Object.keys(requests).length === 0) {
-    logger.trace('Pending requests: 0');
-  } else {
-    for (var host in requests) {
-      logger.trace('Pending requests to', host, ':', requests[host].length);
-    }
-  }
-  var sockets = https.globalAgent.sockets;
-  if (Object.keys(sockets).length === 0) {
-    logger.trace('Open sockets: 0');
-  } else {
-    for (host in sockets) {
-      logger.trace('Open sockets to', host, ':', sockets[host].length);
-    }
-  }
-}
-setInterval(logPendingRequests, 5000);
 
 var sequelizeConfigData = fs.readFileSync(
   configDir + 'sequelize.json', 'utf8');
@@ -136,6 +118,14 @@ var BtUser = sequelize.define('BtUser', {
      * Ask Twitter to verify a user's credentials. If they not valid,
      * store the current time in user's deactivatedAt. If they are valid, clear
      * the user's deactivatedAt. Save the user to DB if it's changed.
+     * A user can be deactivated because of suspension, deactivation, or revoked
+     * app. Each of these states (even revocation!) can be undone, and we'd
+     * like the app to resume working normally if that happens. So instead of
+     * deleting the user when we get one of these codes, store a 'deactivatedAt'
+     * timestamp on the user object. Users with a non-null deactivatedAt
+     * get their credentials retried once per day for 30 days, after which (TOD)
+     * they should be deleted. Regular operations like checking blocks or
+     * streaming are not performed for users with non-null deactivatedAt.
      */
     verifyCredentials: function() {
       var user = this;
@@ -296,6 +286,55 @@ BtUser.find({
   _.assign(userToFollow, user);
 });
 
+/**
+ * A dnode client to call out to the update-blocks process to trigger block
+ * updating when necessary. This ensures all processing of blocks (which can be
+ * expensive) happens in a separate process from, e.g. the frontend or the
+ * streaming daemon.
+ */
+var updateBlocksService = null;
+
+// Call the updateBlocksService to update blocks for a user, and return a
+// promise.
+function remoteUpdateBlocks(user) {
+  var deferred = Q.defer();
+  if (!updateBlocksService) {
+    updateBlocksService = upnode.connect({
+      createStream: function() {
+        var stream = tls.connect({
+          host: 'localhost',
+          port: 8100,
+          // Provide a client certificate so the server knows it's us.
+          cert: fs.readFileSync(configDir + 'rpc.crt'),
+          key: fs.readFileSync(configDir + 'rpc.key'),
+          // For validating the self-signed server cert
+          ca: fs.readFileSync(configDir + 'rpc.crt'),
+          // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+          servername: 'blocktogether-rpc'
+        });
+        // Unref the RPC connection so shutdowns don't wait on it to close.
+        stream.socket.unref();
+        return stream;
+      }
+    });
+  }
+  logger.debug('Requesting block update for', user);
+  // Note: We can't just call this once and store 'remote', because upnode
+  // queues the request in case the remote server is down.
+  updateBlocksService(function(remote) {
+    remote.updateBlocksForUid(user.uid, function(result) {
+      deferred.resolve(result);
+    });
+  });
+  return deferred.promise;
+}
+
+function gracefulShutdown() {
+  if (updateBlocksService) {
+    updateBlocksService.close();
+  }
+}
+
 module.exports = {
   Action: Action,
   Block: Block,
@@ -304,9 +343,12 @@ module.exports = {
   TwitterUser: TwitterUser,
   Subscription: Subscription,
   config: config,
+  configDir: configDir,
   logger: logger,
   sequelize: sequelize,
   twitter: twitter,
-  userToFollow: userToFollow
+  userToFollow: userToFollow,
+  remoteUpdateBlocks: remoteUpdateBlocks,
+  gracefulShutdown: gracefulShutdown
 };
 })();
