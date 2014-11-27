@@ -6,7 +6,7 @@ server {
         ssl_certificate /etc/nginx/certs/2014/blocktogether.org.crt;
         ssl_certificate_key /etc/nginx/certs/2014/blocktogether.org.key;
 
-        log_format no_ip '[$time_local] $cookie_uid $status $body_bytes_sent $request_time '
+        log_format no_ip '[$time_local] $request_time $status $body_bytes_sent $cookie_uid '
           '"$request" "$http_referer" "$http_user_agent"';
         access_log /var/log/nginx/access.log no_ip;
 
