@@ -162,6 +162,7 @@ function logInAndRedirect(req, res, next, user) {
       return next(err);
     } else {
       return res.redirect('/settings');
+      res.cookie('uid', user.uid);
     }
   });
 }
