@@ -15,11 +15,12 @@ var twitterAPI = require('node-twitter-api'),
 var twitter = setup.twitter,
     logger = setup.logger,
     configDir = setup.configDir,
-    BtUser = setup.BtUser,
-    TwitterUser = setup.TwitterUser,
     Action = setup.Action,
+    AnnotatedBlock = setup.AnnotatedBlock,
     BlockBatch = setup.BlockBatch,
-    Block = setup.Block;
+    Block = setup.Block,
+    BtUser = setup.BtUser,
+    TwitterUser = setup.TwitterUser;
 
 var ONE_DAY_IN_MILLIS = 86400 * 1000;
 var shuttingDown = false;

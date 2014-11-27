@@ -6,7 +6,6 @@ var Q = require('q'),
 
 var logger = setup.logger,
     Action = setup.Action,
-    AnnotatedBlock = setup.AnnotatedBlock,
     Block = setup.Block,
     Subscription = setup.Subscription;
 
