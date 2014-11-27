@@ -54,8 +54,8 @@ end
 before "deploy:setup" do
   dirs = %w{
           /etc/blocktogether
-          /usr/local/blocktogether
-          /usr/local/blocktogether/releases
+          /data/blocktogether
+          /data/blocktogether/releases
           /data/mysql-backup
         }
   dirs.each do |dir|
