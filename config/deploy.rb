@@ -3,7 +3,7 @@ set :repository,  "https://github.com/jsha/blocktogether.git"
 
 set :scm, :git
 
-set :deploy_to, "/usr/local/blocktogether"
+set :deploy_to, "/data/blocktogether"
 
 set :deploy_via, :remote_cache
 set :copy_exclude, [ '.git' ]
@@ -22,6 +22,10 @@ end
 
 task :production do
   role :app, *%w[ blocktogether ]
+end
+
+task :db do
+  role :app, *%w[ bt-db ]
 end
 
 after "deploy:create_symlink" do
@@ -50,8 +54,8 @@ end
 before "deploy:setup" do
   dirs = %w{
           /etc/blocktogether
-          /usr/local/blocktogether
-          /usr/local/blocktogether/releases
+          /data/blocktogether
+          /data/blocktogether/releases
           /data/mysql-backup
         }
   dirs.each do |dir|

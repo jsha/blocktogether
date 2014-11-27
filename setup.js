@@ -30,7 +30,7 @@ var twitter = new twitterAPI({
 });
 
 log4js.configure(configDir + nodeEnv + '/log4js.json', {
-  cwd: '/usr/local/blocktogether/shared/log'
+  cwd: '/data/blocktogether/shared/log'
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.

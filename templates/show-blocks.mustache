@@ -2,7 +2,7 @@
   <script defer type='text/javascript' src='/static/show-blocks.js'></script>
   <script defer type='text/javascript' src='/static/multi-select.js'></script>
   {{^own_blocks}}
-    User <a href='https://mobile.twitter.com/{{author_screen_name}}' class='screen-name'
+    User <a href='https://twitter.com/{{author_screen_name}}' class='screen-name'
       >@{{author_screen_name}}</a>
     is blocking {{item_count}} users on Twitter (updated {{updated}}).
     {{#paginate}}
@@ -95,12 +95,12 @@
       </td>
       <td>
        {{#screen_name}} {{! If full user object is available use it. }}
-       <a class='screen-name' href='https://mobile.twitter.com/{{screen_name}}'>
+       <a class='screen-name' href='https://twitter.com/{{screen_name}}'>
          {{screen_name}}
        </a>
        {{/screen_name}}
        {{^screen_name}} {{! Otherwise just do user id }}
-       <a href='https://mobile.twitter.com/intent/user?user_id={{uid}}'>
+       <a href='https://twitter.com/intent/user?user_id={{uid}}'>
           {{uid}}
        </a>
        {{/screen_name}}

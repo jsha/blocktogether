@@ -91,7 +91,8 @@ function updateBlocksForUid(uid) {
 function updateBlocks(user) {
   // Don't create multiple pending block update requests at the same time.
   if (activeFetches[user.uid]) {
-    logger.info('User', user, 'already updating blocks, skipping duplicate.');
+    logger.info('User', user, 'already updating, skipping duplicate. Status:',
+      activeFetches[user.uid].inspect());
     return Q.resolve(null);
   } else {
     logger.info('Updating blocks for', user);
@@ -140,7 +141,7 @@ function updateBlocks(user) {
       if (nextCursor === '0') {
         return finalizeBlockBatch(blockBatch);
       } else {
-        logger.debug('Cursoring ', nextCursor);
+        logger.debug('Batch', blockBatch.id, 'cursoring', nextCursor);
         return fetchAndStoreBlocks(user, blockBatch, nextCursor);
       }
     }).catch(function (err) {
@@ -157,8 +158,8 @@ function updateBlocks(user) {
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
-          logger.info('Rate limited /blocks/ids', user,
-            'Trying again in 15 minutes.');
+          logger.info('Rate limited /blocks/ids', user, 'batch',
+            blockBatch.id, 'Trying again in 15 minutes.');
           return Q.delay(15 * 60 * 1000)
             .then(function() {
               return fetchAndStoreBlocks(user, blockBatch, currentCursor);
@@ -177,8 +178,10 @@ function updateBlocks(user) {
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
+    logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   }).catch(function() {
+    logger.info('Error, deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
 
@@ -216,7 +219,8 @@ function handleIds(blockBatch, currentCursor, results) {
 }
 
 function finalizeBlockBatch(blockBatch) {
-  logger.info('Finished fetching blocks for user', blockBatch.source_uid);
+  logger.info('Finished fetching blocks for user', blockBatch.source_uid,
+    'batch', blockBatch.id);
   // Mark the BlockBatch as complete and save that bit.
   // TODO: Don't mark as complete until all block diffing and fanout is
   // complete, otherwise there is potential to drop things on the floor.
@@ -341,32 +345,43 @@ function diffBatchWithPrevious(currentBatch) {
  *   /blocks/ids.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
-  while (sink_uids.length > 0) {
-    // Pop 100 uids off of the list.
-    var uidsToQuery = sink_uids.splice(0, 100);
-    twitter.users('lookup', {
-        skip_status: 1,
-        user_id: uidsToQuery.join(',')
-      },
-      setup.config.defaultAccessToken, setup.config.defaultAccessTokenSecret,
-      function(err, response) {
-        if (err && err.statusCode === 404) {
-          logger.info('All unblocked users deactivated, ignoring unblocks.');
-        } else if (err) {
-          logger.error('Error /users/lookup', err.statusCode, err.data, err,
-            'ignoring', uidsToQuery.length, 'unblocks');
-        } else {
-          // If a uid was present in the response, the user is not deactivated,
-          // so go ahead and record it as an unblock.
-          var indexedResponses = _.indexBy(response, 'id_str');
-          uidsToQuery.forEach(function(sink_uid) {
-            if (indexedResponses[sink_uid]) {
-              recordAction(source_uid, sink_uid, Action.UNBLOCK);
+  // Use credentials from the source_uid to check for unblocks. We could use the
+  // defaultAccessToken, but there's a much higher chance of that token being
+  // rate limited for user lookups, causes us to miss unblocks.
+  BtUser.find(source_uid)
+    .then(function(user) {
+      if (!user) {
+        return Q.reject("No user found for " + source_uid);
+      }
+      while (sink_uids.length > 0) {
+        // Pop 100 uids off of the list.
+        var uidsToQuery = sink_uids.splice(0, 100);
+        twitter.users('lookup', {
+            skip_status: 1,
+            user_id: uidsToQuery.join(',')
+          },
+          user.access_token, user.access_token_secret,
+          function(err, response) {
+            if (err && err.statusCode === 404) {
+              logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err) {
+              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+                'ignoring', uidsToQuery.length, 'unblocks');
+            } else {
+              // If a uid was present in the response, the user is not deactivated,
+              // so go ahead and record it as an unblock.
+              var indexedResponses = _.indexBy(response, 'id_str');
+              uidsToQuery.forEach(function(sink_uid) {
+                if (indexedResponses[sink_uid]) {
+                  recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                }
+              });
             }
           });
-        }
-      });
-  }
+      }
+    }).catch(function(err) {
+      logger.error(err);
+    });
 }
 
 /**
