@@ -33,6 +33,7 @@ fi
 COOKIE_SECRET=$(openssl rand -hex 20)
 sed -i s/__COOKIE_SECRET__/$COOKIE_SECRET/g /etc/blocktogether/config.json
 
+CONF=/etc/blocktogether
 if [ ! -f ${CONF}/rpc.key ] ; then
   openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
     -keyout ${CONF}/rpc.key -out ${CONF}/rpc.crt \
