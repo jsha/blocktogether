@@ -765,7 +765,7 @@ function showActions(req, res, next) {
 
   Q.spread([countPromise, actionsPromise], function(count, actions) {
     var paginationData = getPaginationData({
-      count: 1000,
+      count: count,
       rows: actions
     }, perPage, currentPage);
     // Decorate the actions with human-friendly times
