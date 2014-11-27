@@ -337,6 +337,7 @@ function gracefulShutdown() {
 
 module.exports = {
   Action: Action,
+  AnnotatedBlock: AnnotatedBlock,
   Block: Block,
   BlockBatch: BlockBatch,
   BtUser: BtUser,

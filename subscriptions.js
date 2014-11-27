@@ -1,11 +1,12 @@
 'use strict';
 (function() {
-var Promise = require('q'),
+var Q = require('q'),
     _ = require('sequelize').Utils._,
     setup = require('./setup');
 
 var logger = setup.logger,
     Action = setup.Action,
+    AnnotatedBlock = setup.AnnotatedBlock,
     Block = setup.Block,
     Subscription = setup.Subscription;
 
@@ -17,7 +18,7 @@ var logger = setup.logger,
  * unblocks (from /my-blocks) should also trigger fanout.
  *
  * @param {Array.<Action>} inputActions Actions to fan out to subscribers.
- * @returns {Promise<Action[]>}
+ * @returns {Promise.<Action[]>}
  */
 function fanout(inputActions) {
   var source_uids = _.uniq(_.pluck(inputActions, 'source_uid'));
@@ -43,7 +44,7 @@ function fanout(inputActions) {
   });
 }
 
-function fanout(subscriptions, inputAction) {
+function fanoutAction(subscriptions, inputAction) {
   if (inputAction.cause === Action.EXTERNAL &&
       (inputAction.type === Action.BLOCK ||
        inputAction.type === Action.UNBLOCK)) {
@@ -68,7 +69,7 @@ function fanout(subscriptions, inputAction) {
       // who originally blocked the given user due to a subscription.
       // Pass each Action through unblockFromSubscription to check the cause
       // of the most recent corresponding block, if any.
-      return Promise.all(actions.map(unblockFromSubscription));
+      return Q.all(actions.map(unblockFromSubscription));
     }
   } else {
     return Q.reject('Bad argument to fanout:' + inputAction);
@@ -143,7 +144,7 @@ function getLatestBlocks(uid) {
         }
       });
     } else {
-      return Q.reject('No blockBatch available for', user);
+      return Q.reject('No blockBatch available for', uid);
     }
   });
 }
@@ -158,7 +159,7 @@ function getLatestBlocks(uid) {
  * @return {Promise.<Object>} Object mapping uid -> unblock Actions.
  */
 function getManualUnblocks(uid) {
-  return Actions.find({
+  return Action.find({
     where: {
       type: Action.UNBLOCK,
       source_uid: uid,
