@@ -1,5 +1,5 @@
 #!/bin/bash -e
-#
+
 # Set up a production instance of Block Together. Assumes no existing root MySQL
 # password (as is true of a freshly installed mysql-server).
 # Safe to run multiple times.
@@ -28,7 +28,7 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
     CREATE DATABASE IF NOT EXISTS blocktogether;
     GRANT CREATE, INDEX, ALTER, DROP ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
     GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
-      'blocktogether'@'172.31.%' IDENTIFIED BY '2c0df8d179c6eeaabc38750a78afaf558c8e1509';
+      'blocktogether'@'172.31.%' IDENTIFIED BY "${DB_PASS}";
 EOSQL
 fi
 
