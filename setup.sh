@@ -26,7 +26,9 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
-    GRANT ALL ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
+    GRANT CREATE, INDEX, ALTER, DROP ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
+    GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
+      'blocktogether'@'172.31.%' IDENTIFIED BY '2c0df8d179c6eeaabc38750a78afaf558c8e1509';
 EOSQL
 fi
 

@@ -289,8 +289,8 @@ BtUser.find({
 var updateBlocksService = upnode.connect({
   createStream: function() {
     return tls.connect({
-      host: 'localhost',
-      port: 7000,
+      host: config.updateBlocks.host,
+      port: config.updateBlocks.port,
       // Provide a client certificate so the server knows it's us.
       cert: fs.readFileSync(configDir + 'rpc.crt'),
       key: fs.readFileSync(configDir + 'rpc.key'),
