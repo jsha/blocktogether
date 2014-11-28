@@ -1,7 +1,6 @@
 {
   "port": 2078,
   "callbackUrl": "https://blocktogether.org/auth/twitter/callback",
-  "sequelizeLogging": false,
   "secureProxy": true,
   "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
   "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
