@@ -1,4 +1,5 @@
 set :application, "blocktogether"
+set :user, "ubuntu"
 set :repository,  "https://github.com/jsha/blocktogether.git"
 
 set :scm, :git
@@ -20,31 +21,29 @@ task :staging do
   role :app, *%w[ blocktogether-staging ]
 end
 
-task :production do
-  role :app, *%w[ blocktogether ]
+task :web do
+  role :app, *%w[ web1.blocktogether.org web2.blocktogether.org  ]
+  set :process_names, %w[ blocktogether ]
 end
 
 task :db do
-  role :app, *%w[ bt-db ]
+  role :app, *%w[ btdb.blocktogether.org ]
+  set :process_names, %w[ stream actions update-users update-blocks ]
+  after "deploy:create_symlink" do
+    run "cd #{current_path}; js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
+  end
 end
 
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
-  run "cd #{current_path}; js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
   # Note: Have to cp instead of symlink since these must be root-owned.
-  run "sudo cp #{current_path}/config/production/upstart/*.conf /etc/init/"
+  run "sudo cp #{current_path}/config/production/upstart/blocktogether-instance.conf /etc/init/"
   run "sudo cp #{current_path}/config/nginx/sites-available/* /etc/nginx/sites-available"
 end
 
 namespace :deploy do
   task :restart do
-    %w{
-        blocktogether
-        stream
-        actions
-        update-users
-        update-blocks
-    }.each do |name|
+    process_names.each do |name|
       sudo "service blocktogether-instance restart NAME=#{name}"
     end
     sudo "service nginx reload"
