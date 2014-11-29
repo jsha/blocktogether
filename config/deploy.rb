@@ -30,7 +30,7 @@ task :db do
   role :app, *%w[ btdb.blocktogether.org ]
   set :process_names, %w[ stream actions update-users update-blocks ]
   after "deploy:create_symlink" do
-    run "cd #{current_path}; js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
+    run "cd #{current_path}; NODE_ENV=production js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
   end
 end
 
@@ -39,6 +39,7 @@ after "deploy:create_symlink" do
   # Note: Have to cp instead of symlink since these must be root-owned.
   run "sudo cp #{current_path}/config/production/upstart/blocktogether-instance.conf /etc/init/"
   run "sudo cp #{current_path}/config/nginx/sites-available/* /etc/nginx/sites-available"
+  run "sudo ln -s /etc/nginx/sites-available/* /etc/nginx/sites-enabled/"
 end
 
 namespace :deploy do
