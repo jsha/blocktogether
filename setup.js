@@ -30,7 +30,7 @@ var twitter = new twitterAPI({
 });
 
 log4js.configure(configDir + nodeEnv + '/log4js.json', {
-  cwd: '/usr/local/blocktogether/shared/log'
+  cwd: '/data/blocktogether/shared/log'
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.
@@ -286,32 +286,26 @@ BtUser.find({
  * expensive) happens in a separate process from, e.g. the frontend or the
  * streaming daemon.
  */
-var updateBlocksService = null;
+var updateBlocksService = upnode.connect({
+  createStream: function() {
+    return tls.connect({
+      host: config.updateBlocks.host,
+      port: config.updateBlocks.port,
+      // Provide a client certificate so the server knows it's us.
+      cert: fs.readFileSync(configDir + 'rpc.crt'),
+      key: fs.readFileSync(configDir + 'rpc.key'),
+      // For validating the self-signed server cert
+      ca: fs.readFileSync(configDir + 'rpc.crt'),
+      // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+      servername: 'blocktogether-rpc'
+    });
+  }
+});
 
 // Call the updateBlocksService to update blocks for a user, and return a
 // promise.
 function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
-  if (!updateBlocksService) {
-    updateBlocksService = upnode.connect({
-      createStream: function() {
-        var stream = tls.connect({
-          host: 'localhost',
-          port: 8100,
-          // Provide a client certificate so the server knows it's us.
-          cert: fs.readFileSync(configDir + 'rpc.crt'),
-          key: fs.readFileSync(configDir + 'rpc.key'),
-          // For validating the self-signed server cert
-          ca: fs.readFileSync(configDir + 'rpc.crt'),
-          // The name on the self-signed cert is verified; it's "blocktogether-rpc".
-          servername: 'blocktogether-rpc'
-        });
-        // Unref the RPC connection so shutdowns don't wait on it to close.
-        stream.socket.unref();
-        return stream;
-      }
-    });
-  }
   logger.debug('Requesting block update for', user);
   // Note: We can't just call this once and store 'remote', because upnode
   // queues the request in case the remote server is down.

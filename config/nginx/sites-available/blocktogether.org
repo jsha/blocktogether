@@ -6,18 +6,22 @@ server {
         ssl_certificate /etc/nginx/certs/2014/blocktogether.org.crt;
         ssl_certificate_key /etc/nginx/certs/2014/blocktogether.org.key;
 
+        log_format no_ip '[$time_local] $request_time $status $body_bytes_sent $cookie_uid '
+          '"$request" "$http_referer" "$http_user_agent"';
+        access_log /var/log/nginx/access.log no_ip;
+
         add_header Strict-Transport-Security "max-age=31536000; includeSubdomains";
         location / {
                 proxy_pass http://localhost:2078/;
         }
         location /favicon.ico {
-            alias /usr/local/blocktogether/current/static/favicon.ico;
+            alias /data/blocktogether/current/static/favicon.ico;
         }
         location /static/ {
-            alias /usr/local/blocktogether/current/static/;
+            alias /data/blocktogether/current/static/;
         }
         location /docs/ {
-            alias /usr/local/blocktogether/current/docs/;
+            alias /data/blocktogether/current/docs/;
         }
 }
 

@@ -26,19 +26,19 @@
       {{! If TwitterUser is available and has a screen name, use that. }}
       {{#twitterUser}}
       {{#twitterUser.screen_name}}
-        <a href='https://mobile.twitter.com/{{twitterUser.screen_name}}'
+        <a href='https://twitter.com/{{twitterUser.screen_name}}'
            class='screen-name'>{{twitterUser.screen_name}}</a>
       {{/twitterUser.screen_name}}
       {{^twitterUser.screen_name}}
         {{! Otherwise, use uid. }}
-        <a href='https://mobile.twitter.com/intent/user?user_id={{sink_uid}}'
+        <a href='https://twitter.com/intent/user?user_id={{sink_uid}}'
           >{{sink_uid}}</a>
       {{/twitterUser.screen_name}}
       {{/twitterUser}}
       {{^twitterUser}}
         {{! Occasionally the TwitterUser uid may not have been inserted in the DB
             for some reason. In that case also use uid. }}
-        <a href='https://mobile.twitter.com/intent/user?user_id={{sink_uid}}'
+        <a href='https://twitter.com/intent/user?user_id={{sink_uid}}'
           >{{sink_uid}}</a>
       {{/twitterUser}}
       </td>
@@ -47,12 +47,12 @@
       <td>{{cause}}</td>
       <td>
         {{#causeUser}}
-          <a href='https://mobile.twitter.com/{{causeUser.screen_name}}'
+          <a href='https://twitter.com/{{causeUser.screen_name}}'
              class='screen-name'>{{causeUser.screen_name}}</a>
         {{/causeUser}}
         {{^causeUser}}
           {{! Otherwise, use uid. }}
-          <a href='https://mobile.twitter.com/intent/user?user_id={{cause_uid}}'
+          <a href='https://twitter.com/intent/user?user_id={{cause_uid}}'
             >{{cause_uid}}</a>
         {{/causeUser}}
        </td>
