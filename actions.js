@@ -46,11 +46,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
         'status': Action.PENDING
       }
     })).then(function(actions) {
-      // After writing the actions to the DB, wait 1s and process all actions
-      // for the user. Waiting a bit allows more actions to accumulate so they
-      // can be batched better, e.g. during stream startup. Note that we still
-      // wind up with a queue of processing requests right on top of each other,
-      // which is not ideal.
+      // After writing the actions to the DB process all actions
+      // for the user.
       return processActionsForUserId(source_uid);
     }).catch(function(err) {
       logger.error(err);
@@ -86,22 +83,16 @@ function processActions() {
     if (actions && actions.length > 0) {
       logger.info('Processing actions for', actions.length, 'users');
       var uids = _.pluck(actions, 'source_uid');
+      // Space out the kickoff of each user's processing batch to get better
+      // reuse of HTTPS connections to Twitter. TODO: Measure latency of Twitter
+      // requests.
       util.slowForEach(uids, 100 /* ms */, processActionsForUserId);
+    } else {
+      // No pending actions for anyone, wow!
+      return Q.resolve(null);
     }
   }).catch(function(err) {
     logger.error(err);
-  });
-}
-
-function nullPromise() {
-  return Q.fcall(function() {
-    return null;
-  });
-}
-
-function rejectPromise(str) {
-  return Q.fcall(function() {
-    throw new Error(str);
   });
 }
 
@@ -114,7 +105,7 @@ var workingActions = {};
 function processActionsForUserId(uid) {
   if (workingActions[uid]) {
     logger.warn('Skipping processing for', uid, 'actions already in progress.');
-    return nullPromise();
+    return Q.resolve(null);
   }
   var btUserPromise = BtUser.find(uid);
   // We use a separate fetch here rather than an include because the actions
@@ -140,9 +131,9 @@ function processActionsForUserId(uid) {
         // Cancel all pending actions for deactivated or absent users.
         logger.error('User missing or deactivated', uid);
         cancelSourceDeactivated(uid);
-        return nullPromise();
+        return Q.resolve(null);
       } else if (actions.length === 0) {
-        return nullPromise();
+        return Q.resolve(null);
       } else {
         // Order across action types can be important, for instance when there are
         // both a block and an unblock action enqueued. We get 100 actions, then
@@ -272,7 +263,7 @@ function processMutesForUser(btUser, actions) {
       } else {
         logger.error('Error /mutes/users/create', err);
       }
-      return nullPromise();
+      return Q.resolve(null);
     });
   }));
 }
@@ -291,7 +282,7 @@ function processBlocksForUser(btUser, actions) {
   var sinkUids = _.pluck(actions, 'sink_uid');
   if (sinkUids.length > 100) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
-    return rejectPromise('Too many sinkUids');
+    return Q.reject('Too many sinkUids');
   }
   logger.debug('Checking follow status', btUser,
     '--???-->', sinkUids.length, 'users');
@@ -368,7 +359,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
 function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks, action) {
   // Sanity check that this is a block, not some other action.
   if (action.type != 'block') {
-    return rejectPromise("Shouldn't happen: non-block action" + sourceBtUser);
+    return Q.reject("Shouldn't happen: non-block action" + sourceBtUser);
   }
   var sink_uid = action.sink_uid;
   var friendship = indexedFriendships[sink_uid];

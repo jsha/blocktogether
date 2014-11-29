@@ -274,10 +274,10 @@ BtUser.find({
   where: {
     screen_name: config.userToFollow
   }
-}).error(function(err) {
-  logger.error(err);
-}).success(function(user) {
+}).then(function(user) {
   _.assign(userToFollow, user);
+}).catch(function(err) {
+  logger.error(err);
 });
 
 /**
