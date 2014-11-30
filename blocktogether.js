@@ -478,6 +478,7 @@ app.post('/block-all.json',
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+            logger.info('Subscribing', req.user, 'to list from', author);
             // Note: because of a uniqueness constraint on the [author,
             // subscriber] pair, this will fail if the subscription already
             // exists. But that's fine: It shouldn't be possible to create a
@@ -551,6 +552,7 @@ app.post('/unsubscribe.json',
     } else {
       return next(new Error('Invalid parameters.'));
     }
+    logger.info('Removing subscription: ', params);
     Subscription.destroy(params).then(function() {
       res.end(JSON.stringify({}));
     }).catch(function(err) {
