@@ -100,11 +100,15 @@ var workingActions = {};
 
 /**
  * For a given user id, fetch and process pending actions.
+ * Actions are processed in batches of up to 100, but they must all be the same
+ * type, and must be in order by createdAt. So we pick up to 100 actions that
+ * match the type of the earliest available pending action for the uid.
  * @param {string} uid The uid of the user to process.
  */
 function processActionsForUserId(uid) {
   if (workingActions[uid]) {
-    logger.warn('Skipping processing for', uid, 'actions already in progress.');
+    logger.warn('Skipping processing for', uid,
+      'actions already in progress.', workingActions[uid]);
     return Q.resolve(null);
   }
   var btUserPromise = BtUser.find(uid);
@@ -130,8 +134,7 @@ function processActionsForUserId(uid) {
       if (!btUser || btUser.deactivatedAt) {
         // Cancel all pending actions for deactivated or absent users.
         logger.error('User missing or deactivated', uid);
-        cancelSourceDeactivated(uid);
-        return Q.resolve(null);
+        return cancelSourceDeactivated(uid).thenResolve(null);
       } else if (actions.length === 0) {
         return Q.resolve(null);
       } else {
@@ -145,19 +148,22 @@ function processActionsForUserId(uid) {
         });
         var run = actions.slice(0, firstDiffIndex);
         workingActions[uid] = 1;
+        var processingPromise = null;
         if (firstActionType === 'block') {
-          return processBlocksForUser(btUser, actions);
+          processingPromise = processBlocksForUser(btUser, actions);
         } else if (firstActionType === 'unblock') {
-          return processUnblocksForUser(btUser, actions);
+          processingPromise = processUnblocksForUser(btUser, actions);
         } else if (firstActionType === 'mute') {
-          return processMutesForUser(btUser, actions);
+          processingPromise = processMutesForUser(btUser, actions);
         }
+        workingActions[uid] = processingPromise;
+        return processingPromise;
       }
-    }).then(function() {
-      delete workingActions[uid];
     }).catch(function(err) {
-      delete workingActions[uid];
       logger.error(err);
+    }).finally(function() {
+      delete workingActions[uid];
+      return Q.resolve(null);
     });
 }
 
@@ -168,12 +174,14 @@ function processActionsForUserId(uid) {
  * @param {string} uid User id for whom to modify actions.
  */
 function cancelSourceDeactivated(uid) {
-  Action.update({
+  return Action.update({
     status: Action.CANCELLED_SOURCE_DEACTIVATED
   }, { /* where */
     source_uid: uid,
     status: Action.PENDING
-  }).error(function(err) {
+  }).then(function(action) {
+    return action;
+  }).catch(function(err) {
     logger.error(err);
   })
 }
@@ -218,7 +226,7 @@ function processUnblocksForUser(btUser, actions) {
   // the same.
   return Q.all(actions.map(function(action) {
     if (action.type != 'unblock') {
-      logger.error("Shouldn't happen: non-unblock action", btUser);
+      return Q.reject("Shouldn't happen: non-unblock action" + btUser);
     }
     return doUnblock(btUser, action.sink_uid).then(function() {
       logger.info('Unblocked', btUser, '-->', action.sink_uid);
@@ -227,7 +235,7 @@ function processUnblocksForUser(btUser, actions) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        btUser.verifyCredentials();
+        return btUser.verifyCredentials().thenResolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -235,8 +243,11 @@ function processUnblocksForUser(btUser, actions) {
       } else if (err.statusCode) {
         logger.error('Error /blocks/destroy', err.statusCode, btUser,
           '-->', action.sink_uid);
+        // Don't change the state of the action: It will be retried later.
+        return Q.resolve(null);
       } else {
         logger.error('Error /blocks/destroy', err);
+        return Q.resolve(null);
       }
     });
   }));
@@ -252,7 +263,7 @@ function processMutesForUser(btUser, actions) {
       return setActionStatus(action, Action.DONE);
     }).catch(function(err) {
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        btUser.verifyCredentials();
+        return btUser.verifyCredentials().thenResolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -260,8 +271,10 @@ function processMutesForUser(btUser, actions) {
       } else if (err.statusCode) {
         logger.error('Error /mutes/users/create', err.statusCode, btUser,
           '-->', action.sink_uid);
+        return Q.resolve(null);
       } else {
         logger.error('Error /mutes/users/create', err);
+        return Q.resolve(null);
       }
       return Q.resolve(null);
     });
@@ -292,12 +305,14 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        btUser.verifyCredentials();
+        return btUser.verifyCredentials().thenResolve(null);
       } else if (err.statusCode) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
           btUser.screen_name, err.data);
+        return Q.resolve(null);
       } else {
         logger.error('Error /friendships/lookup', err);
+        return Q.resolve(null);
       }
     });
 }
@@ -398,16 +413,17 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-          sourceBtUser.verifyCredentials();
+          return sourceBtUser.verifyCredentials().thenResolve(null);
         } else if (err.statusCode) {
           logger.error('Error /blocks/create', err.statusCode,
             sourceBtUser.screen_name, sourceBtUser.uid,
             '--block-->', friendship.screen_name, friendship.id_str,
             err.data);
+          return Q.resolve(null);
         } else {
           logger.error('Error /blocks/create', err);
+          return Q.resolve(null);
         }
-        return Q.fcall(function() { return null; });
       });
   }
 }
@@ -429,15 +445,10 @@ module.exports = {
 };
 
 if (require.main === module) {
-  // TODO: It's possible for one run of processActions could take more than 180
-  // seconds, in which case we wind up with multiple instances running
-  // concurrently. This probably won't happen since each run only processes 100
-  // items per user, but with a lot of users it could, and would lead to some
-  // redundant work as each instance tried to grab work from a previous
-  // instance. Figure out a way to prevent this while being robust (i.e. not
-  // having to make sure every possible code path calls a finishing callback).
-  // When many users are have processing, it takes about 120 seconds to get
-  // through all of the batches of 100 blocks.
+  // When many users are have processing, it takes about 180 seconds to get
+  // through all of the batches of 100 blocks. Space out intervals to avoid
+  // overlap. NOTE: with workingActions[] keeping track now, this should no
+  // longer be necessary.
   processActions();
   setInterval(processActions, 180 * 1000);
 
