@@ -350,12 +350,13 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
     // TODO: Make this a slowForEach. Note that requires a change to slowForEach
     // so it can collect the return values of the function it calls into one big
     // promise.
-    return Q.all(actions.map(function(action) {
+    return slowForEach(actions, 70, function(action) {
       return cancelOrPerformBlock(
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
-    }));
+    });
   }).catch(function(err) {
     logger.error(err);
+    return Q.resolve(null);
   });
 }
 
