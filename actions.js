@@ -75,7 +75,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
  * at a time, but it does not appear to have a rate limit.
  */
 function processActions() {
-  Action.findAll({
+  return Action.findAll({
     where: ['status = "pending"'],
     group: 'source_uid',
     limit: 300
@@ -129,8 +129,8 @@ function processActionsForUserId(uid) {
     limit: 100
   });
 
-  Q.spread([btUserPromise, actionsPromise]
-    ).then(function(btUser, actions) {
+  Q.spread([btUserPromise, actionsPromise],
+    function(btUser, actions) {
       if (!btUser || btUser.deactivatedAt) {
         // Cancel all pending actions for deactivated or absent users.
         logger.error('User missing or deactivated', uid);
@@ -146,15 +146,21 @@ function processActionsForUserId(uid) {
         var firstDiffIndex = _.findIndex(actions, function(action) {
           return action.type !== firstActionType;
         });
-        var run = actions.slice(0, firstDiffIndex);
+        logger.debug("firstDiffIndex", firstDiffIndex);
+        var run = actions;
+        if (firstDiffIndex !== -1) {
+          logger.debug('Skipping some actions in this run because they are not',
+            firstActionType);
+          run = actions.slice(0, firstDiffIndex);
+        }
         workingActions[uid] = 1;
         var processingPromise = null;
         if (firstActionType === 'block') {
-          processingPromise = processBlocksForUser(btUser, actions);
+          processingPromise = processBlocksForUser(btUser, run);
         } else if (firstActionType === 'unblock') {
-          processingPromise = processUnblocksForUser(btUser, actions);
+          processingPromise = processUnblocksForUser(btUser, run);
         } else if (firstActionType === 'mute') {
-          processingPromise = processMutesForUser(btUser, actions);
+          processingPromise = processMutesForUser(btUser, run);
         }
         workingActions[uid] = processingPromise;
         return processingPromise;
@@ -190,27 +196,43 @@ function doBlock(sourceBtUser, sinkUid) {
   return Q.ninvoke(twitter, 'blocks', 'create', {
       user_id: sinkUid,
       skip_status: 1
-    }, sourceBtUser.access_token, sourceBtUser.access_token_secret);
+    }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
+    .spread(function(result, response) {
+      logger.trace(result);
+      return result;
+    });
 }
 
 function doUnblock(sourceBtUser, sinkUid) {
   return Q.ninvoke(twitter, 'blocks', 'destroy', {
       user_id: sinkUid,
       skip_status: 1
-    }, sourceBtUser.access_token, sourceBtUser.access_token_secret);
+    }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
+    .spread(function(result, response) {
+      logger.trace(result);
+      return result;
+    });
 }
 
 function doMute(sourceBtUser, sinkUid) {
   return Q.ninvoke(twitter, 'mutes', 'users/create', {
       user_id: sinkUid,
       skip_status: 1
-    }, sourceBtUser.access_token, sourceBtUser.access_token_secret);
+    }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
+    .spread(function(result, response) {
+      logger.trace(result);
+      return result;
+    });
 }
 
 function getFriendships(btUser, sinkUids) {
   return Q.ninvoke(twitter, 'friendships', 'lookup', {
       user_id: sinkUids.join(',')
-    }, btUser.access_token, btUser.access_token_secret);
+    }, btUser.access_token, btUser.access_token_secret)
+    .spread(function(result, response) {
+      logger.trace(result);
+      return result;
+    });
 }
 
 function processUnblocksForUser(btUser, actions) {
@@ -226,7 +248,8 @@ function processUnblocksForUser(btUser, actions) {
   // the same.
   return Q.all(actions.map(function(action) {
     if (action.type != 'unblock') {
-      return Q.reject("Shouldn't happen: non-unblock action" + btUser);
+      return Q.reject("Shouldn't happen: non-unblock action "
+        + btUser.dataValues);
     }
     return doUnblock(btUser, action.sink_uid).then(function() {
       logger.info('Unblocked', btUser, '-->', action.sink_uid);
@@ -350,7 +373,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
     // TODO: Make this a slowForEach. Note that requires a change to slowForEach
     // so it can collect the return values of the function it calls into one big
     // promise.
-    return slowForEach(actions, 70, function(action) {
+    return util.slowForEach(actions, 70, function(action) {
       return cancelOrPerformBlock(
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
     });
@@ -383,6 +406,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
   // executed.
   var newState = null;
 
+  logger.trace('Friendship', sourceBtUser,'--friend?-->', sink_uid, friendship);
   // If no friendship for this action was returned by /1.1/users/lookup,
   // that means the sink_uid was suspened or deactivated, so defer the Action.
   if (!friendship) {
@@ -436,6 +460,8 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
  * @return {Promise.<Action>} A promise resolved on saving.
  */
 function setActionStatus(action, newState) {
+  logger.debug('Action', action.id, action.source_uid, action.type,
+    action.sink_uid, 'changing to state', newState);
   action.status = newState;
   return action.save();
 }
