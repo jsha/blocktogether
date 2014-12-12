@@ -35,24 +35,17 @@
               <li><a href='/subscriptions'>Subscriptions</a></li>
               <li><a href='/settings'>Settings</a></li>
             </ul>
+            {{#logged_in_screen_name}}
             <ul class="nav navbar-nav navbar-right">
-              {{#logged_in_screen_name}}
-              <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">@{{logged_in_screen_name}} <span class="caret"></span></a>
-                <ul class="dropdown-menu" role="menu">
-                  <li><a href="https://twitter.com/{{logged_in_screen_name}}">Twitter Page</a></li>
-                  <li><a class='logoff' href='/logout'>Log Off</a></li>
-                </ul>
-              </li>
-              {{/logged_in_screen_name}}
-              {{^logged_in_screen_name}}
-              <li>
-                <form id="log-on-form" action="/auth/twitter" method="POST">
-                  <a class="log-on-link" href="#">Log On</a>
-                </form>
-              </li>
-              {{/logged_in_screen_name}}
+              <li><a href="https://twitter.com/{{logged_in_screen_name}}">Twitter Page</a></li>
+              <li><a class='logoff' href='/logout'>Log Off</a></li>
             </ul>
+            {{/logged_in_screen_name}}
+            {{^logged_in_screen_name}}
+            <ul class="nav navbar-nav navbar-right">
+              <li><a href="/auth/twitter">Log On</a></li>
+            </ul>
+            {{/logged_in_screen_name}}
           </div><!-- /.navbar-collapse -->
         </div><!-- /.container-fluid -->
       </nav>
