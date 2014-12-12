@@ -85,6 +85,6 @@ ul.subscriptions {
   list-style: none;
 }
 
-p {
+p, ul {
   max-width: 35em;
 }
