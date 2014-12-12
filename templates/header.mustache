@@ -14,20 +14,47 @@
   <body data-user-uid='{{user_uid}}'>
     <div class='container-fluid'>
       {{^hide_navbar}}
-      <div class='navbar'>
-        <a href='/'>Block Together</a>
-        <a href='/my-blocks'>My Blocks</a>
-        <a href='/actions'>Actions</a>
-        <a href='/subscriptions'>Subscriptions</a>
-        <a href='/settings'>Settings</a>
-        {{#logged_in_screen_name}}
-        <span>@{{logged_in_screen_name}}</span>
-        <a class='logoff' href='/logout'>Log Off</a>
-        {{/logged_in_screen_name}}
-        {{^logged_in_screen_name}}
-        <form id="log-on-form" action="/auth/twitter" method="POST">
-          <a class="log-on-link" href="#">Log On</a>
-        </form>
-        {{/logged_in_screen_name}}
-      </div>
+      <nav class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+          <!-- Brand and toggle get grouped for better mobile display -->
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Block Together</a>
+          </div>
+
+          <!-- Collect the nav links, forms, and other content for toggling -->
+          <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav">
+              <li><a href='/my-blocks'>My Blocks</a></li>
+              <li><a href='/actions'>Actions</a></li>
+              <li><a href='/subscriptions'>Subscriptions</a></li>
+              <li><a href='/settings'>Settings</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+              {{#logged_in_screen_name}}
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">@{{logged_in_screen_name}} <span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li><a href="https://twitter.com/{{logged_in_screen_name}}">Twitter Page</a></li>
+                  <li><a class='logoff' href='/logout'>Log Off</a></li>
+                </ul>
+              </li>
+              {{/logged_in_screen_name}}
+              {{^logged_in_screen_name}}
+              <li>
+                <form id="log-on-form" action="/auth/twitter" method="POST">
+                  <a class="log-on-link" href="#">Log On</a>
+                </form>
+              </li>
+              {{/logged_in_screen_name}}
+            </ul>
+          </div><!-- /.navbar-collapse -->
+        </div><!-- /.container-fluid -->
+      </nav>
       {{/hide_navbar}}
+
