@@ -2,10 +2,6 @@ th {
   white-space: nowrap;
 }
 
-.navbar {
-  padding: 2em;
-}
-
 .description,
 .signup-prompt,
 .index-logged-in,
@@ -29,18 +25,6 @@ th {
 
 .example-block-list {
   padding-left: 2em;
-}
-
-.navbar a,
-.navbar span {
-  padding: 1em;
-  text-decoration: none;
-
-}
-.navbar {
-  height: 46px;
-  padding-top: 2em;
-  font-size: 13px;
 }
 
 .all-blocks {
