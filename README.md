@@ -18,7 +18,7 @@ easiest way to get these is to run `bash setup.sh`, which will run an apt-get
 install for the packages you need (plus a few extras mainly used by the prod
 instance, like gnupg). Setup.sh will also set a MySQL root password if it's your
 first time installing MySQL - write it down or store it in your password
-manager. If you already have a MySQL root password set, run
+manager. If you already have a MySQL root password set, run:
 
     DB_ROOT_PASS=YOUR_PASSWORD
     bash setup.sh
