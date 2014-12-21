@@ -278,11 +278,11 @@ function diffBatchWithPrevious(currentBatch) {
         var start = process.hrtime();
         var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
         var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-        var elapsed = process.hrtime(start)[1] / 1000000;
+        var elapsedMs = process.hrtime(start)[1] / 1000000;
         logger.debug('Block diff for', source_uid,
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
-          'time:', elapsed);
+          'msecs:', Math.round(elapsedMs));
         var actionPromises = addedBlockIds.map(function(sink_uid) {
           return recordAction(source_uid, sink_uid, Action.BLOCK);
         });
@@ -305,9 +305,11 @@ function diffBatchWithPrevious(currentBatch) {
       // If it's the first block fetch for this user, make sure all the blocked
       // uids are in TwitterUsers.
       if (currentBatch) {
-        currentBatch.getBlocks().then(function(blocks) {
-          addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+        return currentBatch.getBlocks().then(function(blocks) {
+          return addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
         });
+      } else {
+        return Q.resolve(null);
       }
     }
   }).catch(function(err) {
@@ -480,7 +482,7 @@ function setupServer() {
     });
     up.pipe(stream).pipe(up);
   });
-  server.listen(7000);
+  server.listen(8100);
 }
 
 module.exports = {

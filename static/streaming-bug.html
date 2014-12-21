@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Streaming Clients Bug</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap.min.css' />
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap-theme.min.css' />
+    <link rel='stylesheet' href='/static/style.css' />
+    <script defer type='text/javascript' src='/static/jquery-2.1.1.min.js'></script>
+    <script defer type='text/javascript' src='/static/bootstrap-3.1.1/js/bootstrap.min.js'></script>
+  </head>
+  <body>
+
+  <h3>Blocked users appear in mentions on some clients</h3>
+
+<p>
+  There have been reports of blocked users showing up in some people's mentions on
+  these clients: Tweetdeck, Twitter for Mac, Tweetbot, and Echofon. This is most
+  likely because of two factors:
+<p>
+  <ul>
+    <li>The Twitter user streams API
+	<a href="https://dev.twitter.com/streaming/userstreams#filtering_tweet_for_display"
+	>delivers mentions even for blocked users</a>. Clients are required to
+	fetch the current list of blocks from <a
+	href="https://dev.twitter.com/rest/reference/get/blocks/ids">/blocks/ids</a>
+	and filter blocked users locally.
+    </li>
+    <li>The <a href="https://dev.twitter.com/rest/reference/get/blocks/ids">/blocks/ids</a>
+	API call returns a maximum of 5000 blocked user ids. If there are more
+	than 5000 blocked user ids, the client must implement cursoring to get the
+	rest.</li>
+  </ul>
+  
+<p>
+It's likely that many streaming clients make a single call to /blocks/ids on
+startup and do not implement cursoring for that call. In those clients, users
+that block more than 5000 accounts may receive unwanted mentions from accounts
+they block. The response from /blocks/ids happens to be ordered so that the first
+5000 accounts returned are the most recently blocked, so the most recently blocked
+accounts will be filtered and accounts blocked earlier won't be.
+</p>
+
+<p>
+Clients that rely on the streaming API to deliver mentions should make sure to
+implement cursoring on /blocks/ids to get the entire list.
+</p>
+
+<p>
+Note that there is a rate limit of fifteen requests per fifteen minutes, so clients should
+additionally make sure to handle a rate limit response (HTTP status code 429) by
+retrying in fifteen minutes, otherwise a similar problem will arise for the rare
+user who has more than 75,000 blocks. If you develop a client, email
+blocktogether@lists.riseup.net and I can provide temporary access to a testing
+account with &gt;75,000 blocks.
+</p>
+</body>
+</html>

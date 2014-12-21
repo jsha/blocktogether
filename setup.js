@@ -30,7 +30,7 @@ var twitter = new twitterAPI({
 });
 
 log4js.configure(configDir + nodeEnv + '/log4js.json', {
-  cwd: '/usr/local/blocktogether/shared/log'
+  cwd: '/data/blocktogether/shared/log'
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.
@@ -289,8 +289,8 @@ BtUser.find({
 var updateBlocksService = upnode.connect({
   createStream: function() {
     return tls.connect({
-      host: 'localhost',
-      port: 7000,
+      host: config.updateBlocks.host,
+      port: config.updateBlocks.port,
       // Provide a client certificate so the server knows it's us.
       cert: fs.readFileSync(configDir + 'rpc.crt'),
       key: fs.readFileSync(configDir + 'rpc.key'),
