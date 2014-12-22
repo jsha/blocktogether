@@ -7,6 +7,7 @@ var twitterAPI = require('node-twitter-api'),
     upnode = require('upnode'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
+    sequelize = require('sequelize'),
     setup = require('./setup'),
     subscriptions = require('./subscriptions'),
     updateUsers = require('./update-users');
@@ -21,6 +22,7 @@ var twitter = setup.twitter,
     Block = setup.Block;
 
 var ONE_DAY_IN_MILLIS = 86400 * 1000;
+var shuttingDown = false;
 
 /**
  * Find a user who hasn't had their blocks updated recently and update them.
@@ -220,6 +222,12 @@ function finalizeBlockBatch(blockBatch) {
   logger.info('Finished fetching blocks for user', blockBatch.source_uid,
     'batch', blockBatch.id);
   // Mark the BlockBatch as complete and save that bit.
+  // TODO: Don't mark as complete until all block diffing and fanout is
+  // complete, otherwise there is potential to drop things on the floor.
+  // For now, just exit early if we are in the shutdown phase.
+  if (shuttingDown) {
+    return Q.resolve(null);
+  }
   blockBatch.complete = true;
   return blockBatch
     .save()
@@ -471,6 +479,8 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+var rpcStreams = [];
+
 /**
  * Set up a dnode RPC server (using the upnode library, which can handle TLS
  * transport) so other daemons can send requests to update blocks.
@@ -487,14 +497,19 @@ function setupServer() {
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {
       this.updateBlocksForUid = function(uid, cb) {
-        updateBlocksForUid(uid).then(function() {
-          cb();
-        });
+        updateBlocksForUid(uid).then(cb);
       };
     });
     up.pipe(stream).pipe(up);
+    // Keep track of open streams to close them on graceful exit.
+    // Note: It seems that simply calling stream.socket.unref() is insufficient,
+    // because upnode's piping make Node stay alive.
+    rpcStreams.push(stream);
   });
-  server.listen(8100);
+  // Don't let the RPC server keep the process alive during a graceful exit.
+  server.unref();
+  server.listen(setup.config.updateBlocks.port);
+  return server;
 }
 
 module.exports = {
@@ -502,7 +517,24 @@ module.exports = {
 };
 
 if (require.main === module) {
-  setInterval(findAndUpdateBlocks, 60 * 1000);
-  setupServer();
+  logger.info('Starting up.');
+  var interval = setInterval(findAndUpdateBlocks, 60 * 1000);
+  var server = setupServer();
+  var gracefulExit = function() {
+    // On the second try, exit straight away.
+    if (shuttingDown) {
+      process.exit(0);
+    } else {
+      shuttingDown = true;
+      logger.info('Closing up shop.');
+      clearInterval(interval);
+      server.close();
+      rpcStreams.forEach(function(stream) {
+        stream.destroy();
+      });
+      setup.gracefulShutdown();
+    }
+  }
+  process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
 }
 })();
