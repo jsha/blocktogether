@@ -11,7 +11,7 @@ $(function(){
   }
 
   function errorHandler(jqXHR, textStatus, errorThrown) {
-    alert('Error: ' + textStatus + errorThrown);
+    alert('Error: ' + textStatus + " " + errorThrown);
   }
   function doAction(type) {
     var checkedUids = $('.checkbox:checked').map(function (el) {

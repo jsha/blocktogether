@@ -43,8 +43,10 @@
             {{/logged_in_screen_name}}
             {{^logged_in_screen_name}}
             <ul class="nav navbar-nav navbar-right">
-              <li><a href="/auth/twitter">Log On</a></li>
+              <li><a class="log-on-link" href="#">Log On</a></li>
             </ul>
+            <form id="log-on-form" action="/auth/twitter" method="POST">
+            </form>
             {{/logged_in_screen_name}}
           </div><!-- /.navbar-collapse -->
         </div><!-- /.container-fluid -->
