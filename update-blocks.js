@@ -24,6 +24,8 @@ var twitter = setup.twitter,
 var ONE_DAY_IN_MILLIS = 86400 * 1000;
 var shuttingDown = false;
 
+var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
+
 /**
  * Find a user who hasn't had their blocks updated recently and update them.
  */
@@ -34,7 +36,7 @@ function findAndUpdateBlocks() {
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
-      return Q.reject("No users need blocks updated at this time.");
+      return Q.reject(NO_UPDATE_NEEDED);
     } else {
       // HACK: mark the user as updated. This allows us to iterate through the
       // BtUsers table looking for users that haven't had their blocks updated
@@ -70,7 +72,11 @@ function findAndUpdateBlocks() {
       return updateBlocks(user);
     }
   }).catch(function(err) {
-    logger.error(err);
+    if (err === NO_UPDATE_NEEDED) {
+      logger.info(err.message);
+    } else {
+      logger.error(err);
+    }
   });
 }
 
@@ -109,9 +115,6 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    // A function that can simply be called again to run this once more with an
-    // updated cursor.
-    var getMore = fetchAndStoreBlocks.bind(null, user, blockBatch);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -132,6 +135,8 @@ function updateBlocks(user) {
         }).then(function(createdBlockBatch) {
           blockBatch = createdBlockBatch;
           return handleIds(blockBatch, currentCursor, results[0]);
+        }).catch(function(err) {
+          logger.info(err);
         });
       } else {
         return handleIds(blockBatch, currentCursor, results[0]);
@@ -165,8 +170,11 @@ function updateBlocks(user) {
               return fetchAndStoreBlocks(user, blockBatch, currentCursor);
             });
         }
+      } else if (err.statusCode) {
+        logger.error('Error /blocks/ids', user, err.statusCode, err.data, err);
+        return Q.resolve(null);
       } else {
-        logger.error('Error /blocks/ids', err.statusCode, err.data, err);
+        logger.error('Error /blocks/ids', user, err);
         return Q.resolve(null);
       }
     });
@@ -178,10 +186,10 @@ function updateBlocks(user) {
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
+  }).catch(function(err) {
+    logger.error(err);
+  }).finally(function() {
     logger.info('Deleting activeFetches[', user, '].');
-    delete activeFetches[user.uid];
-  }).catch(function() {
-    logger.info('Error, deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
 
@@ -196,6 +204,11 @@ function updateBlocks(user) {
  * @param {Object} results
  */
 function handleIds(blockBatch, currentCursor, results) {
+  if (!blockBatch) {
+    return Q.reject('No blockBatch passed to handleIds');
+  } else if (!results || !results.ids) {
+    return Q.reject('Invalid results passed to handleIds:', results);
+  }
   // Update the current cursor stored with the blockBatch.
   blockBatch.currentCursor = currentCursor;
   blockBatch.size += results.ids.length;
@@ -219,6 +232,9 @@ function handleIds(blockBatch, currentCursor, results) {
 }
 
 function finalizeBlockBatch(blockBatch) {
+  if (!blockBatch) {
+    return Q.reject('No blockBatch passed to finalizeBlockBatch');
+  }
   logger.info('Finished fetching blocks for user', blockBatch.source_uid,
     'batch', blockBatch.id);
   // Mark the BlockBatch as complete and save that bit.
