@@ -30,7 +30,7 @@ var twitter = new twitterAPI({
 });
 
 log4js.configure(configDir + nodeEnv + '/log4js.json', {
-  cwd: '/usr/local/blocktogether/shared/log'
+  cwd: '/data/blocktogether/shared/log'
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.
@@ -296,8 +296,8 @@ function remoteUpdateBlocks(user) {
     updateBlocksService = upnode.connect({
       createStream: function() {
         var stream = tls.connect({
-          host: 'localhost',
-          port: 8100,
+          host: config.updateBlocks.host,
+          port: config.updateBlocks.port,
           // Provide a client certificate so the server knows it's us.
           cert: fs.readFileSync(configDir + 'rpc.crt'),
           key: fs.readFileSync(configDir + 'rpc.key'),

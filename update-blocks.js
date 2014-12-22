@@ -91,7 +91,8 @@ function updateBlocksForUid(uid) {
 function updateBlocks(user) {
   // Don't create multiple pending block update requests at the same time.
   if (activeFetches[user.uid]) {
-    logger.info('User', user, 'already updating blocks, skipping duplicate.');
+    logger.info('User', user, 'already updating, skipping duplicate. Status:',
+      activeFetches[user.uid].inspect());
     return Q.resolve(null);
   } else {
     logger.info('Updating blocks for', user);
@@ -140,7 +141,7 @@ function updateBlocks(user) {
       if (nextCursor === '0') {
         return finalizeBlockBatch(blockBatch);
       } else {
-        logger.debug('Cursoring ', nextCursor);
+        logger.debug('Batch', blockBatch.id, 'cursoring', nextCursor);
         return fetchAndStoreBlocks(user, blockBatch, nextCursor);
       }
     }).catch(function (err) {
@@ -157,8 +158,8 @@ function updateBlocks(user) {
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
-          logger.info('Rate limited /blocks/ids', user,
-            'Trying again in 15 minutes.');
+          logger.info('Rate limited /blocks/ids', user, 'batch',
+            blockBatch.id, 'Trying again in 15 minutes.');
           return Q.delay(15 * 60 * 1000)
             .then(function() {
               return fetchAndStoreBlocks(user, blockBatch, currentCursor);
@@ -177,8 +178,10 @@ function updateBlocks(user) {
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
+    logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   }).catch(function() {
+    logger.info('Error, deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
 
@@ -216,7 +219,8 @@ function handleIds(blockBatch, currentCursor, results) {
 }
 
 function finalizeBlockBatch(blockBatch) {
-  logger.info('Finished fetching blocks for user', blockBatch.source_uid);
+  logger.info('Finished fetching blocks for user', blockBatch.source_uid,
+    'batch', blockBatch.id);
   // Mark the BlockBatch as complete and save that bit.
   // TODO: Don't mark as complete until all block diffing and fanout is
   // complete, otherwise there is potential to drop things on the floor.
@@ -282,13 +286,27 @@ function diffBatchWithPrevious(currentBatch) {
         var start = process.hrtime();
         var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
         var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-        var elapsed = process.hrtime(start)[1] / 1000000;
+        var elapsedMs = process.hrtime(start)[1] / 1000000;
         logger.debug('Block diff for', source_uid,
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
-          'time:', elapsed);
-        addedBlockIds.forEach(function(sink_uid) {
-          recordAction(source_uid, sink_uid, Action.BLOCK);
+          'msecs:', Math.round(elapsedMs));
+
+        var blockActionPromises = addedBlockIds.map(function(sink_uid) {
+          return recordAction(source_uid, sink_uid, Action.BLOCK);
+        });
+        // Enqueue blocks for subscribing users.
+        // NOTE: subscription fanout for unblocks happens within
+        // recordUnblocksUnlessDeactivated.
+        // TODO: use allSettled so even if some fail, we still fanout the rest
+        Q.all(blockActionPromises)
+          .then(function(actions) {
+          // Actions are not recorded if they already exist, i.e. are not
+          // external actions. Those come back as null and are filtered in
+          // fanoutActions.
+          subscriptions.fanoutActions(actions);
+        }).catch(function(err) {
+          logger.error(err);
         });
         // Make sure any new ids are in the TwitterUsers table.
         addIdsToTwitterUsers(addedBlockIds);
@@ -299,9 +317,11 @@ function diffBatchWithPrevious(currentBatch) {
       // If it's the first block fetch for this user, make sure all the blocked
       // uids are in TwitterUsers.
       if (currentBatch) {
-        currentBatch.getBlocks().then(function(blocks) {
-          addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+        return currentBatch.getBlocks().then(function(blocks) {
+          return addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
         });
+      } else {
+        return Q.resolve(null);
       }
     }
   }).catch(function(err) {
@@ -317,45 +337,64 @@ function diffBatchWithPrevious(currentBatch) {
  * table.
  *
  * Note: We don't do this check for blocks, which leads to a bit of asymmetry:
- * if a user deactivates and reactivates, there will be an external block entry
+ * if an account deactivates and reactivates, there will be an external block entry
  * in Actions but no corresponding external unblock. This is fine. The main
- * reason we care about not recording unblocks for users that were really just
+ * reason we care about not recording unblocks for accounts that were really just
  * deactivated is to avoid triggering unblock/reblock waves for subscribers when
- * users frequently deactivate / reactivate. Also, part of the product spec for
- * shared block lists is that blocked users remain on shared lists even if they
- * deactivate.
+ * a shared block list includes accounts that frequently deactivate / reactivate.
+ * Also, part of the product spec for shared block lists is that blocked users
+ * remain on shared lists even if they deactivate.
  *
  * @param {string} source_uid Uid of user doing the unblocking.
  * @param {Array.<string>} sink_uids List of uids that disappeared from a user's
  *   /blocks/ids.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
-  while (sink_uids.length > 0) {
-    // Pop 100 uids off of the list.
-    var uidsToQuery = sink_uids.splice(0, 100);
-    twitter.users('lookup', {
-        skip_status: 1,
-        user_id: uidsToQuery.join(',')
-      },
-      setup.config.defaultAccessToken, setup.config.defaultAccessTokenSecret,
-      function(err, response) {
-        if (err && err.statusCode === 404) {
-          logger.info('All unblocked users deactivated, ignoring unblocks.');
-        } else if (err) {
-          logger.error('Error /users/lookup', err.statusCode, err.data, err,
-            'ignoring', uidsToQuery.length, 'unblocks');
-        } else {
-          // If a uid was present in the response, the user is not deactivated,
-          // so go ahead and record it as an unblock.
-          var indexedResponses = _.indexBy(response, 'id_str');
-          uidsToQuery.forEach(function(sink_uid) {
-            if (indexedResponses[sink_uid]) {
-              recordAction(source_uid, sink_uid, Action.UNBLOCK);
+  // Use credentials from the source_uid to check for unblocks. We could use the
+  // defaultAccessToken, but there's a much higher chance of that token being
+  // rate limited for user lookups, which would cause us to miss unblocks.
+  BtUser.find(source_uid)
+    .then(function(user) {
+      if (!user) {
+        return Q.reject("No user found for " + source_uid);
+      }
+      while (sink_uids.length > 0) {
+        // Pop 100 uids off of the list.
+        var uidsToQuery = sink_uids.splice(0, 100);
+        twitter.users('lookup', {
+            skip_status: 1,
+            user_id: uidsToQuery.join(',')
+          },
+          user.access_token, user.access_token_secret,
+          function(err, response) {
+            if (err && err.statusCode === 404) {
+              logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err) {
+              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+                'ignoring', uidsToQuery.length, 'unblocks');
+            } else {
+              // If a uid was present in the response, the user is not deactivated,
+              // so go ahead and record it as an unblock.
+              var indexedResponses = _.indexBy(response, 'id_str');
+              var recordedActions = uidsToQuery.map(function(sink_uid) {
+                if (indexedResponses[sink_uid]) {
+                  return recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                } else {
+                  return Q.resolve(null);
+                }
+              });
+              Q.all(recordedActions)
+                .then(function(actions) {
+                  subscriptions.fanoutActions(actions);
+                }).catch(function(err) {
+                  logger.error(err);
+                });
             }
           });
-        }
-      });
-  }
+      }
+    }).catch(function(err) {
+      logger.error(err);
+    });
 }
 
 /**
@@ -387,6 +426,18 @@ function destroyOldBlocks(userId) {
   });
 }
 
+/**
+ * Given an observed block or unblock, possibly record it in the Actions table.
+ * The block or unblock may have shown up because the user actually blocked or
+ * unblocked someone in the Twitter app, or it may have shown up because Block
+ * Together recently executed a block or unblock action. In the latter case we
+ * don't want to record a duplicate in the Actions table; The existing record,
+ * in 'done' state, tells the whole story. So we check for such past actions and
+ * don't record a new action if they exist.
+ *
+ * @return {Promise.<Action|null>} createdAction If the action was indeed
+ *   externally triggered and we recorded it, the action created. Otherwise null.
+ */
 function recordAction(source_uid, sink_uid, type) {
   // Most of the contents of the action to be created. Stored here because they
   // are also useful to query for previous actions.
@@ -402,7 +453,7 @@ function recordAction(source_uid, sink_uid, type) {
     'status': Action.DONE
   }
 
-  Action.find({
+  return Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
         // Look only at actions updated within the last day.
@@ -420,13 +471,6 @@ function recordAction(source_uid, sink_uid, type) {
         cause: Action.EXTERNAL,
         cause_uid: null
       }));
-    } else {
-      return null;
-    }
-  // Enqueue blocks and unblocks for subscribing users.
-  }).then(function(newAction) {
-    if (newAction) {
-      return subscriptions.fanout(newAction);
     } else {
       return null;
     }
@@ -464,7 +508,7 @@ function setupServer() {
   });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();
-  server.listen(8100);
+  server.listen(setup.config.updateBlocks.port);
   return server;
 }
 
