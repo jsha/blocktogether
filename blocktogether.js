@@ -91,7 +91,7 @@ function makeApp() {
           constantTimeEquals(user.access_token, sessionUser.accessToken)) {
         done(null, user);
       } else {
-        logger.error('Incorrect access token in session for', user);
+        logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
     });
@@ -587,6 +587,13 @@ app.post('/do-actions.json',
 // Error handler. Must come after all routes.
 app.use(function(err, req, res, next){
   logger.error(err.stack);
+  // If there was an authentication issue, clear all cookies so the user can try
+  // logging in again.
+  if (err.message === 'Failed to deserialize user out of session') {
+    res.clearCookie('express:sess');
+    res.clearCookie('express:sess.sig');
+    res.clearCookie('uid');
+  }
   res.status(500);
   res.header('Content-Type', 'text/html');
   mu.compileAndRender('error.mustache', {
