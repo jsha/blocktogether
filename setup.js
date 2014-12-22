@@ -34,7 +34,8 @@ log4js.configure(configDir + nodeEnv + '/log4js.json', {
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.
-var scriptName = path.basename(require.main.filename).replace(".js", "");
+var scriptName = path.basename(require.main ? require.main.filename : 'repl')
+  .replace(".js", "");
 var logger = log4js.getLogger(scriptName);
 
 var sequelizeConfigData = fs.readFileSync(
@@ -274,10 +275,10 @@ BtUser.find({
   where: {
     screen_name: config.userToFollow
   }
-}).error(function(err) {
-  logger.error(err);
-}).success(function(user) {
+}).then(function(user) {
   _.assign(userToFollow, user);
+}).catch(function(err) {
+  logger.error(err);
 });
 
 /**

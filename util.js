@@ -13,25 +13,15 @@ var Q = require('q'),
  * @param {Array} list List of items to process
  * @param {Number} interval Time in milliseconds to wait between each processing
  *   batch.
- * @param {Function} f Function to call on each item.
+ * @param {Function} f Function to call on each item. Should return a Promise.
+ * @return {Promise.<Array.<Object> >} A promise that resolves once all the
+ *   component promises are settled.
  */
 function slowForEach(list, interval, f) {
-  var deferred = Q.defer();
-  var items = list.slice();
-  // Start a stream for each user, spaced 100 ms apart. Once all users have had
-  // their stream started, start the periodic process of checking for any
-  // streams that have failed and restarting them.
-  function run() {
-    if (items.length) {
-      var current = items.shift();
-      f(current);
-      setTimeout(run, interval);
-    } else {
-      deferred.resolve();
-    }
-  }
-  run();
-  return deferred.promise;
+  var promises = list.map(function(item, i) {
+    return Q.delay(i * interval).then(f.bind(null, item));
+  });
+  return Q.allSettled(promises);
 }
 
 function runWithoutOverlap(registry, item, f) {
@@ -54,6 +44,7 @@ module.exports = {
 if (require.main === module) {
   slowForEach([1, 2, 3], 1000, function(item) {
     console.log(item);
+    if (item === 2) { throw new Error('hate even numbers'); }
   }).then(function() {
     console.log('Done!');
   });
