@@ -93,6 +93,10 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
   // of the sink_uid (and therefore shouldn't auto-block) will be handled
   // inside actions.js.
   if (inputAction.type === Action.BLOCK) {
+    // TODO: This should probably use actions.queueActions to take advantage of
+    // its instant kickoff of a processing run. But right now that run would
+    // take place in-process, adding extra work for update-blocks.js, which is
+    // already a CPU bottleneck.
     return Action.bulkCreate(actions);
   } else {
     // For Unblock Actions, we only want to fan out the unblock to users
@@ -141,6 +145,7 @@ function unblockFromSubscription(proposedUnblock) {
       logger.debug('Subscription-unblock: no previous block found', logInfo);
     } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
       _.contains(validCauses, prevAction.cause)) {
+      // TODO: Use actions.queueActions here.
       return Action.create(proposedUnblock);
     } else {
       logger.debug('Subscription-unblock: previous block not matched', logInfo);
