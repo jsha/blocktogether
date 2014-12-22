@@ -18,20 +18,20 @@ var logger = setup.logger,
 function fanoutActions(actions) {
   actions = _.filter(actions, null);
   if (actions.length === 0) {
-    logger.debug('No non-null actions.');
+    logger.debug('fanoutActions called with all null actions, skipping.');
     return Q.resolve([]);
   }
   var source_uids = Object.keys(_.indexBy(actions, 'source_uid'));
   if (source_uids.length > 1) {
-    return Q.reject('Bad argument to fanoutActions: multiple sources:', actions);
+    return Q.reject('Bad arg to fanoutActions: multiple sources:', actions);
   }
   if (!_.every(actions, { cause: Action.EXTERNAL })) {
-    return Q.reject('Bad argument to fanoutActions: not external:', actions);
+    return Q.reject('Bad arg to fanoutActions: not external:', actions);
   }
   if (!_.every(actions, function(action) {
     return action.type == Action.BLOCK || action.type === Action.UNBLOCK;
   })) {
-    return Q.reject('Bad argument to fanoutActions: not external:', actions);
+    return Q.reject('Bad arg to fanoutActions: not block/unblock:', actions);
   }
 
   // Look up the relevant subscriptions once then use that list of subscriptions
