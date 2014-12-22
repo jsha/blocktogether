@@ -137,7 +137,15 @@ function unblockFromSubscription(proposedUnblock) {
       type: Action.BLOCK,
       source_uid: proposedUnblock.source_uid,
       sink_uid: proposedUnblock.sink_uid,
-      status: [Action.DONE, Action.PENDING]
+      // NOTE: Intuitively Action.PENDING should be included here: If an author
+      // blocks an account, then unblocks it immediately while the fanned-out
+      // actions are still pending, the unblocks should also fanout.
+      // HOWEVER, that would mean that if subscriber S independently has account
+      // T blocked, then an author they subscribe to could very quickly block
+      // and unblock T, which would cause an unblock of T on the subscriber's
+      // account. This is probably an argument of 'enqueue it all and sort it
+      // out when executing actions.'
+      status: Action.DONE
     },
     order: 'updatedAt DESC'
   }).then(function(prevAction) {
