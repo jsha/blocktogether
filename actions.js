@@ -185,8 +185,8 @@ function cancelSourceDeactivated(uid) {
   }, { /* where */
     source_uid: uid,
     status: Action.PENDING
-  }).then(function(action) {
-    return action;
+  }).then(function(actions) {
+    return actions;
   }).catch(function(err) {
     logger.error(err);
   })
@@ -198,7 +198,7 @@ function doBlock(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace(result);
+      logger.trace('/blocks/create', sourceBtUser, sink_uid, result);
       return result;
     });
 }
@@ -209,7 +209,7 @@ function doUnblock(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace(result);
+      logger.trace('/blocks/destroy', sourceBtUser, sink_uid, result);
       return result;
     });
 }
@@ -220,7 +220,7 @@ function doMute(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace(result);
+      logger.trace('/mutes/users/create', sourceBtUser, sink_uid, result);
       return result;
     });
 }
@@ -230,7 +230,7 @@ function getFriendships(btUser, sinkUids) {
       user_id: sinkUids.join(',')
     }, btUser.access_token, btUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace(result);
+      logger.trace('/friendships/lookup', btUser, sinkUids, result);
       return result;
     });
 }
@@ -247,9 +247,9 @@ function processUnblocksForUser(btUser, actions) {
   // available socket for them. We may want to simplify the blocks code to do
   // the same.
   return Q.all(actions.map(function(action) {
-    if (action.type != 'unblock') {
-      return Q.reject("Shouldn't happen: non-unblock action "
-        + btUser.dataValues);
+    if (action.type !== 'unblock') {
+      return Q.reject("Shouldn't happen: non-unblock action " + btUser +
+        " " + action.dataValues);
     }
     return doUnblock(btUser, action.sink_uid).then(function() {
       logger.info('Unblocked', btUser, '-->', action.sink_uid);
@@ -278,10 +278,11 @@ function processUnblocksForUser(btUser, actions) {
 
 function processMutesForUser(btUser, actions) {
   return Q.all(actions.map(function(action) {
-    if (action.type != 'mute') {
-      logger.error("Shouldn't happen: non-mute action", btUser);
+    if (action.type !== 'mute') {
+      return Q.reject("Shouldn't happen: non-mute action " + btUser +
+        " " + action.dataValues);
     }
-    doMute(btUser, action.sink_uid).then(function() {
+    return doMute(btUser, action.sink_uid).then(function() {
       logger.info('Muted', btUser, '-->', action.sink_uid);
       return setActionStatus(action, Action.DONE);
     }).catch(function(err) {
@@ -370,9 +371,6 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
     }
   }).then(function(unblocks) {
     var indexedUnblocks = _.indexBy(unblocks, 'sink_uid');
-    // TODO: Make this a slowForEach. Note that requires a change to slowForEach
-    // so it can collect the return values of the function it calls into one big
-    // promise.
     return util.slowForEach(actions, 70, function(action) {
       return cancelOrPerformBlock(
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
@@ -385,20 +383,20 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
 
 /**
  * After fetching friendships results from the Twitter API, process action
- * and block if appropriate.
+ * and block if appropriate. Otherwise cancel.
  *
  * @param{BtUser} sourceBtUser The user doing the blocking.
  * @param{Object} indexedFriendships A map from sink uids to friendship objects
  *   as returned by the Twitter API.
  * @param{Object} indexedUnblocks A map from sink uids to previous unblock
  *   action, if present.
- * @param{Array.<Action>} actions The list of actions to be performed or
- *   cancelled.
+ * @param{Array.<Action>} action An action to be performed or cancelled.
+ * @return{Promise.<Action>}
  */
 function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks, action) {
   // Sanity check that this is a block, not some other action.
   if (action.type != 'block') {
-    return Q.reject("Shouldn't happen: non-block action" + sourceBtUser);
+    return Q.reject("Shouldn't happen: non-block action " + sourceBtUser);
   }
   var sink_uid = action.sink_uid;
   var friendship = indexedFriendships[sink_uid];

@@ -6,7 +6,7 @@ var Q = require('q'),
 
 /**
  * Run a function for each element in the list, with an interval between each
- * run. Doesn't attempt to wait on any promises the function may return.
+ * run.
  * Useful for spreading out processing batches so they don't happen too fast,
  * which is especially helpful for Twitter API calls because it allows more
  * connection reuse.
@@ -24,24 +24,12 @@ function slowForEach(list, interval, f) {
   return Q.allSettled(promises);
 }
 
-function runWithoutOverlap(registry, item, f) {
-  if (registry[item]) {
-    logger.info('Skipping call of', f.name + '(' + item + '), already running.');
-  } else {
-    var promise = f(item);
-    registry[item] = promise;
-    promise.finally(function() {
-      delete registry[item];
-    });
-  }
-}
-
 module.exports = {
-  slowForEach: slowForEach,
-  runWithoutOverlap: runWithoutOverlap
+  slowForEach: slowForEach
 };
 
 if (require.main === module) {
+  // A micro sanity test.
   slowForEach([1, 2, 3], 1000, function(item) {
     console.log(item);
     if (item === 2) { throw new Error('hate even numbers'); }
