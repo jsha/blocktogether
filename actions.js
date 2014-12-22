@@ -198,7 +198,8 @@ function doBlock(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/blocks/create', sourceBtUser, sink_uid, result);
+      logger.trace('/blocks/create', sourceBtUser, sinkUid,
+        response.statusCode);
       return result;
     });
 }
@@ -209,7 +210,8 @@ function doUnblock(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/blocks/destroy', sourceBtUser, sink_uid, result);
+      logger.trace('/blocks/destroy', sourceBtUser, sinkUid,
+        response.statusCode);
       return result;
     });
 }
@@ -220,7 +222,8 @@ function doMute(sourceBtUser, sinkUid) {
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/mutes/users/create', sourceBtUser, sink_uid, result);
+      logger.trace('/mutes/users/create', sourceBtUser, sinkUid,
+        response.statusCode);
       return result;
     });
 }
@@ -230,7 +233,8 @@ function getFriendships(btUser, sinkUids) {
       user_id: sinkUids.join(',')
     }, btUser.access_token, btUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/friendships/lookup', btUser, sinkUids, result);
+      logger.trace('/friendships/lookup', btUser, sinkUids,
+        response.statusCode);
       return result;
     });
 }
@@ -404,7 +408,8 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
   // executed.
   var newState = null;
 
-  logger.trace('Friendship', sourceBtUser,'--friend?-->', sink_uid, friendship);
+  logger.trace('Friendship', sourceBtUser, '--friend?-->',
+    friendship.screen_name, sink_uid, friendship.connections);
   // If no friendship for this action was returned by /1.1/users/lookup,
   // that means the sink_uid was suspened or deactivated, so defer the Action.
   if (!friendship) {

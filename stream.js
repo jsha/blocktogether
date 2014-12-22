@@ -48,8 +48,8 @@ function startStreams() {
     startStream(allUsers[uid]);
   }).then(function() {
     logger.info('Done with initial stream starts, moving to refresh mode.');
-    setInterval(refreshUsers, 1000);
-    setInterval(refreshStreams, 5000);
+    setInterval(refreshUsers, 20000);
+    setInterval(refreshStreams, 10000);
   }).catch(function(err) {
     logger.error(err);
   });
