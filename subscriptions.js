@@ -1,6 +1,6 @@
 'use strict';
 (function() {
-var Promise = require('q'),
+var Q = require('q'),
     _ = require('sequelize').Utils._,
     setup = require('./setup');
 
@@ -8,9 +8,53 @@ var logger = setup.logger,
     Action = setup.Action,
     Subscription = setup.Subscription;
 
-// TODO: Make this call Subscription.findAll once to be more efficient.
+/**
+ * Given a set of actions that were observed by update-blocks and recorded as
+ * external actions (i.e. the user blocked or unblocked some accounts using
+ * Twitter for Web or some other client), fan those actions out to subscribers.
+ * First we look up the list of subscribers so we can exit fast in the common
+ * case that someone has no subscribers.
+ */
 function fanoutActions(actions) {
-  actions.forEach(fanout);
+  actions = _.filter(actions, null);
+  if (actions.length === 0) {
+    logger.debug('No non-null actions.');
+    return Q.resolve([]);
+  }
+  var source_uids = Object.keys(_.indexBy(actions, 'source_uid'));
+  if (source_uids.length > 1) {
+    return Q.reject('Bad argument to fanoutActions: multiple sources:', actions);
+  }
+  if (!_.every(actions, { cause: Action.EXTERNAL })) {
+    return Q.reject('Bad argument to fanoutActions: not external:', actions);
+  }
+  if (!_.every(actions, function(action) {
+    return action.type == Action.BLOCK || action.type === Action.UNBLOCK;
+  })) {
+    return Q.reject('Bad argument to fanoutActions: not external:', actions);
+  }
+
+  // Look up the relevant subscriptions once then use that list of subscriptions
+  // when fanning out each individual action. We may want at some point to just
+  // directly do the N * M expansion and do one big bulkCreate, but that
+  // requires that we simplify how unblocks work.
+  return Subscription.findAll({
+    where: {
+      author_uid: source_uids[0]
+    }
+  }).then(function(subscriptions) {
+    if (subscriptions && subscriptions.length > 0) {
+      logger.info('Fanning out', actions.length, 'actions from',
+        source_uids[0], 'to', subscriptions.length, 'subscribers.');
+      return actions.map(function(action) {
+        fanoutWithSubscriptions(action, subscriptions);
+      });
+    } else {
+      return Q.resolve([]);
+    }
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
@@ -23,49 +67,34 @@ function fanoutActions(actions) {
  * @param {Action} An Action to fan out to subscribers.
  * @returns {Promise<Action[]>}
  */
-function fanout(inputAction) {
-  if (inputAction &&
-      inputAction.cause === Action.EXTERNAL &&
-      (inputAction.type === Action.BLOCK ||
-       inputAction.type === Action.UNBLOCK)) {
-    Subscription.findAll({
-      where: {
-        author_uid: inputAction.source_uid
-      }
-    }).then(function(subscriptions) {
-      if (subscriptions && subscriptions.length > 0) {
-        var actions = subscriptions.map(function(subscription) {
-          return {
-            source_uid: subscription.subscriber_uid,
-            sink_uid: inputAction.sink_uid,
-            type: inputAction.type,
-            cause: Action.SUBSCRIPTION,
-            cause_uid: inputAction.source_uid,
-            'status': Action.PENDING
-          };
-        });
-        // For Block Actions, fanout is very simple: Just create all the
-        // corresponding Block Actions. Users who have a previous manual unblock
-        // of the sink_uid (and therefore shouldn't auto-block) will be handled
-        // inside actions.js.
-        if (inputAction.type === Action.BLOCK) {
-          return Action.bulkCreate(actions);
-        } else {
-          // For Unblock Actions, we only want to fan out the unblock to users
-          // who originally blocked the given user due to a subscription.
-          // Pass each Action through unblockFromSubscription to check the cause
-          // of the most recent corresponding block, if any.
-          return Promise.all(actions.map(unblockFromSubscription));
-        }
-      } else {
-        return [];
-      }
-    }).catch(function(err) {
-      logger.error(err);
-    })
+function fanoutWithSubscriptions(inputAction, subscriptions) {
+  var actions = subscriptions.map(function(subscription) {
+    return {
+      source_uid: subscription.subscriber_uid,
+      sink_uid: inputAction.sink_uid,
+      type: inputAction.type,
+      cause: Action.SUBSCRIPTION,
+      cause_uid: inputAction.source_uid,
+      'status': Action.PENDING
+    };
+  });
+  // For Block Actions, fanout is very simple: Just create all the
+  // corresponding Block Actions. Users who have a previous manual unblock
+  // of the sink_uid (and therefore shouldn't auto-block) will be handled
+  // inside actions.js.
+  if (inputAction.type === Action.BLOCK) {
+    return Action.bulkCreate(actions);
   } else {
-    logger.error('Bad argument to fanout:', inputAction);
-    return [];
+    // For Unblock Actions, we only want to fan out the unblock to users
+    // who originally blocked the given user due to a subscription.
+    // Pass each Action through unblockFromSubscription to check the cause
+    // of the most recent corresponding block, if any.
+    // TODO: Maybe the filtering logic to only do unblocks that were
+    // originally due to a subscription should be handled in actions.js. That
+    // would be nice because actions.js can deal with things asynchronously
+    // and slow down gracefully under load, but subscription fanout has to
+    // happen in the already-complicated updateBlocks call chain.
+    return Q.all(actions.map(unblockFromSubscription));
   }
 }
 
@@ -94,12 +123,12 @@ function unblockFromSubscription(proposedUnblock) {
       type: Action.BLOCK,
       source_uid: proposedUnblock.source_uid,
       sink_uid: proposedUnblock.sink_uid,
-      status: Action.DONE
+      status: [Action.DONE, Action.PENDING]
     },
     order: 'updatedAt DESC'
   }).then(function(prevAction) {
     if (!prevAction) {
-      logger.debug('Subscription-unblock: no previous unblock found', logInfo);
+      logger.debug('Subscription-unblock: no previous block found', logInfo);
     } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
       _.contains(validCauses, prevAction.cause)) {
       return Action.create(proposedUnblock);
@@ -112,7 +141,7 @@ function unblockFromSubscription(proposedUnblock) {
 }
 
 module.exports = {
-  fanout: fanout,
+  fanoutActions: fanoutActions,
 }
 
 })();

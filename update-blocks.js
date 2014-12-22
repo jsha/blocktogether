@@ -283,18 +283,19 @@ function diffBatchWithPrevious(currentBatch) {
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
           'msecs:', Math.round(elapsedMs));
-        var actionPromises = addedBlockIds.map(function(sink_uid) {
+        var blockActionPromises = addedBlockIds.map(function(sink_uid) {
           return recordAction(source_uid, sink_uid, Action.BLOCK);
         });
         // Enqueue blocks and unblocks for subscribing users.
         // TODO: use allSettled so even if some fail, we still fanout the rest
-        Q.all(actionPromises, function(actions) {
+        Q.all(blockActionPromises)
+          .then(function(actions) {
           // Actions are not recorded if they already exist, i.e. are not
-          // external actions. Those come back as null; ignore them.
-          recordedActions = _.filter(actions, null);
-          if (recordedActions.length > 0) {
-            return subscriptions.fanoutActions(recordedActions);
-          }
+          // external actions. Those come back as null and are filtered in
+          // fanoutActions.
+          subscriptions.fanoutActions(actions);
+        }).catch(function(err) {
+          logger.error(err);
         });
         // Make sure any new ids are in the TwitterUsers table.
         addIdsToTwitterUsers(addedBlockIds);
@@ -340,7 +341,7 @@ function diffBatchWithPrevious(currentBatch) {
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
-  // rate limited for user lookups, causes us to miss unblocks.
+  // rate limited for user lookups, which would cause us to miss unblocks.
   BtUser.find(source_uid)
     .then(function(user) {
       if (!user) {
@@ -364,11 +365,19 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
               // If a uid was present in the response, the user is not deactivated,
               // so go ahead and record it as an unblock.
               var indexedResponses = _.indexBy(response, 'id_str');
-              uidsToQuery.forEach(function(sink_uid) {
+              var recordedActions = uidsToQuery.map(function(sink_uid) {
                 if (indexedResponses[sink_uid]) {
-                  recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                  return recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                } else {
+                  return Q.resolve(null);
                 }
               });
+              Q.all(recordedActions)
+                .then(function(actions) {
+                  subscriptions.fanoutActions(actions);
+                }).catch(function(err) {
+                  logger.error(err);
+                });
             }
           });
       }
@@ -433,7 +442,7 @@ function recordAction(source_uid, sink_uid, type) {
     'status': Action.DONE
   }
 
-  Action.find({
+  return Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
         // Look only at actions updated within the last day.
