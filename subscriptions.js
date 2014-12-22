@@ -11,9 +11,17 @@ var logger = setup.logger,
 /**
  * Given a set of actions that were observed by update-blocks and recorded as
  * external actions (i.e. the user blocked or unblocked some accounts using
- * Twitter for Web or some other client), fan those actions out to subscribers.
- * First we look up the list of subscribers so we can exit fast in the common
+ * Twitter for Web or some other client), fanout those actions to subscribers,
+ * i.e. add entries in the Action table for each subscriber with source_uid =
+ * that subscriber and cause = 'Subscription'.
+ *
+ * We look up the list of subscribers first so we can exit fast in the common
  * case that someone has no subscribers.
+ *
+ * @param {Array.<Action>} actions Block or unblock actions to fan out. May be
+ *   null. All must have the same source_uid and cause == 'external'.
+ * @return {Promise.<>} Promise that resolves once fanout is done. Type of
+ *   promise is not defined (TODO: make it consistent).
  */
 function fanoutActions(actions) {
   actions = _.filter(actions, null);
@@ -34,10 +42,12 @@ function fanoutActions(actions) {
     return Q.reject('Bad arg to fanoutActions: not block/unblock:', actions);
   }
 
-  // Look up the relevant subscriptions once then use that list of subscriptions
+  // Look up the relevant subscriptions once, then use that list of subscriptions
   // when fanning out each individual action. We may want at some point to just
   // directly do the N * M expansion and do one big bulkCreate, but that
-  // requires that we simplify how unblocks work.
+  // requires that we simplify how unblocks work. For now we just save the
+  // duplicate lookups in the Subscriptions table (especially useful when there
+  // are no subscriptions).
   return Subscription.findAll({
     where: {
       author_uid: source_uids[0]
@@ -47,7 +57,7 @@ function fanoutActions(actions) {
       logger.info('Fanning out', actions.length, 'actions from',
         source_uids[0], 'to', subscriptions.length, 'subscribers.');
       return actions.map(function(action) {
-        fanoutWithSubscriptions(action, subscriptions);
+        return fanoutWithSubscriptions(action, subscriptions);
       });
     } else {
       return Q.resolve([]);
@@ -65,7 +75,7 @@ function fanoutActions(actions) {
  * unblocks (from /my-blocks) should also trigger fanout.
  *
  * @param {Action} An Action to fan out to subscribers.
- * @returns {Promise<Action[]>}
+ * @return {Promise.<Action[]>}
  */
 function fanoutWithSubscriptions(inputAction, subscriptions) {
   var actions = subscriptions.map(function(subscription) {

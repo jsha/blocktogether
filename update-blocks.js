@@ -283,10 +283,13 @@ function diffBatchWithPrevious(currentBatch) {
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
           'msecs:', Math.round(elapsedMs));
+
         var blockActionPromises = addedBlockIds.map(function(sink_uid) {
           return recordAction(source_uid, sink_uid, Action.BLOCK);
         });
-        // Enqueue blocks and unblocks for subscribing users.
+        // Enqueue blocks for subscribing users.
+        // NOTE: subscription fanout for unblocks happens within
+        // recordUnblocksUnlessDeactivated.
         // TODO: use allSettled so even if some fail, we still fanout the rest
         Q.all(blockActionPromises)
           .then(function(actions) {
