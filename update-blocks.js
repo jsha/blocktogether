@@ -173,7 +173,7 @@ function updateBlocks(user) {
             });
         }
       } else if (err.statusCode) {
-        logger.error('Error /blocks/ids', user, err.statusCode, err.data, err);
+        logger.error('Error /blocks/ids', user, err.statusCode, err.data);
         return Q.resolve(null);
       } else {
         logger.error('Error /blocks/ids', user, err);
