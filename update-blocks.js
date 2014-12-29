@@ -1,4 +1,4 @@
-'use strict';
+//'use strict';
 (function() {
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
@@ -104,6 +104,7 @@ function updateBlocks(user) {
     logger.info('Updating blocks for', user);
   }
 
+  try {
   /**
    * For a given BtUser, fetch all current blocks and store in DB.
    *
@@ -115,6 +116,7 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
+    logger.info('fetchAndStoreBlocks', blockBatch ? blockBatch.id : null, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -192,6 +194,10 @@ function updateBlocks(user) {
     logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
+  } catch (e) {
+    logger.error('Exception in fetchAndStoreBlocks', e);
+    return Q.resolve(null);
+  }
 
   return fetchPromise;
 }
@@ -512,7 +518,9 @@ function setupServer() {
   };
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {
-      this.updateBlocksForUid = function(uid, cb) {
+      this.updateBlocksForUid = function(uid, callerName, cb) {
+        logger.info('Fulfilling remote update request for', uid,
+          'from', callerName);
         updateBlocksForUid(uid).then(cb);
       };
     });
