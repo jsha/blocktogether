@@ -83,7 +83,6 @@ function findAndUpdateBlocks() {
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  logger.info('Updating blocks for uid', uid);
   return BtUser.find(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
@@ -116,7 +115,7 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    logger.info('fetchAndStoreBlocks', blockBatch ? blockBatch.id : null, cursor);
+    logger.info('fetchAndStoreBlocks', user, blockBatch ? blockBatch.id : null, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -128,6 +127,7 @@ function updateBlocks(user) {
       user.access_token,
       user.access_token_secret
     ).then(function(results) {
+      logger.trace('/blocks/ids', user, currentCursor, results[0]);
       // Lazily create a BlockBatch after Twitter responds successfully. Avoids
       // creating excess BlockBatches only to get rate limited.
       if (!blockBatch) {
@@ -144,6 +144,7 @@ function updateBlocks(user) {
         return handleIds(blockBatch, currentCursor, results[0]);
       }
     }).then(function(nextCursor) {
+      logger.trace('nextCursor', user, nextCursor);
       // Check whether we're done or need to grab the items at the next cursor.
       if (nextCursor === '0') {
         return finalizeBlockBatch(blockBatch);
