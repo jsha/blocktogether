@@ -391,8 +391,11 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
           function(err, response) {
             if (err && err.statusCode === 404) {
               logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err && err.statusCode) {
+              logger.error('Error /users/lookup', user, err.statusCode, err.data,
+                'ignoring', uidsToQuery.length, 'unblocks');
             } else if (err) {
-              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+              logger.error('Error /users/lookup', user, err,
                 'ignoring', uidsToQuery.length, 'unblocks');
             } else {
               // If a uid was present in the response, the user is not deactivated,
