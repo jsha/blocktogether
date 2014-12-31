@@ -1,4 +1,4 @@
-'use strict';
+//'use strict';
 (function() {
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
@@ -25,6 +25,8 @@ var twitter = setup.twitter,
 var ONE_DAY_IN_MILLIS = 86400 * 1000;
 var shuttingDown = false;
 
+var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
+
 /**
  * Find a user who hasn't had their blocks updated recently and update them.
  */
@@ -35,7 +37,7 @@ function findAndUpdateBlocks() {
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
-      return Q.reject("No users need blocks updated at this time.");
+      return Q.reject(NO_UPDATE_NEEDED);
     } else {
       // HACK: mark the user as updated. This allows us to iterate through the
       // BtUsers table looking for users that haven't had their blocks updated
@@ -71,14 +73,17 @@ function findAndUpdateBlocks() {
       return updateBlocks(user);
     }
   }).catch(function(err) {
-    logger.error(err);
+    if (err === NO_UPDATE_NEEDED) {
+      logger.info(err.message);
+    } else {
+      logger.error(err);
+    }
   });
 }
 
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  logger.info('Updating blocks for uid', uid);
   return BtUser.find(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
@@ -99,6 +104,7 @@ function updateBlocks(user) {
     logger.info('Updating blocks for', user);
   }
 
+  try {
   /**
    * For a given BtUser, fetch all current blocks and store in DB.
    *
@@ -110,9 +116,7 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    // A function that can simply be called again to run this once more with an
-    // updated cursor.
-    var getMore = fetchAndStoreBlocks.bind(null, user, blockBatch);
+    logger.info('fetchAndStoreBlocks', user, blockBatch ? blockBatch.id : null, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -124,6 +128,7 @@ function updateBlocks(user) {
       user.access_token,
       user.access_token_secret
     ).then(function(results) {
+      logger.trace('/blocks/ids', user, currentCursor, results[0]);
       // Lazily create a BlockBatch after Twitter responds successfully. Avoids
       // creating excess BlockBatches only to get rate limited.
       if (!blockBatch) {
@@ -133,11 +138,14 @@ function updateBlocks(user) {
         }).then(function(createdBlockBatch) {
           blockBatch = createdBlockBatch;
           return handleIds(blockBatch, currentCursor, results[0]);
+        }).catch(function(err) {
+          logger.info(err);
         });
       } else {
         return handleIds(blockBatch, currentCursor, results[0]);
       }
     }).then(function(nextCursor) {
+      logger.trace('nextCursor', user, nextCursor);
       // Check whether we're done or need to grab the items at the next cursor.
       if (nextCursor === '0') {
         return finalizeBlockBatch(blockBatch);
@@ -166,8 +174,11 @@ function updateBlocks(user) {
               return fetchAndStoreBlocks(user, blockBatch, currentCursor);
             });
         }
+      } else if (err.statusCode) {
+        logger.error('Error /blocks/ids', user, err.statusCode, err.data);
+        return Q.resolve(null);
       } else {
-        logger.error('Error /blocks/ids', err.statusCode, err.data, err);
+        logger.error('Error /blocks/ids', user, err);
         return Q.resolve(null);
       }
     });
@@ -179,12 +190,16 @@ function updateBlocks(user) {
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
+  }).catch(function(err) {
+    logger.error(err);
+  }).finally(function() {
     logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
-  }).catch(function() {
-    logger.info('Error, deleting activeFetches[', user, '].');
-    delete activeFetches[user.uid];
   });
+  } catch (e) {
+    logger.error('Exception in fetchAndStoreBlocks', e);
+    return Q.resolve(null);
+  }
 
   return fetchPromise;
 }
@@ -197,6 +212,11 @@ function updateBlocks(user) {
  * @param {Object} results
  */
 function handleIds(blockBatch, currentCursor, results) {
+  if (!blockBatch) {
+    return Q.reject('No blockBatch passed to handleIds');
+  } else if (!results || !results.ids) {
+    return Q.reject('Invalid results passed to handleIds:', results);
+  }
   // Update the current cursor stored with the blockBatch.
   blockBatch.currentCursor = currentCursor;
   blockBatch.size += results.ids.length;
@@ -220,6 +240,9 @@ function handleIds(blockBatch, currentCursor, results) {
 }
 
 function finalizeBlockBatch(blockBatch) {
+  if (!blockBatch) {
+    return Q.reject('No blockBatch passed to finalizeBlockBatch');
+  }
   logger.info('Finished fetching blocks for user', blockBatch.source_uid,
     'batch', blockBatch.id);
   // Mark the BlockBatch as complete and save that bit.
@@ -287,22 +310,25 @@ function diffBatchWithPrevious(currentBatch) {
         var start = process.hrtime();
         var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
         var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-        var elapsed = process.hrtime(start)[1] / 1000000;
+        var elapsedMs = process.hrtime(start)[1] / 1000000;
         logger.debug('Block diff for', source_uid,
           'added:', addedBlockIds, 'removed:', removedBlockIds,
           'current size:', currentBlockIds.length,
-          'time:', elapsed);
+          'msecs:', Math.round(elapsedMs));
 
-        // XXX TODO: Turn this into an allSettled
-        Q.all(addedBlockIds.map(function(sink_uid) {
-          recordAction(source_uid, sink_uid, Action.BLOCK);
-        })).then(function(newActions) {
-          var validActions = _.filter(newActions, null);
-          if (validActions.length > 0) {
-            return subscriptions.fanout(validActions);
-          } else {
-            return Q.resolve(null);
-          }
+        var blockActionPromises = addedBlockIds.map(function(sink_uid) {
+          return recordAction(source_uid, sink_uid, Action.BLOCK);
+        });
+        // Enqueue blocks for subscribing users.
+        // NOTE: subscription fanout for unblocks happens within
+        // recordUnblocksUnlessDeactivated.
+        // TODO: use allSettled so even if some fail, we still fanout the rest
+        Q.all(blockActionPromises)
+          .then(function(actions) {
+          // Actions are not recorded if they already exist, i.e. are not
+          // external actions. Those come back as null and are filtered in
+          // fanoutActions.
+          subscriptions.fanoutActions(actions);
         }).catch(function(err) {
           logger.error(err);
         });
@@ -315,9 +341,11 @@ function diffBatchWithPrevious(currentBatch) {
       // If it's the first block fetch for this user, make sure all the blocked
       // uids are in TwitterUsers.
       if (currentBatch) {
-        currentBatch.getBlocks().then(function(blocks) {
-          addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+        return currentBatch.getBlocks().then(function(blocks) {
+          return addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
         });
+      } else {
+        return Q.resolve(null);
       }
     }
   }).catch(function(err) {
@@ -333,13 +361,13 @@ function diffBatchWithPrevious(currentBatch) {
  * table.
  *
  * Note: We don't do this check for blocks, which leads to a bit of asymmetry:
- * if a user deactivates and reactivates, there will be an external block entry
+ * if an account deactivates and reactivates, there will be an external block entry
  * in Actions but no corresponding external unblock. This is fine. The main
- * reason we care about not recording unblocks for users that were really just
+ * reason we care about not recording unblocks for accounts that were really just
  * deactivated is to avoid triggering unblock/reblock waves for subscribers when
- * users frequently deactivate / reactivate. Also, part of the product spec for
- * shared block lists is that blocked users remain on shared lists even if they
- * deactivate.
+ * a shared block list includes accounts that frequently deactivate / reactivate.
+ * Also, part of the product spec for shared block lists is that blocked users
+ * remain on shared lists even if they deactivate.
  *
  * @param {string} source_uid Uid of user doing the unblocking.
  * @param {Array.<string>} sink_uids List of uids that disappeared from a user's
@@ -348,7 +376,7 @@ function diffBatchWithPrevious(currentBatch) {
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
-  // rate limited for user lookups, causes us to miss unblocks.
+  // rate limited for user lookups, which would cause us to miss unblocks.
   BtUser.find(source_uid)
     .then(function(user) {
       if (!user) {
@@ -365,18 +393,29 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
           function(err, response) {
             if (err && err.statusCode === 404) {
               logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err && err.statusCode) {
+              logger.error('Error /users/lookup', user, err.statusCode, err.data,
+                'ignoring', uidsToQuery.length, 'unblocks');
             } else if (err) {
-              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+              logger.error('Error /users/lookup', user, err,
                 'ignoring', uidsToQuery.length, 'unblocks');
             } else {
               // If a uid was present in the response, the user is not deactivated,
               // so go ahead and record it as an unblock.
               var indexedResponses = _.indexBy(response, 'id_str');
-              uidsToQuery.forEach(function(sink_uid) {
+              var recordedActions = uidsToQuery.map(function(sink_uid) {
                 if (indexedResponses[sink_uid]) {
-                  recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                  return recordAction(source_uid, sink_uid, Action.UNBLOCK);
+                } else {
+                  return Q.resolve(null);
                 }
               });
+              Q.all(recordedActions)
+                .then(function(actions) {
+                  subscriptions.fanoutActions(actions);
+                }).catch(function(err) {
+                  logger.error(err);
+                });
             }
           });
       }
@@ -414,6 +453,18 @@ function destroyOldBlocks(userId) {
   });
 }
 
+/**
+ * Given an observed block or unblock, possibly record it in the Actions table.
+ * The block or unblock may have shown up because the user actually blocked or
+ * unblocked someone in the Twitter app, or it may have shown up because Block
+ * Together recently executed a block or unblock action. In the latter case we
+ * don't want to record a duplicate in the Actions table; The existing record,
+ * in 'done' state, tells the whole story. So we check for such past actions and
+ * don't record a new action if they exist.
+ *
+ * @return {Promise.<Action|null>} createdAction If the action was indeed
+ *   externally triggered and we recorded it, the action created. Otherwise null.
+ */
 function recordAction(source_uid, sink_uid, type) {
   // Most of the contents of the action to be created. Stored here because they
   // are also useful to query for previous actions.
@@ -429,7 +480,7 @@ function recordAction(source_uid, sink_uid, type) {
     'status': Action.DONE
   }
 
-  Action.find({
+  return Action.find({
     where: _.extend(actionContents, {
       updatedAt: {
         // Look only at actions updated within the last day.
@@ -498,7 +549,9 @@ function setupServer() {
   };
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {
-      this.updateBlocksForUid = function(uid, cb) {
+      this.updateBlocksForUid = function(uid, callerName, cb) {
+        logger.info('Fulfilling remote update request for', uid,
+          'from', callerName);
         updateBlocksForUid(uid).then(cb);
       };
     });
@@ -510,7 +563,7 @@ function setupServer() {
   });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();
-  server.listen(8100);
+  server.listen(setup.config.updateBlocks.port);
   return server;
 }
 

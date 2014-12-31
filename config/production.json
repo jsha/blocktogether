@@ -1,7 +1,10 @@
 {
   "port": 2078,
+  "updateBlocks": {
+    "host": "localhost",
+    "port": 8100
+  },
   "callbackUrl": "https://blocktogether.org/auth/twitter/callback",
-  "sequelizeLogging": false,
   "secureProxy": true,
   "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
   "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",

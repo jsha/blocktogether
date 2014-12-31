@@ -34,7 +34,8 @@ log4js.configure(configDir + nodeEnv + '/log4js.json', {
 });
 // The logging category is based on the name of the running script, e.g.
 // blocktogether, action, stream, etc.
-var scriptName = path.basename(require.main.filename).replace(".js", "");
+var scriptName = path.basename(require.main ? require.main.filename : 'repl')
+  .replace(".js", "");
 var logger = log4js.getLogger(scriptName);
 
 var sequelizeConfigData = fs.readFileSync(
@@ -280,10 +281,10 @@ BtUser.find({
   where: {
     screen_name: config.userToFollow
   }
-}).error(function(err) {
-  logger.error(err);
-}).success(function(user) {
+}).then(function(user) {
   _.assign(userToFollow, user);
+}).catch(function(err) {
+  logger.error(err);
 });
 
 /**
@@ -302,8 +303,8 @@ function remoteUpdateBlocks(user) {
     updateBlocksService = upnode.connect({
       createStream: function() {
         var stream = tls.connect({
-          host: 'localhost',
-          port: 8100,
+          host: config.updateBlocks.host,
+          port: config.updateBlocks.port,
           // Provide a client certificate so the server knows it's us.
           cert: fs.readFileSync(configDir + 'rpc.crt'),
           key: fs.readFileSync(configDir + 'rpc.key'),
@@ -322,7 +323,7 @@ function remoteUpdateBlocks(user) {
   // Note: We can't just call this once and store 'remote', because upnode
   // queues the request in case the remote server is down.
   updateBlocksService(function(remote) {
-    remote.updateBlocksForUid(user.uid, function(result) {
+    remote.updateBlocksForUid(user.uid, scriptName, function(result) {
       deferred.resolve(result);
     });
   });

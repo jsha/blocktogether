@@ -91,7 +91,7 @@ function makeApp() {
           constantTimeEquals(user.access_token, sessionUser.accessToken)) {
         done(null, user);
       } else {
-        logger.error('Incorrect access token in session for', user);
+        logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
     });
@@ -478,6 +478,7 @@ app.post('/block-all.json',
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+            logger.info('Subscribing', req.user, 'to list from', author);
             // Note: because of a uniqueness constraint on the [author,
             // subscriber] pair, this will fail if the subscription already
             // exists. But that's fine: It shouldn't be possible to create a
@@ -551,6 +552,7 @@ app.post('/unsubscribe.json',
     } else {
       return next(new Error('Invalid parameters.'));
     }
+    logger.info('Removing subscription: ', params);
     Subscription.destroy(params).then(function() {
       res.end(JSON.stringify({}));
     }).catch(function(err) {
@@ -585,6 +587,13 @@ app.post('/do-actions.json',
 // Error handler. Must come after all routes.
 app.use(function(err, req, res, next){
   logger.error(err.stack);
+  // If there was an authentication issue, clear all cookies so the user can try
+  // logging in again.
+  if (err.message === 'Failed to deserialize user out of session') {
+    res.clearCookie('express:sess');
+    res.clearCookie('express:sess.sig');
+    res.clearCookie('uid');
+  }
   res.status(500);
   res.header('Content-Type', 'text/html');
   mu.compileAndRender('error.mustache', {

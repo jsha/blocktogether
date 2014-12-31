@@ -10,6 +10,65 @@ var logger = setup.logger,
     Subscription = setup.Subscription;
 
 /**
+ * Given a set of actions that were observed by update-blocks and recorded as
+ * external actions (i.e. the user blocked or unblocked some accounts using
+ * Twitter for Web or some other client), fanout those actions to subscribers,
+ * i.e. add entries in the Action table for each subscriber with source_uid =
+ * that subscriber and cause = 'Subscription'.
+ *
+ * We look up the list of subscribers first so we can exit fast in the common
+ * case that someone has no subscribers.
+ *
+ * @param {Array.<Action>} actions Block or unblock actions to fan out. May be
+ *   null. All must have the same source_uid and cause == 'external'.
+ * @return {Promise.<>} Promise that resolves once fanout is done. Type of
+ *   promise is not defined (TODO: make it consistent).
+ */
+function fanoutActions(actions) {
+  actions = _.filter(actions, null);
+  if (actions.length === 0) {
+    logger.debug('fanoutActions called with all null actions, skipping.');
+    return Q.resolve([]);
+  }
+  var source_uids = Object.keys(_.indexBy(actions, 'source_uid'));
+  if (source_uids.length > 1) {
+    return Q.reject('Bad arg to fanoutActions: multiple sources:', actions);
+  }
+  if (!_.every(actions, { cause: Action.EXTERNAL })) {
+    return Q.reject('Bad arg to fanoutActions: not external:', actions);
+  }
+  if (!_.every(actions, function(action) {
+    return action.type == Action.BLOCK || action.type === Action.UNBLOCK;
+  })) {
+    return Q.reject('Bad arg to fanoutActions: not block/unblock:', actions);
+  }
+
+  // Look up the relevant subscriptions once, then use that list of subscriptions
+  // when fanning out each individual action. We may want at some point to just
+  // directly do the N * M expansion and do one big bulkCreate, but that
+  // requires that we simplify how unblocks work. For now we just save the
+  // duplicate lookups in the Subscriptions table (especially useful when there
+  // are no subscriptions).
+  return Subscription.findAll({
+    where: {
+      author_uid: source_uids[0]
+    }
+  }).then(function(subscriptions) {
+    if (subscriptions && subscriptions.length > 0) {
+      logger.info('Fanning out', actions.length, 'actions from',
+        source_uids[0], 'to', subscriptions.length, 'subscribers.');
+      return actions.map(function(action) {
+        return fanoutWithSubscriptions(action, subscriptions);
+      });
+    } else {
+      return Q.resolve([]);
+    }
+  }).catch(function(err) {
+    logger.error(err);
+  });
+}
+
+/**
  * Given a block or unblock action with cause = external, enqueue a
  * corresponding action for all subscribers, with cause = subscription.
  *
@@ -100,6 +159,14 @@ function unblockFromSubscription(proposedUnblock) {
       type: Action.BLOCK,
       source_uid: proposedUnblock.source_uid,
       sink_uid: proposedUnblock.sink_uid,
+      // NOTE: Intuitively Action.PENDING should be included here: If an author
+      // blocks an account, then unblocks it immediately while the fanned-out
+      // actions are still pending, the unblocks should also fanout.
+      // HOWEVER, that would mean that if subscriber S independently has account
+      // T blocked, then an author they subscribe to could very quickly block
+      // and unblock T, which would cause an unblock of T on the subscriber's
+      // account. This is probably an argument of 'enqueue it all and sort it
+      // out when executing actions.'
       status: Action.DONE
     },
     order: 'updatedAt DESC'
@@ -110,9 +177,9 @@ function unblockFromSubscription(proposedUnblock) {
     // but not because of a subscription.
     if (!prevAction) {
       logger.debug('Subscription-unblock: no previous block found', logInfo);
-      return Q.resolve(null);
     } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
                _.contains(validCauses, prevAction.cause)) {
+      // TODO: Use actions.queueActions here.
       return Action.create(proposedUnblock);
     } else {
       logger.debug('Subscription-unblock: previous block not matched', logInfo);
@@ -250,7 +317,7 @@ function fixUp(user) {
 }
 
 module.exports = {
-  fanout: fanout,
+  fanoutActions: fanoutActions,
 }
 
 })();

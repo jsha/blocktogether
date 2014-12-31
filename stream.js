@@ -48,8 +48,10 @@ function startStreams() {
     startStream(allUsers[uid]);
   }).then(function() {
     logger.info('Done with initial stream starts, moving to refresh mode.');
-    setInterval(refreshUsers, 1000);
-    setInterval(refreshStreams, 5000);
+    setInterval(refreshUsers, 20000);
+    setInterval(refreshStreams, 10000);
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
@@ -106,12 +108,9 @@ function refreshUsers() {
       ['uid % ? = ?', numWorkers, workerId % numWorkers],
       // Check for any option that monitors stream for autoblock criteria
       sequelize.or(
-        {
-          block_new_accounts: true
-        },
-        {
-          block_low_followers: true
-        }
+        { block_new_accounts: true },
+        { block_low_followers: true },
+        'shared_blocks_key IS NOT NULL'
       ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
@@ -354,7 +353,12 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    //remoteUpdateBlocks(recipientBtUser);
+    // For now, always update on unblock events. We'd like to do this for both
+    // blocks and unblocks but it can get expensive when large block lists fan
+    // out.
+    if (data.event === 'unblock') {
+      remoteUpdateBlocks(recipientBtUser);
+    }
   }, 2000);
 }
 

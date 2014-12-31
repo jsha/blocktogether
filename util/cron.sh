@@ -1,11 +1,11 @@
 #!/bin/bash -e
 # Back up MySQL DB and delete backups older than 30 days
 # and log files older than 7 days.
-AUTH="-u blocktogether --password=XXXXXXXXXXX"
+# Assumes there is a ~/.my.cnf with username, password, and DB.
+TABLES="`mysql -e 'show tables' -B --skip-column-names`"
 DB=blocktogether
-TABLES="`mysql $AUTH -D $DB -e 'show tables' -B --skip-column-names`"
 for TABLE in $TABLES; do
-  mysqldump $AUTH \
+  mysqldump \
     --single-transaction \
     --extended-insert \
     "$DB" "$TABLE" | \

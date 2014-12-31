@@ -1,13 +1,15 @@
 #!/bin/bash
 cd $(dirname $0)
 run() {
-  (while :; do
-     js ${1}.js >> /data/logs/${1}.log 2>&1
-   done) &
+  js ${1}.js &
 }
+
+trap 'pkill -P $$' EXIT
 
 run blocktogether
 run stream
 run actions
 run update-users
 run update-blocks
+
+while :; do sleep 10000 ; done
