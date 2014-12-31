@@ -75,62 +75,41 @@ function fanoutActions(actions) {
  * TODO: This is currently only called for external actions. Bulk manual
  * unblocks (from /my-blocks) should also trigger fanout.
  *
- * @param {Array.<Action>} inputActions Actions to fan out to subscribers.
- * @returns {Promise.<Action[]>}
+ * @param {Action} An Action to fan out to subscribers.
+ * @return {Promise.<Action[]>}
  */
-function fanout(inputActions) {
-  var source_uids = _.uniq(_.pluck(inputActions, 'source_uid'));
-  if (source_uids.length !== 1) {
-    return Q.reject("Source uids on actions for fanout do not match.");
-  }
-  var source_uid = source_uids[0];
-  return Subscription.findAll({
-    where: {
-      author_uid: source_uid
-    }
-  }).then(function(subscriptions) {
-    if (subscriptions && subscriptions.length > 0) {
-      // If there are N subscribers and we are called with M actions, we'll
-      // write N*M actions to the DB. Iterate by actions, then by subscriptions
-      // within fanoutAction.
-      return inputActions.map(fanoutAction.bind(null, subscriptions));
-    } else {
-      return Q.resolve(null);
-    }
-  }).catch(function(err) {
-    logger.error(err);
+function fanoutWithSubscriptions(inputAction, subscriptions) {
+  var actions = subscriptions.map(function(subscription) {
+    return {
+      source_uid: subscription.subscriber_uid,
+      sink_uid: inputAction.sink_uid,
+      type: inputAction.type,
+      cause: Action.SUBSCRIPTION,
+      cause_uid: inputAction.source_uid,
+      'status': Action.PENDING
+    };
   });
-}
-
-function fanoutAction(subscriptions, inputAction) {
-  if (inputAction.cause === Action.EXTERNAL &&
-      (inputAction.type === Action.BLOCK ||
-       inputAction.type === Action.UNBLOCK)) {
-    var actions = subscriptions.map(function(subscription) {
-      return {
-        source_uid: subscription.subscriber_uid,
-        sink_uid: inputAction.sink_uid,
-        type: inputAction.type,
-        cause: Action.SUBSCRIPTION,
-        cause_uid: inputAction.source_uid,
-        'status': Action.PENDING
-      };
-    });
-    // For Block Actions, fanout is very simple: Just create all the
-    // corresponding Block Actions. Users who have a previous manual unblock
-    // of the sink_uid (and therefore shouldn't auto-block) will be handled
-    // inside actions.js.
-    if (inputAction.type === Action.BLOCK) {
-      return Action.bulkCreate(actions);
-    } else {
-      // For Unblock Actions, we only want to fan out the unblock to users
-      // who originally blocked the given user due to a subscription.
-      // Pass each Action through unblockFromSubscription to check the cause
-      // of the most recent corresponding block, if any.
-      return Q.all(actions.map(unblockFromSubscription));
-    }
+  // For Block Actions, fanout is very simple: Just create all the
+  // corresponding Block Actions. Users who have a previous manual unblock
+  // of the sink_uid (and therefore shouldn't auto-block) will be handled
+  // inside actions.js.
+  if (inputAction.type === Action.BLOCK) {
+    // TODO: This should probably use actions.queueActions to take advantage of
+    // its instant kickoff of a processing run. But right now that run would
+    // take place in-process, adding extra work for update-blocks.js, which is
+    // already a CPU bottleneck.
+    return Action.bulkCreate(actions);
   } else {
-    return Q.reject('Bad argument to fanout:' + inputAction);
+    // For Unblock Actions, we only want to fan out the unblock to users
+    // who originally blocked the given user due to a subscription.
+    // Pass each Action through unblockFromSubscription to check the cause
+    // of the most recent corresponding block, if any.
+    // TODO: Maybe the filtering logic to only do unblocks that were
+    // originally due to a subscription should be handled in actions.js. That
+    // would be nice because actions.js can deal with things asynchronously
+    // and slow down gracefully under load, but subscription fanout has to
+    // happen in the already-complicated updateBlocks call chain.
+    return Q.all(actions.map(unblockFromSubscription));
   }
 }
 
