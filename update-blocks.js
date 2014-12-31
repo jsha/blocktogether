@@ -521,9 +521,19 @@ function recordAction(source_uid, sink_uid, type) {
         }).save();
       }).thenResolve(associatedAction);
     } else if (associatedAction.type === Action.UNBLOCK) {
-      return AnnotatedBlock.destroy({ /* where */
-        source_uid: associatedAction.source_uid,
-        sink_uid: associatedAction.sink_uid
+      return AnnotatedBlock.find({
+        where: { /* where */
+          source_uid: associatedAction.source_uid,
+          sink_uid: associatedAction.sink_uid
+        }
+      }).then(function(annotatedBlock)) {
+        if (annotatedBlock) {
+          return annotatedBlock.destroy();
+        } else {
+          logger.warn('Recording unblock', source_uid, '--unblock-->', sink_uid,
+            'but did not see a corresponding annotatedBlock to delete.');
+          return Q.resolve(null);
+        }
       }).thenResolve(associatedAction);
     } else {
       return Q.reject('Non-block/unblock passed to recordAction');
