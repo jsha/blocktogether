@@ -526,7 +526,7 @@ function recordAction(source_uid, sink_uid, type) {
           source_uid: associatedAction.source_uid,
           sink_uid: associatedAction.sink_uid
         }
-      }).then(function(annotatedBlock)) {
+      }).then(function(annotatedBlock) {
         if (annotatedBlock) {
           return annotatedBlock.destroy();
         } else {
