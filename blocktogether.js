@@ -152,24 +152,11 @@ app.all('/*', requireAuthentication);
 app.post('/*', function(req, res, next) {
   if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
       !req.session.csrf) {
-    res.status(403);
-    var message = 'Invalid CSRF token.';
+    var err = new Error('Invalid CSRF token.');
+    err.status(403);
     logger.error('Invalid CSRF token. Session:', req.session.csrf,
       'Request body:', req.body.csrf_token);
-    res.format({
-      html: function() {
-        res.header('Content-Type', 'text/html');
-        mu.compileAndRender('error.mustache', {
-          error: message
-        }).pipe(res);
-      },
-      json: function() {
-        res.header('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          error: message
-        }));
-      }
-    });
+    return next(err);
   } else {
     next();
   }
@@ -533,7 +520,7 @@ app.post('/block-all.json',
     // Special handling for subsribe-on-signup: Get key from session,
     // delete it on success.
     if (req.body.subscribe_on_signup) {
-      var shared_blocks_key = req.session.subscribe_on_signup.key;
+      shared_blocks_key = req.session.subscribe_on_signup.key;
     }
 
     if (req.body.author_uid === req.user.uid) {
@@ -650,7 +637,7 @@ app.post('/unsubscribe.json',
  * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
  */
 app.post('/do-actions.json',
-  function(req, res) {
+  function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     if (req.body.list &&
@@ -670,7 +657,7 @@ app.post('/do-actions.json',
 
 
 // Error handler. Must come after all routes.
-app.use(function(err, req, res, next){
+app.use(function(err, req, res, next) {
   // If there was an authentication issue, clear all cookies so the user can try
   // logging in again.
   if (err.message === 'Failed to deserialize user out of session') {
@@ -680,8 +667,13 @@ app.use(function(err, req, res, next){
   }
   var message = err.message;
   res.status(err.statusCode || 500);
+  // Error codes in the 500 error range log stack traces because they represent
+  // internal (unexpected) errors. Other errors only log the message, and only
+  // at WARN level. They include the user if available.
   if (res.status >= 500) {
     logger.error(err.stack);
+  } else if (req.user) {
+    logger.warn(req.user, message);
   } else {
     logger.warn(message);
   }
