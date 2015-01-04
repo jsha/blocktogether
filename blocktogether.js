@@ -187,7 +187,7 @@ app.post('/auth/twitter', function(req, res, next) {
   // shared_blocks_key for that list in the session so we can perform the action
   // when they return.
   if (req.body.subscribe_on_signup_key) {
-    logger.info('Storing subscribe_on_signup_key for', req.user);
+    logger.info('Storing subscribe_on_signup for', req.user);
     req.session.subscribe_on_signup = {
       key: req.body.subscribe_on_signup_key,
       author_uid: req.body.subscribe_on_signup_author_uid
@@ -207,7 +207,7 @@ function logInAndRedirect(req, res, next, user) {
       httpOnly: true
     });
     if (req.session.subscribe_on_signup) {
-      logger.info('Got subscribe_on_signup_key for', req.user, 'redirecting.');
+      logger.info('Got subscribe_on_signup for', req.user, 'redirecting.');
       return res.redirect('/subscribe-on-signup');
     } else {
       return res.redirect('/settings');
@@ -478,7 +478,7 @@ app.get('/show-blocks/:slug',
   });
 
 /**
- * Subscribe to a block list based on a subscribe_on_signup_key stored in the
+ * Subscribe to a block list based on a subscribe_on_signup stored in the
  * cookie session. This is used when a non-logged-on user clicks 'block all and
  * subscribe.'
  *
@@ -521,7 +521,7 @@ app.post('/block-all.json',
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
-    // Special handling for subsribe-on-signup: Get key from session,
+    // Special handling for subscribe-on-signup: Get key from session,
     // delete it on success.
     if (req.body.subscribe_on_signup) {
       shared_blocks_key = req.session.subscribe_on_signup.key;
