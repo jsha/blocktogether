@@ -9,7 +9,8 @@
   {{^logged_in_screen_name}}
   <div class="signup-prompt">
     <form action="/auth/twitter" method="POST">
-      <input type="hidden" name="signup" value="true"></input>
+      <input type="hidden" name="signup" value="true" />
+      <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
       {{>settings_include.mustache}}
       <button type="submit" class="btn btn-primary">Sign up using Twitter</button>
     </form>
@@ -23,6 +24,7 @@
   <div class="log-on-prompt">
     <b>Already using Block Together?</b>
     <form action="/auth/twitter" method="POST">
+      <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
       <button type="submit" class="submit btn btn-primary flex-table-btn js-submit"
         >Log on using Twitter</button>
     </form>
