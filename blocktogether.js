@@ -164,7 +164,7 @@ app.post('/*', function(req, res, next) {
         }).pipe(res);
       },
       json: function() {
-        res.status(403);
+        res.header('Content-Type', 'application/json');
         res.end(JSON.stringify({
           error: message
         }));
@@ -196,6 +196,16 @@ app.post('/auth/twitter', function(req, res, next) {
       follow_blocktogether: req.body.follow_blocktogether
     };
   }
+  // If a non-logged-in user tries to subscribe to a block list, we store the
+  // shared_blocks_key for that list in the session so we can perform the action
+  // when they return.
+  if (req.body.subscribe_on_signup_key) {
+    logger.info('Storing subscribe_on_signup_key.');
+    req.session.subscribe_on_signup = {
+      key: req.body.subscribe_on_signup_key,
+      author_uid: req.body.subscribe_on_signup_author_uid
+    };
+  }
   passportAuthenticate(req, res, next);
 });
 
@@ -203,9 +213,13 @@ function logInAndRedirect(req, res, next, user) {
   req.logIn(user, function(err) {
     if (err) {
       return next(err);
+    }
+    res.cookie('uid', user.uid);
+    if (req.session.subscribe_on_signup) {
+      logger.info('Got subscribe_on_signup_key, redirecting.');
+      return res.redirect('/subscribe-on-signup');
     } else {
       return res.redirect('/settings');
-      res.cookie('uid', user.uid);
     }
   });
 }
@@ -473,6 +487,40 @@ app.get('/show-blocks/:slug',
   });
 
 /**
+ * Subscribe to a block list based on a subscribe_on_signup_key stored in the
+ * cookie session. This is used when a non-logged-on user clicks 'block all and
+ * subscribe.'
+ *
+ * The render HTML will POST to /block-all.json with Javascript, with a special
+ * parameter indicating that the shared_blocks_key from the session should be
+ * used, and then deleted.
+ *
+ * Note: This does not check for an already-existing subscription, but that's
+ * fine. Duplicate subscriptions result in some excess actions being enqueued
+ * but are basically harmless.
+ */
+app.get('/subscribe-on-signup', function(req, res, next) {
+  res.header('Content-Type', 'text/html');
+  if (req.session.subscribe_on_signup) {
+    var params = req.session.subscribe_on_signup;
+    BtUser.find(params.author_uid)
+      .then(function(author) {
+      mu.compileAndRender('subscribe-on-signup.mustache', {
+        logged_in_screen_name: req.user.screen_name,
+        csrf_token: req.session.csrf,
+        author_screen_name: author.screen_name,
+        author_uid: params.author_uid
+      }).pipe(res);
+    }).catch(function(err) {
+      logger.error(err);
+      next(new Error('Sequelize error.'));
+    });
+  } else {
+    res.redirect('/subscriptions');
+  }
+});
+
+/**
  * Subscribe a user to the provided shared block list, and enqueue block actions
  * for all blocks currently on the list.
  * Expects two entries in JSON POST: author_uid and shared_blocks_key.
@@ -482,8 +530,18 @@ app.post('/block-all.json',
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
+    // Special handling for subsribe-on-signup: Get key from session,
+    // delete it on success.
+    if (req.body.subscribe_on_signup) {
+      var shared_blocks_key = req.session.subscribe_on_signup.key;
+    }
+
+    if (req.body.author_uid === req.user.uid) {
+      return next(new Error('Cannot subscribe to your own block list.'));
+    }
+
     if (req.body.author_uid &&
-        req.body.author_uid !== req.user.uid &&
+        typeof req.body.author_uid === 'number' &&
         validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
@@ -528,6 +586,11 @@ app.post('/block-all.json',
                     actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
                       Action.BULK_MANUAL_BLOCK, author.uid);
+                    // On a successful subscribe-on-signup, delete the entries
+                    // from the session.
+                    if (req.body.subscribe_on_signup) {
+                      delete req.session.subscribe_on_signup;
+                    }
                     res.end(JSON.stringify({
                       block_count: sinkUids.length
                     }));
@@ -608,7 +671,6 @@ app.post('/do-actions.json',
 
 // Error handler. Must come after all routes.
 app.use(function(err, req, res, next){
-  logger.error(err.stack);
   // If there was an authentication issue, clear all cookies so the user can try
   // logging in again.
   if (err.message === 'Failed to deserialize user out of session') {
@@ -616,11 +678,27 @@ app.use(function(err, req, res, next){
     res.clearCookie('express:sess.sig');
     res.clearCookie('uid');
   }
-  res.status(500);
-  res.header('Content-Type', 'text/html');
-  mu.compileAndRender('error.mustache', {
-    error: err.message
-  }).pipe(res);
+  var message = err.message;
+  res.status(err.statusCode || 500);
+  if (res.status >= 500) {
+    logger.error(err.stack);
+  } else {
+    logger.warn(message);
+  }
+  res.format({
+    html: function() {
+      res.header('Content-Type', 'text/html');
+      mu.compileAndRender('error.mustache', {
+        error: message
+      }).pipe(res);
+    },
+    json: function() {
+      res.header('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        error: message
+      }));
+    }
+  });
 });
 
 /**
