@@ -12,6 +12,7 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
+        csrf_token: document.body.getAttribute('data-csrf-token'),
         author_uid: $(ev.target).data('author-uid'),
         subscriber_uid: $(ev.target).data('subscriber-uid')
       }),

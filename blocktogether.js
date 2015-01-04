@@ -1,6 +1,5 @@
 'use strict';
 (function() {
-// TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var cluster = require('cluster'),
     express = require('express'), // Web framework
@@ -138,6 +137,50 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
 
 var app = makeApp();
 
+// Set some default security headers for every response.
+app.get('/*', function(req, res, next) {
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Content-Security-Policy', "default-src 'self';");
+  next();
+});
+// All requests get passed to the requireAuthentication function; Some are
+// exempted from authentication checks there.
+app.all('/*', requireAuthentication);
+
+// CSRF protection. Check the provided CSRF token in the request body against
+// the one in the session.
+app.post('/*', function(req, res, next) {
+  if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
+      !req.session.csrf) {
+    res.status(403);
+    var message = 'Invalid CSRF token.';
+    logger.error('Invalid CSRF token. Session:', req.session.csrf,
+      'Request body:', req.body.csrf_token);
+    res.format({
+      html: function() {
+        res.header('Content-Type', 'text/html');
+        mu.compileAndRender('error.mustache', {
+          error: message
+        }).pipe(res);
+      },
+      json: function() {
+        res.status(403);
+        res.end(JSON.stringify({
+          error: message
+        }));
+      }
+    });
+  } else {
+    next();
+  }
+});
+
+// Add CSRF token if not present in session.
+app.all('/*', function(req, res, next) {
+  req.session.csrf = req.session.csrf || crypto.randomBytes(32).toString('base64');
+  next();
+});
+
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -202,6 +245,7 @@ function requireAuthentication(req, res, next) {
       req.url == '/logged-out' ||
       req.url == '/favicon.ico' ||
       req.url == '/robots.txt' ||
+      req.url.match('/auth/.*') ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
@@ -223,37 +267,13 @@ function requireAuthentication(req, res, next) {
   }
 }
 
-// Set some default security headers for every request.
-app.get('/*', function(req, res, next) {
-  res.header('X-Frame-Options', 'SAMEORIGIN');
-  res.header('Content-Security-Policy', "default-src 'self';");
-  next();
-});
-// All requests get passed to the requireAuthentication function; Some are
-// exempted from authentication checks there.
-app.all('/*', requireAuthentication);
-// Check that POSTs were made via XMLHttpRequest, as a simple form of CSRF
-// protection. This form of CSRF protection is somewhat more fragile than
-// token-based CSRF protection, but has the advantage of simplicity.
-// The X-Requested-With: XMLHttpRequest is automatically set by jQuery's
-// $.ajax() method.
-app.post('/*', function(req, res, next) {
-  if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
-    res.status(400);
-    res.end(JSON.stringify({
-      error: 'Must provide X-Requested-With: XMLHttpRequest.'
-    }));
-  } else {
-    next();
-  }
-});
-
 app.get('/',
   function(req, res) {
     var stream = mu.compileAndRender('index.mustache', {
       // Show the navbar only when logged in, since logged-out users can't
       // access the other pages (with the expection of shared block pages).
       logged_in_screen_name: req.user ? req.user.screen_name : null,
+      csrf_token: req.session.csrf,
       hide_navbar: !req.user,
       follow_blocktogether: true
     });
@@ -279,6 +299,7 @@ app.get('/settings',
   function(req, res) {
     var stream = mu.compileAndRender('settings.mustache', {
       logged_in_screen_name: req.user.screen_name,
+      csrf_token: req.session.csrf,
       block_new_accounts: req.user.block_new_accounts,
       block_low_followers: req.user.block_low_followers,
       shared_blocks_key: req.user.shared_blocks_key,
@@ -410,6 +431,7 @@ app.get('/subscriptions',
       function(subscriptions, subscribers) {
         var templateData = {
           logged_in_screen_name: req.user.screen_name,
+          csrf_token: req.session.csrf,
           subscriptions: subscriptions,
           subscribers: subscribers
         };
@@ -713,6 +735,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       updated: timeago(new Date(blockBatch.createdAt)),
       // The name of the logged-in user, for the nav bar.
       logged_in_screen_name: logged_in_screen_name,
+      csrf_token: req.session.csrf,
       // The name of the user whose blocks we are viewing.
       author_screen_name: btUser.screen_name,
       // The uid of the user whose blocks we are viewing.
@@ -787,6 +810,7 @@ function showActions(req, res, next) {
     });
     var templateData = {
       logged_in_screen_name: req.user.screen_name,
+      csrf_token: req.session.csrf,
       // Base URL for appending pagination querystring.
       path_name: url.parse(req.url).pathname
     };

@@ -33,6 +33,7 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
+        csrf_token: document.body.getAttribute('data-csrf-token'),
         type: type,
         list: $.makeArray(checkedUids)
       }),
@@ -52,6 +53,7 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
+        csrf_token: document.body.getAttribute('data-csrf-token'),
         author_uid: author_uid,
         shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString()
       }),
