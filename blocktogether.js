@@ -541,7 +541,7 @@ app.post('/block-all.json',
     }
 
     if (req.body.author_uid &&
-        typeof req.body.author_uid === 'number' &&
+        typeof req.body.author_uid === 'string' &&
         validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
@@ -604,10 +604,9 @@ app.post('/block-all.json',
           }
         });
     } else {
-      res.status(400);
-      res.end(JSON.stringify({
-        error: 'Invalid parameters.'
-      }));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
   });
 
@@ -635,7 +634,9 @@ app.post('/unsubscribe.json',
         subscriber_uid: req.body.subscriber_uid
       };
     } else {
-      return next(new Error('Invalid parameters.'));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
     logger.info('Removing subscription: ', params);
     Subscription.destroy(params).then(function() {
@@ -661,10 +662,9 @@ app.post('/do-actions.json',
         Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
       res.end('{}');
     } else {
-      res.status(400);
-      res.end(JSON.stringify({
-        error: 'Invalid parameters.'
-      }));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
   });
 
