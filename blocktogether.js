@@ -187,7 +187,7 @@ app.post('/auth/twitter', function(req, res, next) {
   // shared_blocks_key for that list in the session so we can perform the action
   // when they return.
   if (req.body.subscribe_on_signup_key) {
-    logger.info('Storing subscribe_on_signup_key.');
+    logger.info('Storing subscribe_on_signup_key for', req.user);
     req.session.subscribe_on_signup = {
       key: req.body.subscribe_on_signup_key,
       author_uid: req.body.subscribe_on_signup_author_uid
@@ -201,9 +201,13 @@ function logInAndRedirect(req, res, next, user) {
     if (err) {
       return next(err);
     }
-    res.cookie('uid', user.uid);
+    // Store a uid cooke for nginx logging purposes.
+    res.cookie('uid', user.uid, {
+      secure: true,
+      httpOnly: true
+    });
     if (req.session.subscribe_on_signup) {
-      logger.info('Got subscribe_on_signup_key, redirecting.');
+      logger.info('Got subscribe_on_signup_key for', req.user, 'redirecting.');
       return res.redirect('/subscribe-on-signup');
     } else {
       return res.redirect('/settings');
