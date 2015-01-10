@@ -317,7 +317,7 @@ function remoteUpdateBlocks(user) {
   // Note: We can't just call this once and store 'remote', because upnode
   // queues the request in case the remote server is down.
   updateBlocksService(function(remote) {
-    remote.updateBlocksForUid(user.uid, function(result) {
+    remote.updateBlocksForUid(user.uid, scriptName, function(result) {
       deferred.resolve(result);
     });
   });

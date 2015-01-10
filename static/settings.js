@@ -6,6 +6,7 @@ $(document).ready(function(){
           contentType: "application/json",
           dataType: "json",
           data: JSON.stringify({
+            csrf_token: document.body.getAttribute('data-csrf-token'),
             block_new_accounts: $('#block_new_accounts').prop('checked'),
             block_low_followers: $('#block_low_followers').prop('checked'),
             share_blocks: $('#share_blocks').prop('checked'),
@@ -20,7 +21,7 @@ $(document).ready(function(){
             }
           },
           error: function(jqXHR, textStatus, errorThrown) {
-            alert('Error: ' + textStatus + errorThrown);
+            alert('Error: ' + textStatus + " " + errorThrown);
           }
         });
     });

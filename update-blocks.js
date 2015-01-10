@@ -1,4 +1,4 @@
-'use strict';
+//'use strict';
 (function() {
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
@@ -83,7 +83,6 @@ function findAndUpdateBlocks() {
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  logger.info('Updating blocks for uid', uid);
   return BtUser.find(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
@@ -104,6 +103,7 @@ function updateBlocks(user) {
     logger.info('Updating blocks for', user);
   }
 
+  try {
   /**
    * For a given BtUser, fetch all current blocks and store in DB.
    *
@@ -115,6 +115,7 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
+    logger.info('fetchAndStoreBlocks', user, blockBatch ? blockBatch.id : null, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -126,6 +127,7 @@ function updateBlocks(user) {
       user.access_token,
       user.access_token_secret
     ).then(function(results) {
+      logger.trace('/blocks/ids', user, currentCursor, results[0]);
       // Lazily create a BlockBatch after Twitter responds successfully. Avoids
       // creating excess BlockBatches only to get rate limited.
       if (!blockBatch) {
@@ -142,6 +144,7 @@ function updateBlocks(user) {
         return handleIds(blockBatch, currentCursor, results[0]);
       }
     }).then(function(nextCursor) {
+      logger.trace('nextCursor', user, nextCursor);
       // Check whether we're done or need to grab the items at the next cursor.
       if (nextCursor === '0') {
         return finalizeBlockBatch(blockBatch);
@@ -171,7 +174,7 @@ function updateBlocks(user) {
             });
         }
       } else if (err.statusCode) {
-        logger.error('Error /blocks/ids', user, err.statusCode, err.data, err);
+        logger.error('Error /blocks/ids', user, err.statusCode, err.data);
         return Q.resolve(null);
       } else {
         logger.error('Error /blocks/ids', user, err);
@@ -192,6 +195,10 @@ function updateBlocks(user) {
     logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
+  } catch (e) {
+    logger.error('Exception in fetchAndStoreBlocks', e);
+    return Q.resolve(null);
+  }
 
   return fetchPromise;
 }
@@ -385,8 +392,11 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
           function(err, response) {
             if (err && err.statusCode === 404) {
               logger.info('All unblocked users deactivated, ignoring unblocks.');
+            } else if (err && err.statusCode) {
+              logger.error('Error /users/lookup', user, err.statusCode, err.data,
+                'ignoring', uidsToQuery.length, 'unblocks');
             } else if (err) {
-              logger.error('Error /users/lookup', err.statusCode, err.data, err,
+              logger.error('Error /users/lookup', user, err,
                 'ignoring', uidsToQuery.length, 'unblocks');
             } else {
               // If a uid was present in the response, the user is not deactivated,
@@ -512,7 +522,9 @@ function setupServer() {
   };
   var server = tls.createServer(opts, function (stream) {
     var up = upnode(function(client, conn) {
-      this.updateBlocksForUid = function(uid, cb) {
+      this.updateBlocksForUid = function(uid, callerName, cb) {
+        logger.info('Fulfilling remote update request for', uid,
+          'from', callerName);
         updateBlocksForUid(uid).then(cb);
       };
     });
