@@ -1,6 +1,5 @@
 'use strict';
 (function() {
-// TODO: Add CSRF protection on POSTs
 // TODO: Log off using GET allows drive-by logoff, fix that.
 var cluster = require('cluster'),
     express = require('express'), // Web framework
@@ -91,7 +90,7 @@ function makeApp() {
           constantTimeEquals(user.access_token, sessionUser.accessToken)) {
         done(null, user);
       } else {
-        logger.error('Incorrect access token in session for', user);
+        logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
     });
@@ -138,6 +137,37 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
 
 var app = makeApp();
 
+// Set some default security headers for every response.
+app.get('/*', function(req, res, next) {
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Content-Security-Policy', "default-src 'self';");
+  next();
+});
+// All requests get passed to the requireAuthentication function; Some are
+// exempted from authentication checks there.
+app.all('/*', requireAuthentication);
+
+// CSRF protection. Check the provided CSRF token in the request body against
+// the one in the session.
+app.post('/*', function(req, res, next) {
+  if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
+      !req.session.csrf) {
+    var err = new Error('Invalid CSRF token.');
+    err.status(403);
+    logger.error('Invalid CSRF token. Session:', req.session.csrf,
+      'Request body:', req.body.csrf_token);
+    return next(err);
+  } else {
+    next();
+  }
+});
+
+// Add CSRF token if not present in session.
+app.all('/*', function(req, res, next) {
+  req.session.csrf = req.session.csrf || crypto.randomBytes(32).toString('base64');
+  next();
+});
+
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -153,6 +183,16 @@ app.post('/auth/twitter', function(req, res, next) {
       follow_blocktogether: req.body.follow_blocktogether
     };
   }
+  // If a non-logged-in user tries to subscribe to a block list, we store the
+  // shared_blocks_key for that list in the session so we can perform the action
+  // when they return.
+  if (req.body.subscribe_on_signup_key) {
+    logger.info('Storing subscribe_on_signup for', req.user);
+    req.session.subscribe_on_signup = {
+      key: req.body.subscribe_on_signup_key,
+      author_uid: req.body.subscribe_on_signup_author_uid
+    };
+  }
   passportAuthenticate(req, res, next);
 });
 
@@ -160,9 +200,17 @@ function logInAndRedirect(req, res, next, user) {
   req.logIn(user, function(err) {
     if (err) {
       return next(err);
+    }
+    // Store a uid cooke for nginx logging purposes.
+    res.cookie('uid', user.uid, {
+      secure: true,
+      httpOnly: true
+    });
+    if (req.session.subscribe_on_signup) {
+      logger.info('Got subscribe_on_signup for', req.user, 'redirecting.');
+      return res.redirect('/subscribe-on-signup');
     } else {
       return res.redirect('/settings');
-      res.cookie('uid', user.uid);
     }
   });
 }
@@ -202,6 +250,7 @@ function requireAuthentication(req, res, next) {
       req.url == '/logged-out' ||
       req.url == '/favicon.ico' ||
       req.url == '/robots.txt' ||
+      req.url.match('/auth/.*') ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
@@ -223,37 +272,13 @@ function requireAuthentication(req, res, next) {
   }
 }
 
-// Set some default security headers for every request.
-app.get('/*', function(req, res, next) {
-  res.header('X-Frame-Options', 'SAMEORIGIN');
-  res.header('Content-Security-Policy', "default-src 'self';");
-  next();
-});
-// All requests get passed to the requireAuthentication function; Some are
-// exempted from authentication checks there.
-app.all('/*', requireAuthentication);
-// Check that POSTs were made via XMLHttpRequest, as a simple form of CSRF
-// protection. This form of CSRF protection is somewhat more fragile than
-// token-based CSRF protection, but has the advantage of simplicity.
-// The X-Requested-With: XMLHttpRequest is automatically set by jQuery's
-// $.ajax() method.
-app.post('/*', function(req, res, next) {
-  if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
-    res.status(400);
-    res.end(JSON.stringify({
-      error: 'Must provide X-Requested-With: XMLHttpRequest.'
-    }));
-  } else {
-    next();
-  }
-});
-
 app.get('/',
   function(req, res) {
     var stream = mu.compileAndRender('index.mustache', {
       // Show the navbar only when logged in, since logged-out users can't
       // access the other pages (with the expection of shared block pages).
       logged_in_screen_name: req.user ? req.user.screen_name : null,
+      csrf_token: req.session.csrf,
       hide_navbar: !req.user,
       follow_blocktogether: true
     });
@@ -279,6 +304,7 @@ app.get('/settings',
   function(req, res) {
     var stream = mu.compileAndRender('settings.mustache', {
       logged_in_screen_name: req.user.screen_name,
+      csrf_token: req.session.csrf,
       block_new_accounts: req.user.block_new_accounts,
       block_low_followers: req.user.block_low_followers,
       shared_blocks_key: req.user.shared_blocks_key,
@@ -410,6 +436,7 @@ app.get('/subscriptions',
       function(subscriptions, subscribers) {
         var templateData = {
           logged_in_screen_name: req.user.screen_name,
+          csrf_token: req.session.csrf,
           subscriptions: subscriptions,
           subscribers: subscribers
         };
@@ -451,6 +478,40 @@ app.get('/show-blocks/:slug',
   });
 
 /**
+ * Subscribe to a block list based on a subscribe_on_signup stored in the
+ * cookie session. This is used when a non-logged-on user clicks 'block all and
+ * subscribe.'
+ *
+ * The render HTML will POST to /block-all.json with Javascript, with a special
+ * parameter indicating that the shared_blocks_key from the session should be
+ * used, and then deleted.
+ *
+ * Note: This does not check for an already-existing subscription, but that's
+ * fine. Duplicate subscriptions result in some excess actions being enqueued
+ * but are basically harmless.
+ */
+app.get('/subscribe-on-signup', function(req, res, next) {
+  res.header('Content-Type', 'text/html');
+  if (req.session.subscribe_on_signup) {
+    var params = req.session.subscribe_on_signup;
+    BtUser.find(params.author_uid)
+      .then(function(author) {
+      mu.compileAndRender('subscribe-on-signup.mustache', {
+        logged_in_screen_name: req.user.screen_name,
+        csrf_token: req.session.csrf,
+        author_screen_name: author.screen_name,
+        author_uid: params.author_uid
+      }).pipe(res);
+    }).catch(function(err) {
+      logger.error(err);
+      next(new Error('Sequelize error.'));
+    });
+  } else {
+    res.redirect('/subscriptions');
+  }
+});
+
+/**
  * Subscribe a user to the provided shared block list, and enqueue block actions
  * for all blocks currently on the list.
  * Expects two entries in JSON POST: author_uid and shared_blocks_key.
@@ -460,8 +521,18 @@ app.post('/block-all.json',
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
+    // Special handling for subscribe-on-signup: Get key from session,
+    // delete it on success.
+    if (req.body.subscribe_on_signup) {
+      shared_blocks_key = req.session.subscribe_on_signup.key;
+    }
+
+    if (req.body.author_uid === req.user.uid) {
+      return next(new Error('Cannot subscribe to your own block list.'));
+    }
+
     if (req.body.author_uid &&
-        req.body.author_uid !== req.user.uid &&
+        typeof req.body.author_uid === 'string' &&
         validSharedBlocksKey(shared_blocks_key)) {
       BtUser
         .find({
@@ -506,6 +577,11 @@ app.post('/block-all.json',
                     actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
                       Action.BULK_MANUAL_BLOCK, author.uid);
+                    // On a successful subscribe-on-signup, delete the entries
+                    // from the session.
+                    if (req.body.subscribe_on_signup) {
+                      delete req.session.subscribe_on_signup;
+                    }
                     res.end(JSON.stringify({
                       block_count: sinkUids.length
                     }));
@@ -519,10 +595,9 @@ app.post('/block-all.json',
           }
         });
     } else {
-      res.status(400);
-      res.end(JSON.stringify({
-        error: 'Invalid parameters.'
-      }));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
   });
 
@@ -550,7 +625,9 @@ app.post('/unsubscribe.json',
         subscriber_uid: req.body.subscriber_uid
       };
     } else {
-      return next(new Error('Invalid parameters.'));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
     logger.info('Removing subscription: ', params);
     Subscription.destroy(params).then(function() {
@@ -564,7 +641,7 @@ app.post('/unsubscribe.json',
  * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
  */
 app.post('/do-actions.json',
-  function(req, res) {
+  function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     if (req.body.list &&
@@ -576,22 +653,48 @@ app.post('/do-actions.json',
         Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
       res.end('{}');
     } else {
-      res.status(400);
-      res.end(JSON.stringify({
-        error: 'Invalid parameters.'
-      }));
+      var err = new Error('Invalid parameters.');
+      err.statusCode = 400;
+      return next(err);
     }
   });
 
 
 // Error handler. Must come after all routes.
-app.use(function(err, req, res, next){
-  logger.error(err.stack);
-  res.status(500);
-  res.header('Content-Type', 'text/html');
-  mu.compileAndRender('error.mustache', {
-    error: err.message
-  }).pipe(res);
+app.use(function(err, req, res, next) {
+  // If there was an authentication issue, clear all cookies so the user can try
+  // logging in again.
+  if (err.message === 'Failed to deserialize user out of session') {
+    res.clearCookie('express:sess');
+    res.clearCookie('express:sess.sig');
+    res.clearCookie('uid');
+  }
+  var message = err.message;
+  res.status(err.statusCode || 500);
+  // Error codes in the 500 error range log stack traces because they represent
+  // internal (unexpected) errors. Other errors only log the message, and only
+  // at WARN level. They include the user if available.
+  if (res.status >= 500) {
+    logger.error(err.stack);
+  } else if (req.user) {
+    logger.warn(req.user, message);
+  } else {
+    logger.warn(message);
+  }
+  res.format({
+    html: function() {
+      res.header('Content-Type', 'text/html');
+      mu.compileAndRender('error.mustache', {
+        error: message
+      }).pipe(res);
+    },
+    json: function() {
+      res.header('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        error: message
+      }));
+    }
+  });
 });
 
 /**
@@ -706,6 +809,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       updated: timeago(new Date(blockBatch.createdAt)),
       // The name of the logged-in user, for the nav bar.
       logged_in_screen_name: logged_in_screen_name,
+      csrf_token: req.session.csrf,
       // The name of the user whose blocks we are viewing.
       author_screen_name: btUser.screen_name,
       // The uid of the user whose blocks we are viewing.
@@ -780,6 +884,7 @@ function showActions(req, res, next) {
     });
     var templateData = {
       logged_in_screen_name: req.user.screen_name,
+      csrf_token: req.session.csrf,
       // Base URL for appending pagination querystring.
       path_name: url.parse(req.url).pathname
     };
@@ -803,7 +908,16 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
-  app.listen(config.port);
+  var server = app.listen(config.port);
+
+  process.on('SIGTERM', function () {
+    logger.info('Shutting down.');
+    setup.gracefulShutdown();
+    server.close(function () {
+      logger.info('Shut down succesfully.');
+      process.exit(0);
+    });
+  });
   logger.info('Worker', cluster.worker.id, 'up.');
 }
 

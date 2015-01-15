@@ -3,7 +3,7 @@
   "name": "blocktogether",
   "description": "Share your blocks",
   "repository": "https://github.com/jsha/blocktogether.git",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "dependencies": {
     "express": "~4.8.2",
     "body-parser": "~1.6.2",
@@ -19,7 +19,7 @@
     "mysql": "~2.4.2",
     "scmp": "0.0.3",
     "q": "~1.0.1",
-    "yakaa": "~1.0.0",
+    "yakaa": "~1.0.1",
     "upnode": "~0.4.3"
   }
 }

@@ -8,6 +8,7 @@ var twitterAPI = require('node-twitter-api'),
     _ = require('sequelize').Utils._,
     actions = require('./actions'),
     updateUsers = require('./update-users'),
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -43,18 +44,15 @@ function startStreams() {
   // Start a stream for each user, spaced 100 ms apart. Once all users have had
   // their stream started, start the periodic process of checking for any
   // streams that have failed and restarting them.
-  function startAndNext() {
-    var uid = uids.pop();
+  util.slowForEach(uids, 100, function(uid) {
     startStream(allUsers[uid]);
-    if (uids.length) {
-      setTimeout(startAndNext, 100);
-    } else {
-      logger.info('Done with initial stream starts, moving to refresh mode.');
-      setInterval(refreshUsers, 1000);
-      setInterval(refreshStreams, 5000);
-    }
-  }
-  startAndNext();
+  }).then(function() {
+    logger.info('Done with initial stream starts, moving to refresh mode.');
+    setInterval(refreshUsers, 20000);
+    setInterval(refreshStreams, 10000);
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
@@ -110,12 +108,9 @@ function refreshUsers() {
       ['uid % ? = ?', numWorkers, workerId % numWorkers],
       // Check for any option that monitors stream for autoblock criteria
       sequelize.or(
-        {
-          block_new_accounts: true
-        },
-        {
-          block_low_followers: true
-        }
+        { block_new_accounts: true },
+        { block_low_followers: true },
+        'shared_blocks_key IS NOT NULL'
       ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
@@ -358,7 +353,12 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    //remoteUpdateBlocks(recipientBtUser);
+    // For now, always update on unblock events. We'd like to do this for both
+    // blocks and unblocks but it can get expensive when large block lists fan
+    // out.
+    if (data.event === 'unblock') {
+      remoteUpdateBlocks(recipientBtUser);
+    }
   }, 2000);
 }
 

@@ -1,0 +1,10 @@
+  {{>header.mustache}}
+  <script defer type="text/javascript" src="/static/subscribe-on-signup.js"></script>
+  <div class="block-all-submitting" data-author-uid="{{author_uid}}">
+  Subscribing to @<a href="https://twitter.com/{{author_screen_name}}"
+    >{{author_screen_name}}</a>'s block list...
+  </div>
+  {{>block-all-processing.mustache}}
+  {{! For use in case there's an error. }}
+  <div id="error-message"></div>
+  {{>footer.mustache}}

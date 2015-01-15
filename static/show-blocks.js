@@ -4,6 +4,7 @@
 $(function(){
   var author_uid = $('.all-blocks').data('author-uid').toString();
   var user_uid = $('body').data('user-uid').toString();
+  var shared_blocks_key = $('.all-blocks').data('shared-blocks-key');
 
   // Prevent people from subscribing to their own block lists.
   if (author_uid === user_uid) {
@@ -11,7 +12,7 @@ $(function(){
   }
 
   function errorHandler(jqXHR, textStatus, errorThrown) {
-    alert('Error: ' + textStatus + errorThrown);
+    alert('Error: ' + textStatus + " " + errorThrown);
   }
   function doAction(type) {
     var checkedUids = $('.checkbox:checked').map(function (el) {
@@ -33,6 +34,7 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
+        csrf_token: document.body.getAttribute('data-csrf-token'),
         type: type,
         list: $.makeArray(checkedUids)
       }),
@@ -52,8 +54,9 @@ $(function(){
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify({
+        csrf_token: document.body.getAttribute('data-csrf-token'),
         author_uid: author_uid,
-        shared_blocks_key: $('.all-blocks').data('shared-blocks-key').toString()
+        shared_blocks_key: shared_blocks_key.toString()
       }),
       success: function(data, textStatus, jqXHR) {
         $('.block-all-processing').show();
@@ -64,9 +67,25 @@ $(function(){
     });
   }
 
+  // Log on and save this block list in the session for subscribing up
+  // successful sign on.
+  function logOnAndSubscribe() {
+    $('<input>').attr({
+      type: 'hidden',
+      name: 'subscribe_on_signup_key',
+      value: shared_blocks_key,
+    }).appendTo('#log-on-form');
+    $('<input>').attr({
+      type: 'hidden',
+      name: 'subscribe_on_signup_author_uid',
+      value: author_uid,
+    }).appendTo('#log-on-form');
+    $('#log-on-form').submit();
+  }
+
   $('button').click(function(ev) {
     if ($('#log-on-form').length > 0) {
-      alert('Please log on to do that.');
+      logOnAndSubscribe();
     } else if ($(ev.target).hasClass('unblock')) {
       doAction('unblock');
     } else if ($(ev.target).hasClass('unblock-mute')) {
