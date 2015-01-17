@@ -1,4 +1,13 @@
+# OS-specific
+.DS_Store
+
+# Node
 node_modules/
 !node_modules/node-twitter-api
+
+# Vagrant stuff
+.vagrant/
+
+# Misc.
 *.sw?
 .db
