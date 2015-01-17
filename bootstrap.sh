@@ -59,6 +59,8 @@ fi
 su - vagrant -c'source /vagrant/install_nvm.sh'
 
 sudo chown -R vagrant /etc/blocktogether
+sudo mkdir -p /data/blocktogether/shared/log/
+sudo chown -R vagrant /data/blocktogether
 
 echo "*********************** IMPORTANT ***********************"
 echo
