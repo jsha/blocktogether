@@ -20,15 +20,14 @@ fi
 
 DB_PASS=$(openssl rand -hex 20)
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg
+sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential vim
+
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
 if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
-    GRANT LOCK TABLES CREATE, INDEX, ALTER, DROP ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
-    GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
-      'blocktogether'@'172.31.%' IDENTIFIED BY "${DB_PASS}";
+    GRANT ALL PRIVILEGES ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
 EOSQL
 fi
 
