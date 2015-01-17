@@ -49,7 +49,7 @@ And then from the Vagrant box:
 You should now be able to access your local version of blocktogether in a browser
 at http://localhost:3000.
 
-Log in for the first time using the 'Log in' button, not the 'Sign up' button.
+Log in for the first time using the 'Log in' button (nope, not the 'Sign up' button).
 After you've authorized your app, you should be able to connect to the database
 using the credentials installed in /etc/blocktogether/config.json:
 
@@ -64,10 +64,10 @@ the existing fields. Also change `userToFollow` to your Twitter handle.
 
 Now you can start the support daemons:
 
-     js update-users.js
-     js update-blocks.js
-     js actions.js
-     js stream.js
+     node update-users.js
+     node update-blocks.js
+     node actions.js
+     node stream.js
 
 These perform the background work that the web frontend doesn't do. You can now
 start developing! Note: It's highly recommended you create a few test accounts
