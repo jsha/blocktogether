@@ -62,15 +62,15 @@ Extract the `access_token` and `access_token_secret` for your user:
 Put these in /etc/blocktogether/config.json, using the same capitalization as
 the existing fields. Also change `userToFollow` to your Twitter handle.
 
-Now you can start the support daemons:
+Now you can start the server & the support daemons. (The daemons perform the
+background work that the web frontend doesn't do.)
 
-     node update-users.js
-     node update-blocks.js
-     node actions.js
-     node stream.js
+     vagrant ssh
+     cd /vagrant && ./run-dev.sh
 
-These perform the background work that the web frontend doesn't do. You can now
-start developing! Note: It's highly recommended you create a few test accounts
+You can now start developing!
+
+**Note:** It's highly recommended you create a few test accounts
 on Twitter in order to be able to exercise the sharing functionality of Block
 Together, and so that you don't create or delete blocks on your main account
 unintentionally.
