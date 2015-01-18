@@ -10,7 +10,7 @@ source /vagrant/bin/setup.sh
 sudo chown -R vagrant /etc/blocktogether
 sudo chown -R vagrant /data/blocktogether
 
-su - vagrant -c'curl https://deb.nodesource.com/setup | sudo bash -'
+curl https://deb.nodesource.com/setup | sudo bash -
 sudo apt-get install -y nodejs
 
 cd /vagrant && npm install
