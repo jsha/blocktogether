@@ -12,14 +12,6 @@ cd /vagrant
 #
 DB_ROOT_PASS=${DB_ROOT_PASS:-$(openssl rand -hex 20)}
 if [ ! -f /usr/sbin/mysqld ] ; then
-  echo "*********************** IMPORTANT ***********************"
-  echo "*********************** IMPORTANT ***********************"
-  echo "This will be your MySQL server root password, write it down:"
-  echo
-  echo $DB_ROOT_PASS
-  echo
-  echo "*********************** IMPORTANT ***********************"
-  echo "*********************** IMPORTANT ***********************"
   sudo debconf-set-selections <<<"mysql-server mysql-server/root_password password $DB_ROOT_PASS"
   sudo debconf-set-selections <<<"mysql-server mysql-server/root_password_again password $DB_ROOT_PASS"
 fi
@@ -83,5 +75,7 @@ echo "Afterwards, you can start the server from the VM with:"
 echo
 echo "     vagrant ssh && ./vagrant/run.sh"
 echo
-echo "It can then be accessed in at http://localhost:3000"
+echo "It can then be accessed in at http://localhost:3000."
+echo "Refer to the README for further setup instructions."
+echo
 echo "*********************** IMPORTANT ***********************"
