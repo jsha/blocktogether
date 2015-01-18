@@ -6,44 +6,50 @@ See more details at https://blocktogether.org.
 
 # Developer Setup Instructions
 
-First make a config directory and copy the config files into it:
+First, make sure that you have [Vagrant](https://www.vagrantup.com/) installed.
+Then, from the blocktogether directory, run:
 
-    sudo mkdir /etc/blocktogether
-    sudo chown YOUR_USERNAME /etc/blocktogether
-    cp -r config/* /etc/blocktogether/
-    mv /etc/blocktogether/development.json /etc/blocktogether/config.json
+    vagrant up
 
-You will need Node and MySQL. If you are on Ubuntu or Debian, the
-easiest way to get these is to run `bash setup.sh`, which will run an apt-get
-install for the packages you need (plus a few extras mainly used by the prod
-instance, like gnupg). Setup.sh will also set a MySQL root password if it's your
-first time installing MySQL - write it down or store it in your password
-manager. If you already have a MySQL root password set, run
-`DB_ROOT_PASS=YOUR_PASSWORD bash setup.sh`
+Second, create an app on Twitter for your local version of blocktogether:
 
-Next, run `npm install` to get the necessary NPM packages, and create the
-necessary database tables with:
+  1. Head to https://apps.twitter.com/ and click "Create New App"
+  2. Fill out form & click "Create your Twitter application". (The description and
+     website don't matter; You'll only be using this for testing. However, it is
+     important that you don't leave the 'Callback URL' blank or you won't be able to
+     log in. Fill in any arbitrary URL here - the app will override it at login time.
 
-    ./node_modules/sequelize/bin/sequelize --config /etc/blocktogether/sequelize.json -m
+  3. Under "Application Settings" > "Access level", click "modify app permissions"
+     and select "Read and Write" access. The write permission is necessary to apply
+     blocks, unblocks, and mutes. (You may need to add a phone number to your
+     account in order to get read/write permission.)
 
-Now, create an API app at https://apps.twitter.com/app/new. The description and
-website don't matter; You'll only be using this for testing. However, it is
-important that you don't leave the 'Callback URL' blank or you won't be able to
-log in. Fill in any arbitrary URL here - the app will override it at login time.
-After you've created the app, make sure it is set to have read/write permission.
-The write permission is necessary to apply blocks, unblocks, and mutes. You may
-need to add a phone number to your account in order to get read/write
-permission. After you've set read-write permission, the consumerKey and
-consumerSecret listed on apps.twitter.com will be different. Copy the new
-consumerKey and consumerSecret into /etc/blocktogether/config.json in the
-appropriate fields.
+  4. After you've set the read-write permissions, click the "Keys and Access Tokens"
+     tab. (Note that changing your app's permissions will regenerate these keys.)
 
-You're now ready to start the web frontend:
 
-    bash ./run.sh
-    firefox http://localhost:3000/
+Now, we'll want to save our Twitter credentials to the configfile so BlockTogether
+can access Twitter's API:
 
-Log in for the first time using the 'Log in' button, not the 'Sign up' button.
+  1. From the `blocktogether` directory, run `vagrant ssh`
+  2. Open the config file for editing: `sudo vim /etc/blocktogether/config.json`
+     or with your editor of choice (though you might have to apt-get it)
+  3. Replace the placeholder `consumerKey` and `consumerSecret` fields with your
+     your new credentials (found under your dev app on https://apps.twitter.com)
+
+You're now ready to run BlockTogether locally. :D Start the by first SSH'ing
+into the Vagrant box. From the root `blocktogether` directory:
+
+    vagrant ssh
+
+And then from the Vagrant box:
+
+    cd /vagrant && ./run.sh
+
+You should now be able to access your local version of blocktogether in a browser
+at http://localhost:3000.
+
+Log in for the first time using the 'Log in' button (nope, not the 'Sign up' button).
 After you've authorized your app, you should be able to connect to the database
 using the credentials installed in /etc/blocktogether/config.json:
 
@@ -58,16 +64,17 @@ the existing fields. Also change `userToFollow` to your Twitter handle.
 
 Now you can start the support daemons:
 
-     js update-users.js
-     js update-blocks.js
-     js actions.js
-     js stream.js
+     node update-users.js
+     node update-blocks.js
+     node actions.js
+     node stream.js
 
 These perform the background work that the web frontend doesn't do. You can now
 start developing! Note: It's highly recommended you create a few test accounts
 on Twitter in order to be able to exercise the sharing functionality of Block
 Together, and so that you don't create or delete blocks on your main account
 unintentionally.
+
 
 # License
 
