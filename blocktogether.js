@@ -295,6 +295,7 @@ app.get('/logout',
 app.get('/logged-out',
   function(req, res) {
     var stream = mu.compileAndRender('logged-out.mustache', {
+      csrf_token: req.session.csrf
     });
     res.header('Content-Type', 'text/html');
     stream.pipe(res);
