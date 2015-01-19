@@ -7,11 +7,7 @@
 source /vagrant/bin/init_config.sh
 source /vagrant/bin/setup.sh
 
-sudo chown -R vagrant /etc/blocktogether
-sudo chown -R vagrant /data/blocktogether
-
-curl https://deb.nodesource.com/setup | sudo bash -
-sudo apt-get install -y nodejs
+sudo chown -R "$USER" /data/blocktogether
 
 cd /vagrant && npm install
 ./node_modules/sequelize/bin/sequelize --config /etc/blocktogether/sequelize.json -m
