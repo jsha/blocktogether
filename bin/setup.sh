@@ -19,14 +19,20 @@ if [ ! -f /usr/sbin/mysqld ] ; then
 fi
 
 DB_PASS=$(openssl rand -hex 20)
+
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server nodejs npm git nginx gnupg
+sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm
+sudo ln -sf nodejs /usr/bin/node
+
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
 if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
   mysql -u root --password="$DB_ROOT_PASS" <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
-    GRANT LOCK TABLES, CREATE, INDEX, ALTER, DROP ON blocktogether.* to 'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
+    GRANT ALL PRIVILEGES ON blocktogether.* TO
+      'blocktogether'@'127.0.0.1' IDENTIFIED BY "${DB_PASS}";
+    GRANT ALL PRIVILEGES ON blocktogether.* TO
+      'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
     GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
       'blocktogether'@'172.31.%' IDENTIFIED BY "${DB_PASS}";
 EOSQL
@@ -50,3 +56,9 @@ if ! crontab -l >/dev/null; then
     23 10 * * * bash /data/blocktogether/current/util/cron.sh
 EOCRON
 fi
+
+sudo mkdir -p /data/blocktogether/shared/log/
+
+# NOTE FOR DEPLOYING TO PRODUCTION:
+# You will still have to install nodejs.
+# https://github.com/joyent/node/wiki/installing-node.js-via-package-manager#debian-and-ubuntu-based-linux-distributions
