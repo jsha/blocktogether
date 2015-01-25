@@ -3,7 +3,7 @@
 /** @type{SetupModule} */
 var setup = require('./setup');
 var _ = require('sequelize').Utils._;
-var verifyCredentials = require('./verify-credentials').verifyCredentials;
+var verifyCredentials = require('./verify-credentials');
 
 var config = setup.config,
     twitter = setup.twitter,

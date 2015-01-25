@@ -79,8 +79,6 @@ function verifyCredentials(user) {
   });
 }
 
-module.exports = {
-  verifyCredentials: verifyCredentials
-};
+module.exports = verifyCredentials;
 
 })();
