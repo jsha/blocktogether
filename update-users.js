@@ -3,6 +3,7 @@
 /** @type{SetupModule} */
 var setup = require('./setup');
 var _ = require('sequelize').Utils._;
+var verifyCredentials = require('./verify-credentials').verifyCredentials;
 
 var config = setup.config,
     twitter = setup.twitter,
@@ -55,7 +56,7 @@ function reactivateBtUsers() {
       logger.error(err);
     }).success(function(btUsers) {
       btUsers.forEach(function (btUser) {
-        btUser.verifyCredentials();
+        verifyCredentials(btUser);
       });
     });
 }

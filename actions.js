@@ -10,7 +10,8 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     _ = require('sequelize').Utils._,
     util = require('./util'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    verifyCredentials = require('./verify-credentials').verifyCredentials;
 
 var twitter = setup.twitter,
     logger = setup.logger,
