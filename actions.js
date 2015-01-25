@@ -107,8 +107,7 @@ var workingActions = {};
  */
 function processActionsForUserId(uid) {
   if (workingActions[uid]) {
-    logger.warn('Skipping processing for', uid,
-      'actions already in progress.', workingActions[uid]);
+    logger.warn('Skipping processing for', uid, 'actions already in progress.');
     return Q.resolve(null);
   }
   var btUserPromise = BtUser.find(uid);
@@ -264,7 +263,8 @@ function processUnblocksForUser(btUser, actions) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        btUser.verifyCredentials();
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -293,7 +293,8 @@ function processMutesForUser(btUser, actions) {
       return setActionStatus(action, Action.DONE);
     }).catch(function(err) {
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        btUser.verifyCredentials();
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -329,13 +330,23 @@ function processBlocksForUser(btUser, actions) {
   }
   logger.debug('Checking follow status', btUser,
     '--???-->', sinkUids.length, 'users');
+
+  // This function is called on successful lookup, or on 404, which we treat as
+  // a successful, but empty, response.
+  function success(friendships) {
+    var indexedFriendships = _.indexBy(friendships, 'id_str');
+    return checkUnblocks(btUser, indexedFriendships, actions);
+  }
   return getFriendships(btUser, sinkUids
-    ).then(function(friendships) {
-      var indexedFriendships = _.indexBy(friendships, 'id_str');
-      return checkUnblocks(btUser, indexedFriendships, actions);
-    }).catch(function (err) {
+    ).then(success
+    ).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        return btUser.verifyCredentials().thenResolve(null);
+        btUser.verifyCredentials();
+        return Q.resolve(null);
+      } else if (err.statusCode === 404) {
+        // If every sinkUid is suspended, the call to /friendships/lookup
+        // returns 404. We treat that as equivalent to an empty response.
+        success([]);
       } else if (err.statusCode) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
           btUser.screen_name, err.data);
@@ -443,7 +454,8 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-          return sourceBtUser.verifyCredentials().thenResolve(null);
+          sourceBtUser.verifyCredentials();
+          return Q.resolve(null);
         } else if (err.statusCode) {
           logger.error('Error /blocks/create', err.statusCode,
             sourceBtUser.screen_name, sourceBtUser.uid,
