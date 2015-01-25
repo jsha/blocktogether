@@ -261,12 +261,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     }
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
-    // If the event target is present, it's a Twitter User object, and we should
-    // save it if we don't already have it.
-    if (data.target) {
-      updateUsers.storeUser(data.target);
-    }
-
     if (data.event === 'unblock' || data.event === 'block') {
       handleBlockEvent(recipientBtUser, data);
     }
