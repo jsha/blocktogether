@@ -15,24 +15,28 @@
   <h3>Blocked users appear in mentions on some clients</h3>
 
 <p>
+Update January 27 2015: Tweetdeck has fixed this bug in their client, thanks!
+Other clients still have it.
+</p>
+<p>
   There have been reports of blocked users showing up in some people's mentions on
-  these clients: Tweetdeck, Twitter for Mac, Tweetbot, and Echofon. This is most
+  these clients: <s>Tweetdeck,</s> Twitter for Mac, Tweetbot, and Echofon. This is most
   likely because of two factors:
 <p>
   <ul>
     <li>The Twitter user streams API
-	<a href="https://dev.twitter.com/streaming/userstreams#filtering_tweet_for_display"
-	>delivers mentions even for blocked users</a>. Clients are required to
-	fetch the current list of blocks from <a
-	href="https://dev.twitter.com/rest/reference/get/blocks/ids">/blocks/ids</a>
-	and filter blocked users locally.
+      <a href="https://dev.twitter.com/streaming/userstreams#filtering_tweet_for_display"
+      >delivers mentions even for blocked users</a>. Clients are required to
+      fetch the current list of blocks from <a
+      href="https://dev.twitter.com/rest/reference/get/blocks/ids">/blocks/ids</a>
+      and filter blocked users locally.
     </li>
     <li>The <a href="https://dev.twitter.com/rest/reference/get/blocks/ids">/blocks/ids</a>
-	API call returns a maximum of 5000 blocked user ids. If there are more
-	than 5000 blocked user ids, the client must implement cursoring to get the
-	rest.</li>
+      API call returns a maximum of 5000 blocked user ids. If there are more
+      than 5000 blocked user ids, the client must implement cursoring to get the
+      rest.</li>
   </ul>
-  
+
 <p>
 It's likely that many streaming clients make a single call to /blocks/ids on
 startup and do not implement cursoring for that call. In those clients, users
