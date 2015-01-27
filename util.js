@@ -15,13 +15,13 @@ var Q = require('q'),
  *   batch.
  * @param {Function} f Function to call on each item. Should return a Promise.
  * @return {Promise.<Array.<Object> >} A promise that resolves once all the
- *   component promises are settled.
+ *   component promises resolve, or resolves early if there is any failure.
  */
 function slowForEach(list, interval, f) {
   var promises = list.map(function(item, i) {
     return Q.delay(i * interval).then(f.bind(null, item));
   });
-  return Q.allSettled(promises);
+  return Q.all(promises);
 }
 
 module.exports = {
