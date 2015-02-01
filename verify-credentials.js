@@ -28,24 +28,28 @@ function verifyCredentials(user) {
             errJson.errors.some(function(e) { return e.code === 89 })) {
           logger.warn('User', user, 'revoked app.');
           user.deactivatedAt = new Date();
-        } else if (err.statusCode === 404) {
-          //Testing for issue #146 indicates calling verify_credentials
-          //for a suspended account will return success, not a 404. Leaving
-          //this code in-place for robustness and in case there are
-          //differences between suspended accounts we may not be aware of.
+        } else if (err.statusCode === 404 || err.statusCode === 401) {
+          // Testing for issue #146 indicates calling verify_credentials
+          // for a suspended account will return success, not a 404. Leaving
+          // this code in-place for robustness and in case there are
+          // differences between suspended accounts we may not be aware of.
           logger.warn('User', user, 'deactivated or suspended.')
           user.deactivatedAt = new Date();
         } else {
           logger.warn('User', user, 'verify_credentials', err.statusCode);
         }
       } else {
-        //We need a second lookup to the users.show.json endpoint to detect
-        //suspension status for issue #146
-        twitter.users('show',
-          { user_id: user.uid },
-          user.access_token,
+        // We need a second lookup to the users.show.json endpoint to detect
+        // suspension status for issue #146. It would be nice if
+        // verify_credentials return object had the 'suspended' field we use
+        // from the /users/show return object, but it does not and so we're left
+        // with having to make a 2nd request.
+        twitter.users('show', {
+            user_id: user.uid
+          }, user.access_token,
           user.access_token_secret,
-          function(err, response) {
+          function(err, response)
+          {
             if (err) {
               // Testing using a suspended account does not seem to return
               // 403 or 404. Leaving this here for robustness, see comments
