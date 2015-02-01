@@ -5,6 +5,7 @@
  */
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
+    util = require('./util'),
     setup = require('./setup');
 
 var twitter = setup.twitter,
@@ -31,25 +32,19 @@ BtUser
     var targets = fs.readFileSync(filename)
       .toString().replace(/\n$/, '').split('\n');
 
-    var blockAndNext = function(targets) {
-      if (targets.length > 0) {
-        var targetScreenName = targets.pop();
-        logger.info('Blocking ' + targetScreenName);
+    util.slowForEach(targets, 120, function(target) {
+        logger.info('Blocking ' + target);
         twitter.blocks('create', {
-          screen_name: targetScreenName,
+          user_id: target,
           skip_status: 1
         }, accessToken, accessTokenSecret,
         function(err, results) {
           if (err) {
             logger.error('Error blocking: %j', err);
           } else {
-            logger.info('Blocked ' + targetScreenName);
+            logger.info('Blocked ' + target);
           }
-          // In 100 ms, run this again for the next item.
-          setTimeout(blockAndNext.bind(null, targets), 100);
-        });
-      }
-    };
-    blockAndNext(targets);
+      });
+    });
   });
 })();
