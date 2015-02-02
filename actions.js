@@ -10,7 +10,8 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     _ = require('sequelize').Utils._,
     util = require('./util'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
     logger = setup.logger,
@@ -264,7 +265,8 @@ function processUnblocksForUser(btUser, actions) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser);
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -293,7 +295,8 @@ function processMutesForUser(btUser, actions) {
       return setActionStatus(action, Action.DONE);
     }).catch(function(err) {
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser);
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
@@ -335,7 +338,8 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser)
+        return Q.resolve(null);
       } else if (err.statusCode) {
         logger.error('Error /friendships/lookup', err.statusCode, 'for',
           btUser.screen_name, err.data);
@@ -443,7 +447,8 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-          return sourceBtUser.verifyCredentials().thenResolve(null);
+          verifyCredentials(sourceBtUser);
+          return Q.resolve(null);
         } else if (err.statusCode) {
           logger.error('Error /blocks/create', err.statusCode,
             sourceBtUser.screen_name, sourceBtUser.uid,
