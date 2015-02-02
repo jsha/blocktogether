@@ -14,12 +14,13 @@
     "nodemon": "~1.2.1",
     "sequelize": "~1.7.9",
     "timeago": "~0.1.0",
-    "node-twitter-api": "~1.5.0",
+    "node-twitter-api": "jsha/node-twitter-api#81f449a06de631cf86d4667bdeb70ccfb32ea778",
     "log4js": "~0.6.21",
     "mysql": "~2.4.2",
     "scmp": "0.0.3",
     "q": "~1.0.1",
-    "yakaa": "~1.0.0",
-    "upnode": "~0.4.3"
+    "yakaa": "~1.0.1",
+    "upnode": "~0.4.3",
+    "mariasql": "~0.1.21"
   }
 }

@@ -4,8 +4,21 @@
     "level": "INFO",
     "category": "blocktogether",
     "appender": {
-      "type": "file",
-      "filename": "blocktogether-info.log",
+      "type": "dateFile",
+      "filename": "blocktogether-info",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "INFO",
+    "category": "console",
+    "appender": {
+      "type": "dateFile",
+      "filename": "console",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -13,8 +26,10 @@
     "level": "INFO",
     "category": "stream",
     "appender": {
-      "type": "file",
-      "filename": "stream-info.log",
+      "type": "dateFile",
+      "filename": "stream-info",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -22,8 +37,10 @@
     "level": "INFO",
     "category": "actions",
     "appender": {
-      "type": "file",
-      "filename": "actions-info.log",
+      "type": "dateFile",
+      "filename": "actions-info",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -31,8 +48,10 @@
     "level": "INFO",
     "category": "update-users",
     "appender": {
-      "type": "file",
-      "filename": "update-users-info.log",
+      "type": "dateFile",
+      "filename": "update-users-info",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -40,8 +59,10 @@
     "level": "INFO",
     "category": "update-blocks",
     "appender": {
-      "type": "file",
-      "filename": "update-blocks-info.log",
+      "type": "dateFile",
+      "filename": "update-blocks-info",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -49,8 +70,10 @@
     "level": "WARN",
     "category": "blocktogether",
     "appender": {
-      "type": "file",
-      "filename": "blocktogether-warn.log",
+      "type": "dateFile",
+      "filename": "blocktogether-warn",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -58,8 +81,10 @@
     "level": "WARN",
     "category": "stream",
     "appender": {
-      "type": "file",
-      "filename": "stream-warn.log",
+      "type": "dateFile",
+      "filename": "stream-warn",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -67,8 +92,10 @@
     "level": "WARN",
     "category": "actions",
     "appender": {
-      "type": "file",
-      "filename": "actions-warn.log",
+      "type": "dateFile",
+      "filename": "actions-warn",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -76,8 +103,10 @@
     "level": "WARN",
     "category": "update-users",
     "appender": {
-      "type": "file",
-      "filename": "update-users-warn.log",
+      "type": "dateFile",
+      "filename": "update-users-warn",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }, {
@@ -85,8 +114,10 @@
     "level": "WARN",
     "category": "update-blocks",
     "appender": {
-      "type": "file",
-      "filename": "update-blocks-warn.log",
+      "type": "dateFile",
+      "filename": "update-blocks-warn",
+      "pattern": "-dd.log",
+      "alwaysIncludePattern": false,
       "layout": { "type": "colored" }
     }
   }],

@@ -134,7 +134,9 @@ function processActionsForUserId(uid) {
       if (!btUser || btUser.deactivatedAt) {
         // Cancel all pending actions for deactivated or absent users.
         logger.error('User missing or deactivated', uid);
-        return cancelSourceDeactivated(uid).thenResolve(null);
+        return cancelSourceDeactivated(uid).then(function() {
+          return Q.resolve(null);
+        });
       } else if (actions.length === 0) {
         return Q.resolve(null);
       } else {
