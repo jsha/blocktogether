@@ -444,7 +444,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-          btUser.verifyCredentials();
+          sourceBtUser.verifyCredentials();
           return Q.resolve(null);
         } else if (err.statusCode) {
           logger.error('Error /blocks/create', err.statusCode,
