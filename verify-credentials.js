@@ -13,7 +13,7 @@ var logger = require('./setup').logger,
  * like the app to resume working normally if that happens. So instead of
  * deleting the user when we get one of these codes, store a 'deactivatedAt'
  * timestamp on the user object. Users with a non-null deactivatedAt
- * get their credentials retried once per day for 30 days, after which (TOD)
+ * get their credentials retried once per day for 30 days, after which (TODO)
  * they should be deleted. Regular operations like checking blocks or
  * streaming are not performed for users with non-null deactivatedAt.
  *
@@ -25,7 +25,7 @@ var logger = require('./setup').logger,
  * 401 (and Twitter error code 89). And a suspended user will return 200, but
  * will have suspended: true in the response body.
  *
- * See https://github.com/jsha/blocktogether/pull/165 for details.
+ * See https://github.com/jsha/blocktogether/issues/146 for details.
  */
 function verifyCredentials(user) {
   twitter.users('show', {
