@@ -16,64 +16,38 @@ var logger = require('./setup').logger,
  * get their credentials retried once per day for 30 days, after which (TOD)
  * they should be deleted. Regular operations like checking blocks or
  * streaming are not performed for users with non-null deactivatedAt.
+ *
+ * The Twitter API provides /account/verify_credentials for this purpose, but
+ * that endpoint does not provide information on whether the user is suspended.
+ * Instead, /users/show.json for the user's own uid will tell us all of
+ * suspended, deactivated, or revoked. A deactivated user will return 404 (and
+ * Twitter error code 34) to that call. A user who revoked the app will return
+ * 401 (and Twitter error code 89). And a suspended user will return 200, but
+ * will have suspended: true in the response body.
+ *
+ * See https://github.com/jsha/blocktogether/pull/165 for details.
  */
 function verifyCredentials(user) {
-  twitter.account('verify_credentials', {}, user.access_token,
-    user.access_token_secret, function(err, results) {
-      if (err && err.data) {
-        // For some reason the error data is given as a string, so we have to
-        // parse it.
-        var errJson = JSON.parse(err.data);
-        if (errJson.errors &&
-            errJson.errors.some(function(e) { return e.code === 89 })) {
-          logger.warn('User', user, 'revoked app.');
-          user.deactivatedAt = new Date();
-        } else if (err.statusCode === 404 || err.statusCode === 401) {
-          // Testing for issue #146 indicates calling verify_credentials
-          // for a suspended account will return success, not a 404. Leaving
-          // this code in-place for robustness and in case there are
-          // differences between suspended accounts we may not be aware of.
-          logger.warn('User', user, 'deactivated or suspended.')
-          user.deactivatedAt = new Date();
-        } else {
-          logger.warn('User', user, 'verify_credentials', err.statusCode);
-        }
+  twitter.users('show', {
+    user_id: user.uid
+    }, user.access_token,
+    user.access_token_secret, function(err, response) {
+      if (err && err.statusCode === 401) {
+        logger.warn('User', user, 'revoked app.');
+        user.deactivatedAt = new Date();
+      } else if (err && err.statusCode === 404) {
+        logger.warn('User', user, 'deactivated.')
+        user.deactivatedAt = new Date();
+      } else if (err && err.statusCode) {
+        logger.warn('User', user, '/account/verify_credentials', err.statusCode);
+      } else if (err) {
+        logger.warn('User', user, '/account/verify_credentials', err);
+      } else if (response.suspended === true) {
+        logger.warn('User', user, 'suspended.')
+        user.deactivatedAt = new Date();
       } else {
-        // We need a second lookup to the users.show.json endpoint to detect
-        // suspension status for issue #146. It would be nice if
-        // verify_credentials return object had the 'suspended' field we use
-        // from the /users/show return object, but it does not and so we're left
-        // with having to make a 2nd request.
-        twitter.users('show', {
-            user_id: user.uid
-          }, user.access_token,
-          user.access_token_secret,
-          function(err, response)
-          {
-            if (err) {
-              // Testing using a suspended account does not seem to return
-              // 403 or 404. Leaving this here for robustness, see comments
-              // in error case of verify_credentials response handler.
-              if (err.statusCode === 403 || err.statusCode === 404) {
-                logger.warn('User', user, 'is deactivated or suspended. Marking so', err.statusCode);
-                user.deactivatedAt = new Date();
-              } else {
-                logger.warn('User', user, 'unknown error on /user/lookup', err);
-              }
-            } else {
-              // Testing for #146 showed the response.suspended field to be
-              // a reliable indicator of whether an account was suspended.
-              if (response && response.suspended === true)
-              {
-                logger.warn('User', user, 'is suspended. Marking so');
-                user.deactivatedAt = new Date();
-              } else {
-                logger.info('User', user, 'has not revoked app or deactivated.');
-                user.deactivatedAt = null;
-              }
-            }
-          }
-        );
+        logger.info('User', user, 'has not revoked app, deactivated, or been suspended.');
+        user.deactivatedAt = null;
       }
       if (user.changed()) {
         user.save().error(function(err) {
