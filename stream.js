@@ -357,9 +357,9 @@ function handleBlockEvent(recipientBtUser, data) {
     // For now, always update on unblock events. We'd like to do this for both
     // blocks and unblocks but it can get expensive when large block lists fan
     // out.
-    if (data.event === 'unblock') {
+    //if (data.event === 'unblock') {
       remoteUpdateBlocks(recipientBtUser);
-    }
+    //}
   }, 2000);
 }
 

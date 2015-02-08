@@ -414,8 +414,6 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
   // executed.
   var newState = null;
 
-  logger.trace('Friendship', sourceBtUser, '--friend?-->',
-    friendship.screen_name, sink_uid, friendship.connections);
   // If no friendship for this action was returned by /1.1/users/lookup,
   // that means the sink_uid was suspened or deactivated, so defer the Action.
   if (!friendship) {
