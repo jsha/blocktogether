@@ -103,19 +103,18 @@ function updateBlocks(user) {
     logger.info('Updating blocks for', user);
   }
 
-  try {
+  // An array of array of strings represent blocked account uids.
+  var blocks = [];
+
   /**
    * For a given BtUser, fetch all current blocks and store in DB.
    *
    * @param {BtUser} user The user whose blocks we want to fetch.
-   * @param {BlockBatch|null} blockBatch The current block batch in which we will
-   *   store the blocks. Null for the first fetch, set after successful first
-   *   request.
    * @param {string|null} cursor When cursoring, the current cursor for the
    *   Twitter API.
    */
-  function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    logger.info('fetchAndStoreBlocks', user, blockBatch ? blockBatch.id : null, cursor);
+  function fetchAndStoreBlocks(user, cursor) {
+    logger.info('fetchAndStoreBlocks', user, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -127,30 +126,17 @@ function updateBlocks(user) {
       user.access_token,
       user.access_token_secret
     ).then(function(results) {
-      logger.trace('/blocks/ids', user, currentCursor, results[0]);
-      // Lazily create a BlockBatch after Twitter responds successfully. Avoids
-      // creating excess BlockBatches only to get rate limited.
-      if (!blockBatch) {
-        return BlockBatch.create({
-          source_uid: user.uid,
-          size: 0
-        }).then(function(createdBlockBatch) {
-          blockBatch = createdBlockBatch;
-          return handleIds(blockBatch, currentCursor, results[0]);
-        }).catch(function(err) {
-          logger.info(err);
-        });
-      } else {
-        return handleIds(blockBatch, currentCursor, results[0]);
-      }
-    }).then(function(nextCursor) {
-      logger.trace('nextCursor', user, nextCursor);
+      var response = results[0];
+      logger.trace('/blocks/ids', user, currentCursor, response);
+      // Push another array onto the array.
+      blocks.push(response.ids);
       // Check whether we're done or need to grab the items at the next cursor.
+      var nextCursor = response.next_cursor_str;
       if (nextCursor === '0') {
-        return finalizeBlockBatch(blockBatch);
+        return finalizeBlockBatch(user, blocks);
       } else {
-        logger.debug('Batch', blockBatch.id, 'cursoring', nextCursor);
-        return fetchAndStoreBlocks(user, blockBatch, nextCursor);
+        logger.debug('fetchAndStoreBlocks', user, 'cursoring', nextCursor);
+        return fetchAndStoreBlocks(user, nextCursor);
       }
     }).catch(function (err) {
       if (err.statusCode === 429) {
@@ -159,10 +145,9 @@ function updateBlocks(user) {
         // greater than 15 * 5,000 = 75,000 blocks will always get rate limited
         // when we try to update blocks. So we have to remember state and keep
         // trying after a delay to let the rate limit expire.
-        if (!blockBatch) {
-          // If we got rate limited on the very first request, when we haven't
-          // yet created a blockBatch object, don't bother retrying, just finish
-          // now.
+        if (!len(blocks) === 0) {
+          // If we got rate limited on the very first request, don't bother
+          // retrying, just finish now.
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
@@ -170,7 +155,7 @@ function updateBlocks(user) {
             blockBatch.id, 'Trying again in 15 minutes.');
           return Q.delay(15 * 60 * 1000)
             .then(function() {
-              return fetchAndStoreBlocks(user, blockBatch, currentCursor);
+              return fetchAndStoreBlocks(user, currentCursor);
             });
         }
       } else if (err.statusCode) {
@@ -183,7 +168,7 @@ function updateBlocks(user) {
     });
   }
 
-  var fetchPromise = fetchAndStoreBlocks(user, null, null);
+  var fetchPromise = fetchAndStoreBlocks(user, null);
   // Remember there is a fetch running for a user so we don't overlap.
   activeFetches[user.uid] = fetchPromise;
   // Once the promise resolves, success or failure, delete the entry in
@@ -195,10 +180,6 @@ function updateBlocks(user) {
     logger.info('Deleting activeFetches[', user, '].');
     delete activeFetches[user.uid];
   });
-  } catch (e) {
-    logger.error('Exception in fetchAndStoreBlocks', e);
-    return Q.resolve(null);
-  }
 
   return fetchPromise;
 }
@@ -238,28 +219,35 @@ function handleIds(blockBatch, currentCursor, results) {
     });
 }
 
-function finalizeBlockBatch(blockBatch) {
-  if (!blockBatch) {
-    return Q.reject('No blockBatch passed to finalizeBlockBatch');
-  }
-  logger.info('Finished fetching blocks for user', blockBatch.source_uid,
-    'batch', blockBatch.id);
-  // Mark the BlockBatch as complete and save that bit.
-  // TODO: Don't mark as complete until all block diffing and fanout is
-  // complete, otherwise there is potential to drop things on the floor.
-  // For now, just exit early if we are in the shutdown phase.
-  if (shuttingDown) {
-    return Q.resolve(null);
-  }
-  blockBatch.complete = true;
-  return blockBatch
-    .save()
-    .then(function(blockBatch) {
-      diffBatchWithPrevious(blockBatch);
-      // Prune older BlockBatches for this user from the DB.
-      destroyOldBlocks(blockBatch.source_uid);
-      return Q.resolve(blockBatch);
-    });
+function finalizeBlockBatch(user, blocks) {
+  var blocksString = blocks.map(function(subArray) {
+    return subArray.join(",");
+  }).join(",");
+  var numBlocks = blocks.reduce(function(previousCount, subArray) {
+    return previousCount + subArray.length;
+  }, 0);
+  return BlockBatch.create({
+    source_uid: user.uid,
+    size: numBlocks,
+    blocks: blocksString,
+    // Mark the BlockBatch as complete and save that bit.
+    // TODO: Don't mark as complete until all block diffing and fanout is
+    // complete, otherwise there is potential to drop things on the floor.
+    // For now, just exit early if we are in the shutdown phase.
+    complete: 1
+  }).then(function(createdBlockBatch) {
+    logger.info('Finished fetching blocks for', user, 'batch', createdBlockBatch.id);
+    if (shuttingDown) {
+      return Q.resolve(null);
+    }
+    return blockBatch
+      .save()
+      .then(function(blockBatch) {
+        diffBatchWithPrevious(blockBatch);
+        // Prune older BlockBatches for this user from the DB.
+        destroyOldBlocks(blockBatch.source_uid);
+        return Q.resolve(blockBatch);
+      });
 }
 
 /**
