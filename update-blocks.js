@@ -479,20 +479,22 @@ function recordAction(source_uid, sink_uid, type) {
     'status': Action.DONE
   }
 
+  // Look for the most recent block or unblock action applying to this sink_uid.
+  // If it's the same type as the action we're trying to record, it's an action
+  // caused internally to Block Together and we shouldn't record it; It would be
+  // a duplicate.
+  // If it's a different type (i.e. we are recording a block and the most recent
+  // action was an unblock), go ahead and record.
   return Action.find({
-    where: _.extend(actionContents, {
-      updatedAt: {
-        // Look only at actions updated within the last day.
-        // Note: For this to be correct, we need to ensure that updateBlocks is
-        // always called within a day of performing a block or unblock
-        // action, which is true because of the regular update process.
-        gt: new Date(new Date() - ONE_DAY_IN_MILLIS)
-      }
-    })
+    where: _.extend(_.clone(actionContents), {
+      type: [Action.BLOCK, Action.UNBLOCK],
+    }),
+    order: 'updatedAt DESC',
   }).then(function(prevAction) {
-    // No previous action found, so create one. Add the cause and cause_uid
-    // fields, which we didn't use for the query.
-    if (!prevAction) {
+    // No previous action found, or previous action was a different type, so
+    // create a new action. Add the cause and cause_uid fields, which we didn't
+    // use for the query.
+    if (!prevAction || prevAction.type != type) {
       return Action.create(_.extend(actionContents, {
         cause: Action.EXTERNAL,
         cause_uid: null

@@ -114,49 +114,6 @@ var BtUser = sequelize.define('BtUser', {
     inspect: function() {
       return [this.screen_name, this.uid].join(" ");
     },
-
-    /**
-     * Ask Twitter to verify a user's credentials. If they not valid,
-     * store the current time in user's deactivatedAt. If they are valid, clear
-     * the user's deactivatedAt. Save the user to DB if it's changed.
-     * A user can be deactivated because of suspension, deactivation, or revoked
-     * app. Each of these states (even revocation!) can be undone, and we'd
-     * like the app to resume working normally if that happens. So instead of
-     * deleting the user when we get one of these codes, store a 'deactivatedAt'
-     * timestamp on the user object. Users with a non-null deactivatedAt
-     * get their credentials retried once per day for 30 days, after which (TOD)
-     * they should be deleted. Regular operations like checking blocks or
-     * streaming are not performed for users with non-null deactivatedAt.
-     */
-    verifyCredentials: function() {
-      var user = this;
-      twitter.account('verify_credentials', {}, user.access_token,
-        user.access_token_secret, function(err, results) {
-          if (err && err.data) {
-            // For some reason the error data is given as a string, so we have to
-            // parse it.
-            var errJson = JSON.parse(err.data);
-            if (errJson.errors &&
-                errJson.errors.some(function(e) { return e.code === 89 })) {
-              logger.warn('User', user, 'revoked app.');
-              user.deactivatedAt = new Date();
-            } else if (err.statusCode === 404) {
-              logger.warn('User', user, 'deactivated or suspended.')
-              user.deactivatedAt = new Date();
-            } else {
-              logger.warn('User', user, 'verify_credentials', err.statusCode);
-            }
-          } else {
-            logger.info('User', user, 'has not revoked app or deactivated.');
-            user.deactivatedAt = null;
-          }
-          if (user.changed()) {
-            user.save().error(function(err) {
-              logger.error(err);
-            });
-          }
-      });
-    }
   }
 });
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});

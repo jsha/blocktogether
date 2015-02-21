@@ -2,8 +2,8 @@
  * Handle events for /show-blocks/:slug and /my-blocks.
  */
 $(function(){
-  var author_uid = $('.all-blocks').data('author-uid');
-  var user_uid = $('body').data('user-uid');
+  var author_uid = $('.all-blocks').data('author-uid').toString();
+  var user_uid = $('body').data('user-uid').toString();
   var shared_blocks_key = $('.all-blocks').data('shared-blocks-key');
 
   // Prevent people from subscribing to their own block lists.
