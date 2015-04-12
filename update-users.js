@@ -42,22 +42,33 @@ function findAndUpdateUsers(sqlFilter) {
 }
 
 /**
- * Find deactivated BtUsers and re-verify their credentials to see if they've
- * been reactivated.
+ * Check each BtUser's credentials for deactivation or reactivation
+ * once an hour. Check only users whose uid modulus 360 equals the current
+ * second modulus 360, to spread out the work over the hour.
  *
  * TODO: Also update the copy of screen_name on BtUser from the copy of
  * screen_name on TwitterUser in case it changes.
  */
-function reactivateBtUsers() {
+function verifyMany() {
   BtUser
     .findAll({
-      where: 'deactivatedAt is not null'
-    }).error(function(err) {
-      logger.error(err);
-    }).success(function(btUsers) {
+      where: ['BtUsers.uid % 360 = ?',
+        Math.floor(new Date() / 1000) % 360],
+      include: [{
+        model: TwitterUser
+      }]
+    }).then(function(btUsers) {
       btUsers.forEach(function (btUser) {
         verifyCredentials(btUser);
+        btUser.screen_name = btUser.twitterUser.screen_name;
+        if (btUser.changed()) {
+          btUser.save().error(function(err) {
+            logger.error(err);
+          });
+        }
       });
+    }).catch(function(err) {
+      logger.error(err);
     });
 }
 
@@ -136,7 +147,7 @@ function updateUsersCallback(uids, err, response) {
     if (indexedResponses[uid]) {
       storeUser(indexedResponses[uid]);
     } else {
-      logger.warn('Did not find uid', uid, 'probably suspended. Deactivating.');
+      logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
       deactivateTwitterUser(uid);
     }
   });
@@ -196,7 +207,7 @@ if (require.main === module) {
   // Poll for users needing update every 10 seconds.
   setInterval(
     findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
-  // Poll for reactivated users every hour.
-  setInterval(reactivateBtUsers, 60 * 60 * 1000);
+  // Every ten seconds, check credentials of some subset of users.
+  setInterval(verifyMany, 10000);
 }
 })();
