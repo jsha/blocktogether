@@ -73,3 +73,7 @@ ul.subscriptions {
 p, ul {
   max-width: 35em;
 }
+
+#error-message {
+  color: darkred;
+}
