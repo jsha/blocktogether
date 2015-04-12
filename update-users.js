@@ -136,7 +136,7 @@ function updateUsersCallback(uids, err, response) {
     }
     return;
   }
-  logger.info('Got /users/lookup response size', response.length,
+  logger.debug('Got /users/lookup response size', response.length,
     'for', uids.length, 'uids');
 
   // When a user is suspended, deactivated, or deleted, Twitter will simply not
@@ -180,7 +180,13 @@ function storeUser(twitterUserResponse) {
       if (user.changed() || (new Date() - user.updatedAt) > 5000 /* ms */) {
         user.save()
           .error(function(err) {
-            logger.error(err);
+            if (err.code === 'ER_DUP_ENTRY') {
+              // Sometimes these happen when a new user shows up in stream events in
+              // very rapid succession. It just means we tried to insert two entries
+              // with the same primary key (i.e. uid). It's harmless so we don't log.
+            } else {
+              logger.error(err);
+            }
           }).success(function(user) {
             if (created) {
               logger.debug('Created user', user.screen_name, user.id_str);

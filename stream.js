@@ -263,9 +263,17 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
-    // save it if we don't already have it.
+    // save it if we don't already have it. Note: we often receive multiple
+    // messages about a user in a very short timespan. If that user isn't
+    // already in the DB, storeUser has a race condition that can lead to two
+    // attempts to insert the same user in the DB, causing a MySQL ER_DUP_ENTRY.
+    // This is harmless but spams the logs with error messages.
+    // As a hacky workaround, wait for zero to one hundred milliseconds randomly
+    // before storing a user.
     if (data.target) {
-      updateUsers.storeUser(data.target);
+      setTimeout(function() {
+        updateUsers.storeUser(data.target);
+      }, Math.random() * 100);
     }
 
     if (data.event === 'unblock' || data.event === 'block') {
