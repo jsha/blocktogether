@@ -32,19 +32,24 @@ function verifyCredentials(user) {
     user_id: user.uid
     }, user.access_token,
     user.access_token_secret, function(err, response) {
+      function updateDeactivatedAt() {
+        if (user.deactivatedAt === null) {
+          user.deactivatedAt = new Date();
+        }
+      }
       if (err && err.statusCode === 401) {
         logger.info('User', user, 'revoked app.');
-        user.deactivatedAt = new Date();
+        updateDeactivatedAt();
       } else if (err && err.statusCode === 404) {
         logger.info('User', user, 'deactivated.')
-        user.deactivatedAt = new Date();
+        updateDeactivatedAt();
       } else if (err && err.statusCode) {
         logger.warn('User', user, '/account/verify_credentials', err.statusCode);
       } else if (err) {
         logger.warn('User', user, '/account/verify_credentials', err);
       } else if (response.suspended === true) {
         logger.info('User', user, 'suspended.')
-        user.deactivatedAt = new Date();
+        updateDeactivatedAt();
       } else {
         logger.info('User', user, 'has not revoked app, deactivated, or been suspended.');
         user.deactivatedAt = null;
