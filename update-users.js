@@ -60,11 +60,13 @@ function verifyMany() {
     }).then(function(btUsers) {
       btUsers.forEach(function (btUser) {
         verifyCredentials(btUser);
-        btUser.screen_name = btUser.twitterUser.screen_name;
-        if (btUser.changed()) {
-          btUser.save().error(function(err) {
-            logger.error(err);
-          });
+        if (btUser.twitterUser) {
+          btUser.screen_name = btUser.twitterUser.screen_name;
+          if (btUser.changed()) {
+            btUser.save().error(function(err) {
+              logger.error(err);
+            });
+          }
         }
       });
     }).catch(function(err) {
