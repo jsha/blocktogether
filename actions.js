@@ -134,7 +134,7 @@ function processActionsForUserId(uid) {
     function(btUser, actions) {
       if (!btUser || btUser.deactivatedAt) {
         // Cancel all pending actions for deactivated or absent users.
-        logger.error('User missing or deactivated', uid);
+        logger.info('User missing or deactivated', uid);
         return cancelSourceDeactivated(uid).then(function() {
           return Q.resolve(null);
         });
@@ -272,7 +272,7 @@ function processUnblocksForUser(btUser, actions) {
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
       } else if (err.statusCode) {
-        logger.error('Error /blocks/destroy', err.statusCode, btUser,
+        logger.warn('Error /blocks/destroy', err.statusCode, btUser,
           '-->', action.sink_uid);
         // Don't change the state of the action: It will be retried later.
         return Q.resolve(null);
@@ -302,7 +302,7 @@ function processMutesForUser(btUser, actions) {
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
       } else if (err.statusCode) {
-        logger.error('Error /mutes/users/create', err.statusCode, btUser,
+        logger.warn('Error /mutes/users/create', err.statusCode, btUser,
           '-->', action.sink_uid);
         return Q.resolve(null);
       } else {
@@ -341,8 +341,8 @@ function processBlocksForUser(btUser, actions) {
         verifyCredentials(btUser)
         return Q.resolve(null);
       } else if (err.statusCode) {
-        logger.error('Error /friendships/lookup', err.statusCode, 'for',
-          btUser.screen_name, err.data);
+        logger.warn('Error /friendships/lookup', err.statusCode, 'for',
+          btUser);
         return Q.resolve(null);
       } else {
         logger.error('Error /friendships/lookup', err);
@@ -448,10 +448,9 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
           verifyCredentials(sourceBtUser);
           return Q.resolve(null);
         } else if (err.statusCode) {
-          logger.error('Error /blocks/create', err.statusCode,
+          logger.warn('Error /blocks/create', err.statusCode,
             sourceBtUser.screen_name, sourceBtUser.uid,
-            '--block-->', friendship.screen_name, friendship.id_str,
-            err.data);
+            '--block-->', friendship.screen_name, friendship.id_str);
           return Q.resolve(null);
         } else {
           logger.error('Error /blocks/create', err);
