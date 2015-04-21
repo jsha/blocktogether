@@ -193,7 +193,7 @@ app.post('/auth/twitter', function(req, res, next) {
   // shared_blocks_key for that list in the session so we can perform the action
   // when they return.
   if (req.body.subscribe_on_signup_key) {
-    logger.info('Storing subscribe_on_signup for', req.user);
+    logger.info('Storing subscribe_on_signup');
     req.session.subscribe_on_signup = {
       key: req.body.subscribe_on_signup_key,
       author_uid: req.body.subscribe_on_signup_author_uid
