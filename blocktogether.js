@@ -582,7 +582,9 @@ app.post('/block-all.json',
               subscriber_uid: req.user.uid
             }).then(req.user.addSubscription.bind(req.user))
             .catch(function(err) {
-              logger.error(err);
+              if (err.code !== 'ER_DUP_ENTRY') {
+                logger.error(err);
+              }
             });
 
             author.getBlockBatches({
