@@ -9,7 +9,8 @@ var twitterAPI = require('node-twitter-api'),
     actions = require('./actions'),
     updateUsers = require('./update-users'),
     util = require('./util'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
     logger = setup.logger,
@@ -201,7 +202,7 @@ function endCallback(user, httpIncomingMessage) {
   var statusCode = httpIncomingMessage.statusCode;
   logger.warn('Ending stream for', user, statusCode);
   if (statusCode === 401 || statusCode === 403) {
-    user.verifyCredentials();
+    verifyCredentials(user);
     delete streams[user.uid];
   } else if (statusCode === 420) {
     // The streaming API will return 420 Enhance Your Calm
@@ -247,7 +248,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     if (data.disconnect.code === 6 ||
         data.disconnect.code === 13 ||
         data.disconnect.code === 14) {
-      recipientBtUser.verifyCredentials();
+      verifyCredentials(recipientBtUser);
     }
   } else if (data.warning) {
     if (data.warning.code === 'FOLLOWS_OVER_LIMIT') {
@@ -262,9 +263,17 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
     // If the event target is present, it's a Twitter User object, and we should
-    // save it if we don't already have it.
+    // save it if we don't already have it. Note: we often receive multiple
+    // messages about a user in a very short timespan. If that user isn't
+    // already in the DB, storeUser has a race condition that can lead to two
+    // attempts to insert the same user in the DB, causing a MySQL ER_DUP_ENTRY.
+    // This is harmless but spams the logs with error messages.
+    // As a hacky workaround, wait for zero to one hundred milliseconds randomly
+    // before storing a user.
     if (data.target) {
-      updateUsers.storeUser(data.target);
+      setTimeout(function() {
+        updateUsers.storeUser(data.target);
+      }, Math.random() * 100);
     }
 
     if (data.event === 'unblock' || data.event === 'block') {
@@ -356,9 +365,9 @@ function handleBlockEvent(recipientBtUser, data) {
     // For now, always update on unblock events. We'd like to do this for both
     // blocks and unblocks but it can get expensive when large block lists fan
     // out.
-    if (data.event === 'unblock') {
+    //if (data.event === 'unblock') {
       remoteUpdateBlocks(recipientBtUser);
-    }
+    //}
   }, 2000);
 }
 

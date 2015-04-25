@@ -41,7 +41,7 @@ function unblock5000(user) {
         ).catch(function(err) {
           logger.error(err);
         });
-      }).thenResolve(!!results[0].nextCursor);
+      }).thenResolve(true);
     }
   });
 }

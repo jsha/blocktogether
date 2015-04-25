@@ -50,10 +50,7 @@ function makeApp() {
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret,
-    callbackURL: config.callbackUrl,
-    // Normally Passport makes a second request on login to get a user's full
-    // profile, but we only need screen name, so skip the request.
-    skipExtendedUserProfile: true
+    callbackURL: config.callbackUrl
   }, passportSuccessCallback));
 
   // Serialize the uid and credentials into session. TODO: use a unique session
@@ -76,7 +73,11 @@ function makeApp() {
       where: {
         uid: sessionUser.uid,
         deactivatedAt: null
-      }
+      }, include: [{
+        // Include a TwitterUser so, for instance, we can check how long a
+        // BtUser has been on Twiter.
+        model: TwitterUser
+      }]
     }).error(function(err) {
       logger.error(err);
       // User not found in DB. Leave the user object undefined.
@@ -126,6 +127,11 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
         deactivatedAt: null
       });
       return btUser.save();
+    }).then(function(btUser) {
+      // Make sure we have a TwitterUser for each BtUser. We rely on some of
+      // the extended information in that structure being present.
+      updateUsers.storeUser(profile._json);
+      return btUser;
     }).then(function(btUser) {
       remoteUpdateBlocks(btUser);
       done(null, btUser);
@@ -187,7 +193,7 @@ app.post('/auth/twitter', function(req, res, next) {
   // shared_blocks_key for that list in the session so we can perform the action
   // when they return.
   if (req.body.subscribe_on_signup_key) {
-    logger.info('Storing subscribe_on_signup for', req.user);
+    logger.info('Storing subscribe_on_signup');
     req.session.subscribe_on_signup = {
       key: req.body.subscribe_on_signup_key,
       author_uid: req.body.subscribe_on_signup_author_uid
@@ -247,6 +253,7 @@ app.get('/auth/twitter/callback', function(req, res, next) {
 
 function requireAuthentication(req, res, next) {
   if (req.url == '/' ||
+      req.url == '/logout' ||
       req.url == '/logged-out' ||
       req.url == '/favicon.ico' ||
       req.url == '/robots.txt' ||
@@ -254,12 +261,16 @@ function requireAuthentication(req, res, next) {
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (req.user) {
+  } else if (req.user && req.user.twitterUser) {
+    // If there's a req.user there should always be a corresponding TwitterUser.
+    // If not, logging back in will fix.
     next();
   } else {
     // Not authenticated, but should be.
     res.format({
       html: function() {
+        // Clear the session in case it's in a bad state.
+        req.session = null;
         res.redirect('/');
       },
       json: function() {
@@ -483,7 +494,7 @@ app.get('/show-blocks/:slug',
  * cookie session. This is used when a non-logged-on user clicks 'block all and
  * subscribe.'
  *
- * The render HTML will POST to /block-all.json with Javascript, with a special
+ * The rendered HTML will POST to /block-all.json with Javascript, with a special
  * parameter indicating that the shared_blocks_key from the session should be
  * used, and then deleted.
  *
@@ -512,6 +523,7 @@ app.get('/subscribe-on-signup', function(req, res, next) {
   }
 });
 
+var SEVEN_DAYS_IN_MILLIS = 7 * 86400 * 1000;
 /**
  * Subscribe a user to the provided shared block list, and enqueue block actions
  * for all blocks currently on the list.
@@ -530,6 +542,16 @@ app.post('/block-all.json',
 
     if (req.body.author_uid === req.user.uid) {
       return next(new Error('Cannot subscribe to your own block list.'));
+    }
+
+    // Some people create many new accounts and immediately subscribe them to
+    // large block lists. This consumes DB space unnecessarily for accounts that
+    // are likely to be suspended soon. Impose a minimum age requirement for
+    // subscribing to discourage this.
+    if (new Date() - req.user.twitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
+      return next(new Error(
+        'Sorry, Twitter accounts less than seven days old cannot subscribe ' +
+        'to block lists. Please try again in a week.'));
     }
 
     if (req.body.author_uid &&
@@ -560,7 +582,9 @@ app.post('/block-all.json',
               subscriber_uid: req.user.uid
             }).then(req.user.addSubscription.bind(req.user))
             .catch(function(err) {
-              logger.error(err);
+              if (err.code !== 'ER_DUP_ENTRY') {
+                logger.error(err);
+              }
             });
 
             author.getBlockBatches({

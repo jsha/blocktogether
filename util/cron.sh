@@ -12,7 +12,7 @@ for TABLE in $TABLES; do
   gpg --encrypt --quiet -r f1faf31d > \
     /data/mysql-backup/"$TABLE".$(date +%Y%m%d).gpg
   # Clean up old backups
-  find /data/mysql-backup/ -ctime +30 -exec rm {} \;
+  find /data/mysql-backup/ -ctime +7 -exec rm {} \;
 done
 
 find /data/blocktogether/shared/log/ -ctime +7 -exec rm {} \;
