@@ -7,7 +7,10 @@ var Q = require('q'),
 var logger = setup.logger,
     Action = setup.Action,
     Block = setup.Block,
-    Subscription = setup.Subscription;
+    BlockBatch = setup.BlockBatch,
+    BtUser = setup.BtUser,
+    Subscription = setup.Subscription,
+    remoteUpdateBlocks = setup.remoteUpdateBlocks;
 
 /**
  * Given a set of actions that were observed by update-blocks and recorded as
@@ -175,6 +178,7 @@ function unblockFromSubscription(proposedUnblock) {
  * @return {Promise.<Array.<Block> >} a list of blocks.
  */
 function getLatestBlocks(uid) {
+  logger.debug('Getting latest blocks for', uid);
   return BlockBatch.find({
     where: {
       source_uid: uid,
@@ -221,41 +225,36 @@ function getManualUnblocks(uid) {
  * For a given user, find all their subscriptions, and all the accounts
  * included on those subscription block lists. Return an object mapping from
  * blocked account uid -> list of authors blocking that user.
+ * User must have its subscriptions field populated.
  * @param {BtUser} user
  * @return {Object}
  */
 function subscriptionBlocksAuthors(user) {
-  var subscriptionsPromise = Subscription.findAll({
-    where: {
-      subscriber_uid: user.uid
-    }
-  }).then(function(subscriptions) {
-    if (subscriptions && subscriptions.length > 0) {
-      var authors = _.pluck(subscriptions, 'author_uid');
-      return Q.all(authors.map(getLatestBlocks))
-        .then(function(blocklists) {
-        var authorsBlocklists = _.zip(authors, blocklists);
-        // Create a mapping from a sink_uid (i.e. a blocked account) to a list
-        // of subscribed author_uids who have that sink_uid blocked.
-        var blocksAuthors = {};
-        blocksAuthors.forEach(function(pair) {
-          var author_uid = pair[0];
-          var blocklist = pair[0];
-          blocklist.forEach(function(block) {
-            var sink_uid = block.sink_uid;
-            if (!blocksAuthors[sink_uid]) {
-              blocksAuthors[sink_uid] = [author_uid];
-            } else {
-              blocksAuthors[sink_uid].push(author_uid);
-            }
-          });
-        });
-        return blocksAuthors;
+  var subscriptions = user.subscriptions;
+  if (!subscriptions && subscriptions.length === 0) {
+    logger.error('No subscriptions for', user);
+    return {};
+  }
+
+  var authors = _.pluck(subscriptions, 'author_uid');
+  return Q.all(authors.map(getLatestBlocks))
+    .then(function(blocklists) {
+    // Create a mapping from a sink_uid (i.e. a blocked account) to a list
+    // of subscribed author_uids who have that sink_uid blocked.
+    var blocksAuthors = {};
+    _.zip(authors, blocklists).forEach(function(pair) {
+      var author_uid = pair[0];
+      var blocklist = pair[1];
+      blocklist.forEach(function(block) {
+        var sink_uid = block.sink_uid;
+        if (!blocksAuthors[sink_uid]) {
+          blocksAuthors[sink_uid] = [author_uid];
+        } else {
+          blocksAuthors[sink_uid].push(author_uid);
+        }
       });
-    } else {
-      logger.debug('No subscriptions for', user);
-      return {};
-    }
+    });
+    return blocksAuthors;
   });
 }
 
@@ -270,29 +269,142 @@ function deleteFromObject(obj, array) {
   });
 }
 
-function fixUp(user) {
+/**
+ * Do a subscription fixup: Block any accounts that need blocking, unblock
+ * any that need unblocking, etc. Check that user is ready (no pending actions),
+ * and update blocks before proceeding.
+ * @param {string} uid
+ */
+function fixUp(uid) {
+  return BtUser.find({
+    where: {
+      uid: uid
+    },
+    include: [{
+      model: Subscription,
+      as: 'Subscriptions'
+    }]
+  }).then(function(user) {
+    return [user, Action.count({
+      where: {
+        source_uid: user.uid,
+        status: Action.PENDING
+      }
+    })];
+  }).spread(function(user, pendingActionsCount) {
+    if (user.deactivatedAt !== null) {
+      logger.info('No fixup for', user, 'because deactivated.');
+      return null;
+    } else if (user.subscriptions.length === 0) {
+      logger.info('No fixup for', user, 'because no subscriptions.');
+      return null;
+    } else if (pendingActionsCount > 0) {
+      logger.info('No fixup for', user, 'because actions are pending.');
+      return null;
+    } else {
+      return [user, remoteUpdateBlocks(user)];
+    }
+  }).spread(function(user, blocks) {
+    if (blocks) {
+      return fixUpReadyUser(user);
+    } else {
+      return null;
+    }
+  });
+}
+
+/**
+ * Given a user that is ready (no pending actions; blocks just updated),
+ * do a subscription fixup: Block any accounts that need blocking, unblock
+ * any that need unblocking, etc.
+ * NOTE: Currently doesn't actually enqueue any actions, just logs actions that
+ * need to be taken.
+ * TODO: Is there a bug with fanoutActions when a block diff is very large, like
+ * 5000 new blocks?
+ * @param {BtUser} user
+ */
+function fixUpReadyUser(user) {
   var subscriptionBlocksAuthorsPromise = subscriptionBlocksAuthors(user);
   var blocksPromise = getLatestBlocks(user.uid);
   var unblocksPromise = getManualUnblocks(user.uid);
 
   Q.spread([subscriptionBlocksAuthorsPromise, blocksPromise, unblocksPromise],
     function(blocksAuthors, blocks, unblocks) {
+      logger.info('User', user, 'currently blocks', blocks.length,
+        'accounts, has', Object.keys(blocksAuthors).length,
+        'accounts in all block lists.')
+      // Take all the sink_uids that show up in the union of subscribed block
+      // lists, the remove the ones already blocked and the ones previously
+      // unblocked manually. What's left is who we should block.
       var toBeBlocked = _.clone(blocksAuthors);
-      deleteFromObject(toBeBlocked, _.pluck(blocks, 'sink_uid'));
+      var currentlyBlocked = _.indexBy(blocks, 'sink_uid');
+      deleteFromObject(toBeBlocked, Object.keys(currentlyBlocked));
       deleteFromObject(toBeBlocked, Object.keys(unblocks));
+      // Don't try to block self.
+      deleteFromObject(toBeBlocked, [user.uid]);
+      // TODO: Check remaining uids in users db to see if they are suspended,
+      // and delete those that are.
       var toBeBlockedUids = Object.keys(toBeBlocked);
       // TODO: Actually enqueue blocks for these users.
       logger.info('User', user, 'should block', toBeBlockedUids.length,
-        'accounts for subscriptions:', toBeBlockedUids);
+        'accounts for subscriptions:\n', toBeBlockedUids.join("\n"));
 
-      var toBeUnblocked = _.indexBy(blocks, 'sink_uid');
-      deleteFromObject(toBeUnblocked, Object.keys(blocksAuthors));
-      // TODO: From the remaining blocks, delete any that don't have cause =
-      // Subscription and cause_uid = [one of currently subscribed authors].
-      // This will be easiest to do with Annotated Blocks.
+      // Unblocks section
+      // TODO: Refactor this to use Annotated Blocks.
+      // TODO: Move this into a separate function.
+      // TODO: This allows us to obsolete the fragile unblockFromSubscription.
+      // Instead we can just make sure to do a fixup for each
+      // user each day, and let all the unblocking happenin the fixup code. This
+      // means unblock fanouts will be slow, but that is fine. Only block
+      // fanouts need to be fast.
+
+      return user.getActions({
+        where: {
+          // Important: Do not add additional clauses here. We want to get all
+          // of the relevent block/unblock options, then stack them up and take
+          // the most recent, and only *then* filter out actions we don't care
+          // about. That way we always judge by the most recent action.
+          'status': Action.DONE,
+          type: [Action.BLOCK, Action.UNBLOCK]
+        },
+        order: 'updatedAt asc'
+      }).then(function(actions) {
+        // indexBy will overwrite earlier entries with later ones, so for each
+        // action we get the most recent one. Use this to get a list of actions
+        // where each action is only the most recent for that sink_uid.
+        var uniquedActions = _.values(_.indexBy(actions, 'sink_uid'));
+        var currentlySubscribed = _.indexBy(user.subscriptions, 'author_uid');
+        var actionsToReverse = _.filter(uniquedActions, function(action) {
+          var sink_uid = action.sink_uid;
+          // We only care about blocks, and only blocks caused by a subscription
+          // to an author that we currently still subscribe to.
+          // Also we ignore any block actions where the sink_uid is not listed
+          // as currently blocked. This happens when a target account is
+          // suspended, deactivated, or deleted.
+          logger.trace(sink_uid, action.type, action.cause, !!currentlySubscribed[action.cause_uid], !!currentlyBlocked[sink_uid], !blocksAuthors[sink_uid]);
+          return action.type === Action.BLOCK &&
+                 (action.cause === Action.SUBSCRIPTION ||
+                  action.cause === Action.BULK_MANUAL_BLOCK) &&
+                 currentlySubscribed[action.cause_uid] &&
+                 currentlyBlocked[sink_uid] &&
+                 // Also ignore any actions whose sink_uid is in the union of
+                 // currently subscribed block lists. Such accounts should
+                 // stay blocked.
+                 !blocksAuthors[sink_uid];
+        });
+        // If there's anything left after those filters, it a block action and
+        // we should unblock.
+        var toBeUnblockedUids = _.pluck(actionsToReverse, 'sink_uid');
+        logger.info('User', user, 'should unblock', toBeUnblockedUids.length,
+          'accounts for subscriptions:\n', toBeUnblockedUids.join("\n"));
+      });
     }).catch(function(err) {
       logger.error(err);
     });
+}
+
+if (require.main === module) {
+  fixUp(process.argv[2]);
 }
 
 module.exports = {
