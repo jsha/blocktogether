@@ -3,6 +3,7 @@
 /** @type{SetupModule} */
 var setup = require('./setup');
 var _ = require('sequelize').Utils._;
+var verifyCredentials = require('./verify-credentials');
 
 var config = setup.config,
     twitter = setup.twitter,
@@ -41,22 +42,35 @@ function findAndUpdateUsers(sqlFilter) {
 }
 
 /**
- * Find deactivated BtUsers and re-verify their credentials to see if they've
- * been reactivated.
+ * Check each BtUser's credentials for deactivation or reactivation
+ * once an hour. Check only users whose uid modulus 360 equals the current
+ * second modulus 360, to spread out the work over the hour.
  *
  * TODO: Also update the copy of screen_name on BtUser from the copy of
  * screen_name on TwitterUser in case it changes.
  */
-function reactivateBtUsers() {
+function verifyMany() {
   BtUser
     .findAll({
-      where: 'deactivatedAt is not null'
-    }).error(function(err) {
-      logger.error(err);
-    }).success(function(btUsers) {
+      where: ['BtUsers.uid % 360 = ?',
+        Math.floor(new Date() / 1000) % 360],
+      include: [{
+        model: TwitterUser
+      }]
+    }).then(function(btUsers) {
       btUsers.forEach(function (btUser) {
-        btUser.verifyCredentials();
+        verifyCredentials(btUser);
+        if (btUser.twitterUser) {
+          btUser.screen_name = btUser.twitterUser.screen_name;
+          if (btUser.changed()) {
+            btUser.save().error(function(err) {
+              logger.error(err);
+            });
+          }
+        }
       });
+    }).catch(function(err) {
+      logger.error(err);
     });
 }
 
@@ -124,7 +138,7 @@ function updateUsersCallback(uids, err, response) {
     }
     return;
   }
-  logger.info('Got /users/lookup response size', response.length,
+  logger.debug('Got /users/lookup response size', response.length,
     'for', uids.length, 'uids');
 
   // When a user is suspended, deactivated, or deleted, Twitter will simply not
@@ -135,7 +149,7 @@ function updateUsersCallback(uids, err, response) {
     if (indexedResponses[uid]) {
       storeUser(indexedResponses[uid]);
     } else {
-      logger.warn('Did not find uid', uid, 'probably suspended. Deactivating.');
+      logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
       deactivateTwitterUser(uid);
     }
   });
@@ -168,7 +182,13 @@ function storeUser(twitterUserResponse) {
       if (user.changed() || (new Date() - user.updatedAt) > 5000 /* ms */) {
         user.save()
           .error(function(err) {
-            logger.error(err);
+            if (err.code === 'ER_DUP_ENTRY') {
+              // Sometimes these happen when a new user shows up in stream events in
+              // very rapid succession. It just means we tried to insert two entries
+              // with the same primary key (i.e. uid). It's harmless so we don't log.
+            } else {
+              logger.error(err);
+            }
           }).success(function(user) {
             if (created) {
               logger.debug('Created user', user.screen_name, user.id_str);
@@ -195,7 +215,7 @@ if (require.main === module) {
   // Poll for users needing update every 10 seconds.
   setInterval(
     findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 10000);
-  // Poll for reactivated users every hour.
-  setInterval(reactivateBtUsers, 60 * 60 * 1000);
+  // Every ten seconds, check credentials of some subset of users.
+  setInterval(verifyMany, 10000);
 }
 })();

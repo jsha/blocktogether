@@ -21,7 +21,7 @@ fi
 DB_PASS=$(openssl rand -hex 20)
 
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm
+sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm mailutils
 sudo ln -sf nodejs /usr/bin/node
 
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json

@@ -12,8 +12,16 @@ $(function(){
   }
 
   function errorHandler(jqXHR, textStatus, errorThrown) {
-    alert('Error: ' + textStatus + " " + errorThrown);
+    if (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.error) {
+      var message = 'Error: ' + jqXHR.responseJSON.error;
+    } else {
+      var message = 'Error: ' + textStatus + " " + errorThrown;
+    }
+    // Note: using .text and not .html is important for XSS safety.
+    $('#error-message').text(message);
+    $('button').prop('disabled', false);
   }
+
   function doAction(type) {
     var checkedUids = $('.checkbox:checked').map(function (el) {
       // jQuery's .data() will make every attempt to convert to a

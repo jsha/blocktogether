@@ -10,7 +10,8 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     _ = require('sequelize').Utils._,
     util = require('./util'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
     logger = setup.logger,
@@ -133,7 +134,7 @@ function processActionsForUserId(uid) {
     function(btUser, actions) {
       if (!btUser || btUser.deactivatedAt) {
         // Cancel all pending actions for deactivated or absent users.
-        logger.error('User missing or deactivated', uid);
+        logger.info('User missing or deactivated', uid);
         return cancelSourceDeactivated(uid).then(function() {
           return Q.resolve(null);
         });
@@ -264,13 +265,14 @@ function processUnblocksForUser(btUser, actions) {
       // TODO: This error handling is repeated for all actions. Abstract into
       // its own function.
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser);
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
       } else if (err.statusCode) {
-        logger.error('Error /blocks/destroy', err.statusCode, btUser,
+        logger.warn('Error /blocks/destroy', err.statusCode, btUser,
           '-->', action.sink_uid);
         // Don't change the state of the action: It will be retried later.
         return Q.resolve(null);
@@ -293,13 +295,14 @@ function processMutesForUser(btUser, actions) {
       return setActionStatus(action, Action.DONE);
     }).catch(function(err) {
       if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser);
+        return Q.resolve(null);
       } else if (err && err.statusCode === 404) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
       } else if (err.statusCode) {
-        logger.error('Error /mutes/users/create', err.statusCode, btUser,
+        logger.warn('Error /mutes/users/create', err.statusCode, btUser,
           '-->', action.sink_uid);
         return Q.resolve(null);
       } else {
@@ -335,10 +338,11 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        return btUser.verifyCredentials().thenResolve(null);
+        verifyCredentials(btUser)
+        return Q.resolve(null);
       } else if (err.statusCode) {
-        logger.error('Error /friendships/lookup', err.statusCode, 'for',
-          btUser.screen_name, err.data);
+        logger.warn('Error /friendships/lookup', err.statusCode, 'for',
+          btUser);
         return Q.resolve(null);
       } else {
         logger.error('Error /friendships/lookup', err);
@@ -410,8 +414,6 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
   // executed.
   var newState = null;
 
-  logger.trace('Friendship', sourceBtUser, '--friend?-->',
-    friendship.screen_name, sink_uid, friendship.connections);
   // If no friendship for this action was returned by /1.1/users/lookup,
   // that means the sink_uid was suspened or deactivated, so defer the Action.
   if (!friendship) {
@@ -443,12 +445,12 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
-          return sourceBtUser.verifyCredentials().thenResolve(null);
+          verifyCredentials(sourceBtUser);
+          return Q.resolve(null);
         } else if (err.statusCode) {
-          logger.error('Error /blocks/create', err.statusCode,
+          logger.warn('Error /blocks/create', err.statusCode,
             sourceBtUser.screen_name, sourceBtUser.uid,
-            '--block-->', friendship.screen_name, friendship.id_str,
-            err.data);
+            '--block-->', friendship.screen_name, friendship.id_str);
           return Q.resolve(null);
         } else {
           logger.error('Error /blocks/create', err);

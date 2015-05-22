@@ -10,6 +10,7 @@ th {
   margin-left: auto;
   margin-right: auto;
   max-width: 35em;
+  overflow: hidden;
 }
 
 #log-on-form {
@@ -71,4 +72,8 @@ ul.subscriptions {
 
 p, ul {
   max-width: 35em;
+}
+
+#error-message {
+  color: darkred;
 }
