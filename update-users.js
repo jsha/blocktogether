@@ -1,9 +1,10 @@
 'use strict';
 (function() {
 /** @type{SetupModule} */
-var setup = require('./setup');
-var _ = require('sequelize').Utils._;
-var verifyCredentials = require('./verify-credentials');
+var setup = require('./setup'),
+    Q = require('q'),
+    _ = require('sequelize').Utils._,
+    verifyCredentials = require('./verify-credentials');
 
 var config = setup.config,
     twitter = setup.twitter,
@@ -105,28 +106,35 @@ function deactivateTwitterUser(uid) {
 /**
  * Given a list of uids, look them up using the Twitter API and update the
  * database accordingly.
- * @param {Array.<string>} uids List of user ids to look up.
+ * @param {Array.<string>} uids List of user ids to look up, fewer than 100.
+ * @return{Object} map of uids succesfully returned to user objects.
  */
 function updateUsers(uids) {
-  twitter.users('lookup', {
-      skip_status: 1,
-      user_id: uids.join(',')
-    },
-    accessToken, accessTokenSecret,
-    updateUsersCallback.bind(null, uids));
-}
+  return Q.ninvoke(twitter, 'users', 'lookup', {
+    skip_status: 1,
+    user_id: uids.join(',')
+  },
+  accessToken, accessTokenSecret
+  ).spread(function(response, httpResponse) {
+    logger.debug('Got /users/lookup response size', response.length,
+      'for', uids.length, 'uids');
 
-/**
- * Given a user lookup API response from Twitter, store the user into the DB.
- * @param {Array.<string>} uids Array of uids that were requested.
- * @param {Object} err Error return by Twitter API, if any.
- * @param {Array.<Object>} response List of JSON User objects as defined by the
- *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
- */
-function updateUsersCallback(uids, err, response) {
-  if (err) {
+    // When a user is suspended, deactivated, or deleted, Twitter will simply not
+    // return that user object in the response. Delete those users so they don't
+    // clog future lookup attempts.
+    var indexedResponses = _.indexBy(response, 'id_str');
+    uids.forEach(function(uid) {
+      if (indexedResponses[uid]) {
+        storeUser(indexedResponses[uid]);
+      } else {
+        logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
+        deactivateTwitterUser(uid);
+      }
+    });
+    return indexedResponses;
+  }).catch(function(err) {
     if (err.statusCode === 429) {
-      logger.info('Rate limited.');
+      logger.info('Rate limited /users/lookup.');
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Delete all of them.
@@ -137,21 +145,6 @@ function updateUsersCallback(uids, err, response) {
       logger.error('Error /users/lookup', err.statusCode, err.data);
     }
     return;
-  }
-  logger.debug('Got /users/lookup response size', response.length,
-    'for', uids.length, 'uids');
-
-  // When a user is suspended, deactivated, or deleted, Twitter will simply not
-  // return that user object in the response. Delete those users so they don't
-  // clog future lookup attempts.
-  var indexedResponses = _.indexBy(response, 'id_str');
-  uids.forEach(function(uid) {
-    if (indexedResponses[uid]) {
-      storeUser(indexedResponses[uid]);
-    } else {
-      logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
-      deactivateTwitterUser(uid);
-    }
   });
 }
 
@@ -203,7 +196,7 @@ function storeUser(twitterUserResponse) {
 }
 
 module.exports = {
-  findAndUpdateUsers: findAndUpdateUsers,
+  updateUsers: updateUsers,
   storeUser: storeUser
 };
 
