@@ -44,8 +44,8 @@ function findAndUpdateUsers(sqlFilter) {
 
 /**
  * Check each BtUser's credentials for deactivation or reactivation
- * once an hour. Check only users whose uid modulus 360 equals the current
- * second modulus 360, to spread out the work over the hour.
+ * once an hour. Check only users whose uid modulus 3600 equals the current
+ * second modulus 3600, to spread out the work over the hour.
  *
  * TODO: Also update the copy of screen_name on BtUser from the copy of
  * screen_name on TwitterUser in case it changes.
@@ -53,8 +53,8 @@ function findAndUpdateUsers(sqlFilter) {
 function verifyMany() {
   BtUser
     .findAll({
-      where: ['BtUsers.uid % 360 = ?',
-        Math.floor(new Date() / 1000) % 360],
+      where: ['BtUsers.uid % 3600 = ?',
+        Math.floor(new Date() / 1000) % 3600],
       include: [{
         model: TwitterUser
       }]
