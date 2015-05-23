@@ -2,7 +2,8 @@
 (function() {
 var Q = require('q'),
     _ = require('sequelize').Utils._,
-    setup = require('./setup');
+    setup = require('./setup'),
+    updateUsers = require('./update-users');
 
 var logger = setup.logger,
     Action = setup.Action,
@@ -345,9 +346,12 @@ function fixUpReadyUser(user) {
       // TODO: Check remaining uids in users db to see if they are suspended,
       // and delete those that are.
       var toBeBlockedUids = Object.keys(toBeBlocked);
-      // TODO: Actually enqueue blocks for these users.
-      logger.info('User', user, 'should block', toBeBlockedUids.length,
-        'accounts for subscriptions:\n', toBeBlockedUids.join("\n"));
+      updateUsers.updateUsers(toBeBlocked).then(function(uidMap) {
+        var actuallyFound = Object.keys(uidMap);
+        // TODO: Actually enqueue blocks for these users.
+        logger.info('User', user, 'should block', actuallyFound.length,
+          'accounts for subscriptions:\n', actuallyFound.join("\n"));
+      });
 
       // Unblocks section
       // TODO: Refactor this to use Annotated Blocks.

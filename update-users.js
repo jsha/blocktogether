@@ -114,6 +114,10 @@ var userCredentialsIndex = 0;
  * @return{Promise.<Object>} map of uids succesfully returned to user objects.
  */
 function updateUsers(uids) {
+  if (!userCredentials.length) {
+    logger.info('User credentials not yet loaded, setting timer');
+    setTimeout(updateUsers.bind(null, uids), 500);
+  }
   var chunkedUids = [];
   while (uids.length > 0) {
     chunkedUids.push(uids.splice(0, 100));
@@ -134,9 +138,6 @@ function updateUsers(uids) {
  * @return{Object} map of uids succesfully returned to user objects.
  */
 function updateUsersChunk(uids) {
-  if (!userCredentials.length) {
-    throw "user credentials not loaded";
-  }
   // Iterate through the user credentials to spread out rate limit usage.
   var credential = userCredentials[userCredentialsIndex];
   userCredentialsIndex = (userCredentialsIndex + 1) % userCredentials.length;
@@ -230,24 +231,25 @@ module.exports = {
   storeUser: storeUser
 };
 
+BtUser.findAll({
+  where: {
+    deactivatedAt: null
+  },
+  limit: 100
+}).then(function(users) {
+  userCredentials = users;
+});
+
 if (require.main === module) {
-  BtUser.findAll({
-    where: {
-      deactivatedAt: null
-    },
-    limit: 100
-  }).then(function(users) {
-    userCredentials = users;
-    findAndUpdateUsers();
-    // Poll for just-added users every 1 second and do an initial fetch of their
-    // information.
-    setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
-    // Poll for users needing update every 10 seconds.
-    setInterval(
-      findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 5000);
-    // Every ten seconds, check credentials of some subset of users.
-    setInterval(verifyMany, 10000);
-  });
+  findAndUpdateUsers();
+  // Poll for just-added users every 1 second and do an initial fetch of their
+  // information.
+  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
+  // Poll for users needing update every 10 seconds.
+  setInterval(
+    findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 5000);
+  // Every ten seconds, check credentials of some subset of users.
+  setInterval(verifyMany, 10000);
 }
 
 })();
