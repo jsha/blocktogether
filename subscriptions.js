@@ -238,6 +238,7 @@ function subscriptionBlocksAuthors(user) {
   }
 
   var authors = _.pluck(subscriptions, 'author_uid');
+  logger.info('User', user, 'subscribes to', authors.join(', '));
   return Q.all(authors.map(getLatestBlocks))
     .then(function(blocklists) {
     // Create a mapping from a sink_uid (i.e. a blocked account) to a list
@@ -334,6 +335,7 @@ function fixUpReadyUser(user) {
       logger.info('User', user, 'currently blocks', blocks.length,
         'accounts, has', Object.keys(blocksAuthors).length,
         'accounts in all block lists.')
+
       // Take all the sink_uids that show up in the union of subscribed block
       // lists, the remove the ones already blocked and the ones previously
       // unblocked manually. What's left is who we should block.
@@ -346,7 +348,9 @@ function fixUpReadyUser(user) {
       // TODO: Check remaining uids in users db to see if they are suspended,
       // and delete those that are.
       var toBeBlockedUids = Object.keys(toBeBlocked);
-      updateUsers.updateUsers(toBeBlocked).then(function(uidMap) {
+      logger.info('User', user, 'should maybe block', toBeBlockedUids.length,
+        'accounts for subscriptions:\n', toBeBlockedUids.join("\n"));
+      updateUsers.updateUsers(toBeBlockedUids).then(function(uidMap) {
         var actuallyFound = Object.keys(uidMap);
         // TODO: Actually enqueue blocks for these users.
         logger.info('User', user, 'should block', actuallyFound.length,
@@ -401,6 +405,7 @@ function fixUpReadyUser(user) {
         var toBeUnblockedUids = _.pluck(actionsToReverse, 'sink_uid');
         logger.info('User', user, 'should unblock', toBeUnblockedUids.length,
           'accounts for subscriptions:\n', toBeUnblockedUids.join("\n"));
+	setup.gracefulShutdown();
       });
     }).catch(function(err) {
       logger.error(err);
