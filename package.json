@@ -3,7 +3,7 @@
   "name": "blocktogether",
   "description": "Share your blocks",
   "repository": "https://github.com/jsha/blocktogether.git",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "dependencies": {
     "body-parser": "~1.6.2",
     "cookie-session": "~1.0.2",
@@ -12,7 +12,7 @@
     "mariasql": "~0.1.21",
     "mu2": "~0.5.20",
     "mysql": "~2.4.2",
-    "node-twitter-api": "git://github.com/jsha/node-twitter-api#http2",
+    "node-twitter-api": "jsha/node-twitter-api#1e9c9aae06fe26aeab65e99880f830219c91d52f",
     "nodemon": "~1.2.1",
     "passport": "~0.2.0",
     "passport-twitter": "~1.0.2",
