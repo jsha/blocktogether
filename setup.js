@@ -287,6 +287,11 @@ function gracefulShutdown() {
   }
 }
 
+process.on('uncaughtException', function(err) {
+  logger.fatal('uncaught exception, shutting down: ', err);
+  process.exit(133);
+});
+
 module.exports = {
   Action: Action,
   Block: Block,
