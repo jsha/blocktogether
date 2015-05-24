@@ -41,6 +41,12 @@ function verifyCredentials(user) {
       if (err && err.statusCode === 401) {
         logger.info('User', user, 'revoked app.');
         updateDeactivatedAt();
+      } else if (err && err.statusCode === 403) {
+        // {"errors":[{"code":326,"message":"To protect our users from spam and
+        // other malicious activity, this account is temporarily locked. Please
+        // log in to https:\/\/twitter.com to unlock your account."}]}
+        logger.info('User', user, 'locked.');
+        updateDeactivatedAt();
       } else if (err && err.statusCode === 404) {
         logger.info('User', user, 'deactivated.')
         updateDeactivatedAt();
