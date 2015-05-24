@@ -2,7 +2,8 @@
 (function() {
 
 var logger = require('./setup').logger,
-    twitter = require('./setup').twitter;
+    twitter = require('./setup').twitter,
+    BtUser = require('./setup').BtUser;
 
 /**
  * Ask Twitter to verify a user's credentials. If they are not valid,
@@ -63,5 +64,9 @@ function verifyCredentials(user) {
 }
 
 module.exports = verifyCredentials;
+
+if (require.main === module) {
+  BtUser.find(process.argv[2]).then(verifyCredentials);
+}
 
 })();
