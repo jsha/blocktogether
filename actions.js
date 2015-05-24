@@ -46,13 +46,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
         cause_uid: cause_uid,
         'status': Action.PENDING
       }
-    })).then(function(actions) {
-      // After writing the actions to the DB process all actions
-      // for the user.
-      return processActionsForUserId(source_uid);
-    }).catch(function(err) {
-      logger.error(err);
-    });
+    }));
 }
 
 /**

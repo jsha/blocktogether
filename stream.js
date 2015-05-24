@@ -381,7 +381,12 @@ function handleBlockEvent(recipientBtUser, data) {
  */
 function enqueueBlock(sourceUser, sinkUserId, cause) {
   actions.queueActions(
-    sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
+    sourceUser.uid, [sinkUserId], Action.BLOCK, cause
+  ).then(function() {
+    actions.processActionsForUserId(sourceUser.uid);
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 if (require.main === module) {
