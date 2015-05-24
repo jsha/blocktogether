@@ -3,6 +3,7 @@
 var Q = require('q'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
+    actions = require('./actions'),
     updateUsers = require('./update-users');
 
 var logger = setup.logger,
@@ -353,8 +354,28 @@ function fixUpReadyUser(user) {
       updateUsers.updateUsers(toBeBlockedUids).then(function(uidMap) {
         var actuallyFound = Object.keys(uidMap);
         // TODO: Actually enqueue blocks for these users.
-        logger.info('User', user, 'should block', actuallyFound.length,
+        logger.info('User', user, 'will block', actuallyFound.length,
           'accounts for subscriptions:\n', actuallyFound.join("\n"));
+        // We need to attribute a cause_uid for each action. In the typical
+        // case, each sink_uid is caused by a single author. But it is possible
+        // that multiple subscribed authors have the same sink_uid on their
+        // block lists. So we look at the mapping from sink_uid to <list of
+        // authors who block that sink_uid>, and pick the first one.
+        if (process.env['DO_IT']) {
+          actuallyFound.forEach(function(sink_uid) {
+            var authors = blocksAuthors[sink_uid];
+            if (authors && authors.length >= 1) {
+              actions.queueActions(user.uid, [sink_uid],
+                Action.BLOCK, Action.SUBSCRIPTION,
+                authors[0]);
+            } else {
+              // This should be impossible, because the sink_uid shouldn't wind up
+              // in the toBeBlocked map unless there are some subscribed authors
+              // blocking that sink_uid.
+              logger.error('Could not find author who blocks', sink_uid);
+            }
+          });
+        }
       });
 
       // Unblocks section
@@ -389,7 +410,6 @@ function fixUpReadyUser(user) {
           // Also we ignore any block actions where the sink_uid is not listed
           // as currently blocked. This happens when a target account is
           // suspended, deactivated, or deleted.
-          logger.trace(sink_uid, action.type, action.cause, !!currentlySubscribed[action.cause_uid], !!currentlyBlocked[sink_uid], !blocksAuthors[sink_uid]);
           return action.type === Action.BLOCK &&
                  (action.cause === Action.SUBSCRIPTION ||
                   action.cause === Action.BULK_MANUAL_BLOCK) &&
