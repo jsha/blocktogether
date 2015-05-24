@@ -3,7 +3,7 @@
 var Q = require('q'),
     _ = require('sequelize').Utils._,
     setup = require('./setup'),
-    actions = require('./actions'),
+    actionsModule = require('./actions'),
     updateUsers = require('./update-users');
 
 var logger = setup.logger,
@@ -365,7 +365,7 @@ function fixUpReadyUser(user) {
           actuallyFound.forEach(function(sink_uid) {
             var authors = blocksAuthors[sink_uid];
             if (authors && authors.length >= 1) {
-              actions.queueActions(user.uid, [sink_uid],
+              actionsModule.queueActions(user.uid, [sink_uid],
                 Action.BLOCK, Action.SUBSCRIPTION,
                 authors[0]);
             } else {
@@ -406,9 +406,9 @@ function fixUpReadyUser(user) {
         var actionsToReverse = _.filter(uniquedActions, function(action) {
           var sink_uid = action.sink_uid;
           // We only care about blocks, and only blocks caused by a subscription
-          // to an author that we currently still subscribe to.
+          // to an author that the user currently still subscribes to.
           // Also we ignore any block actions where the sink_uid is not listed
-          // as currently blocked. This happens when a target account is
+          // as currently blocked. This happens when a sink_uid is
           // suspended, deactivated, or deleted.
           return action.type === Action.BLOCK &&
                  (action.cause === Action.SUBSCRIPTION ||
@@ -420,12 +420,19 @@ function fixUpReadyUser(user) {
                  // stay blocked.
                  !blocksAuthors[sink_uid];
         });
-        // If there's anything left after those filters, it a block action and
+        // If there's anything left after those filters, it's a block action and
         // we should unblock.
         var toBeUnblockedUids = _.pluck(actionsToReverse, 'sink_uid');
         logger.info('User', user, 'should unblock', toBeUnblockedUids.length,
           'accounts for subscriptions:\n', toBeUnblockedUids.join("\n"));
-	setup.gracefulShutdown();
+        if (process.env['DO_IT']) {
+          actionsToReverse.forEach(function(action) {
+            actionsModule.queueActions(user.uid, [action.sink_uid],
+              Action.UNBLOCK, Action.SUBSCRIPTION,
+              action.cause_uid);
+            });
+        }
+        setup.gracefulShutdown();
       });
     }).catch(function(err) {
       logger.error(err);
