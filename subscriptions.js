@@ -312,6 +312,8 @@ function fixUp(uid) {
     } else {
       return null;
     }
+  }).catch(function(err) {
+    logger.error(err);
   });
 }
 
