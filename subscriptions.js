@@ -210,13 +210,12 @@ function getLatestBlocks(uid) {
  * @return {Promise.<Object>} Object mapping uid -> unblock Actions.
  */
 function getManualUnblocks(uid) {
-  return Action.find({
+  return Action.findAll({
     where: {
       type: Action.UNBLOCK,
       source_uid: uid,
-      cause: {
-        not: [Action.SUBSCRIPTION]
-      }
+      status: Action.DONE,
+      cause: [Action.EXTERNAL, Action.BULK_MANUAL_BLOCK]
     }
   }).then(function(actions) {
     return _.indexBy(actions, 'sink_uid');
