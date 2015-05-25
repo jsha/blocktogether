@@ -177,6 +177,9 @@ function processActionsForUserId(uid) {
  * @param {string} uid User id for whom to modify actions.
  */
 function cancelSourceDeactivated(uid) {
+  // Per 2.0.0-rc1 changelog,
+  // "Model.update() signature has been changed from (values, where, options) to
+  // (values, options), options now take a where parameter."
   return Action.update({
     status: Action.CANCELLED_SOURCE_DEACTIVATED
   }, { /* where */

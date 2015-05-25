@@ -881,6 +881,9 @@ function showActions(req, res, next) {
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
+    // TODO: This probably needs to be updated for compatibility with sequelize
+    // 2.0.0-rc3, per the changelog:
+    // http://docs.sequelizejs.com/en/latest/changelog/
     order: 'FIELD(status, "pending") DESC, updatedAt DESC',
     limit: perPage,
     offset: perPage * (currentPage - 1),
