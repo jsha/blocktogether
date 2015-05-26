@@ -145,7 +145,12 @@ function startStream(user) {
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
     logger.error('Socket error for', user, err.message);
-    delete streams[user.uid];
+    // Per https://dev.twitter.com/streaming/overview/connecting,
+    // backoff up to 16 seconds for TCP/IP level network errors.
+    // We don't implement the backoff, we just go right to 16 seconds.
+    setTimeout(function() {
+      delete streams[user.uid];
+    }, 16 * 1000);
   });
   // In normal operation, each open stream should receive an empty data item
   // '{}' every 30 seconds for keepalive. Sometimes a connection will die
@@ -153,7 +158,7 @@ function startStream(user) {
   // This ensures the HTTPS request is aborted, which in turn calls
   // endCallback, removing the entry from streams and allowing it to be started
   // again.
-  req.setTimeout(70000, function() {
+  req.setTimeout(90000, function() {
     logger.error('Stream timeout for user', user, 'aborting.');
     req.abort();
   });
@@ -203,7 +208,12 @@ function endCallback(user, httpIncomingMessage) {
   logger.warn('Ending stream for', user, statusCode);
   if (statusCode === 401 || statusCode === 403) {
     verifyCredentials(user);
-    delete streams[user.uid];
+    // Per https://dev.twitter.com/streaming/overview/connecting,
+    // backoff up to 320 seconds (5.3 min) for HTTP errors.
+    // We don't implement the backoff, just go straight to 320.
+    setTimeout(function() {
+      delete streams[user.uid];
+    }, 320 * 1000);
   } else if (statusCode === 420) {
     // The streaming API will return 420 Enhance Your Calm
     // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
@@ -223,7 +233,9 @@ function endCallback(user, httpIncomingMessage) {
       }
     }, 15 * 60 * 1000);
   } else {
-    delete streams[user.uid];
+    setTimeout(function() {
+      delete streams[user.uid];
+    }, 320 * 1000);
   }
 }
 
