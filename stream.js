@@ -173,7 +173,9 @@ function startStream(user) {
 
   // When restarting the service or experiencing downtime, there's a gap in
   // streaming coverage. Make sure we cover any tweets we may have missed.
-  checkPastMentions(user);
+  // NOTE: Temporarily disabled due to performance issues and repeated enqueues
+  // of already-cancelled blocks.
+  //checkPastMentions(user);
 };
 
 /**
