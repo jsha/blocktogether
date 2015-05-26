@@ -79,7 +79,13 @@ function refreshStreams() {
       .then(function(user) {
         if (user && !user.deactivatedAt) {
           allUsers[userId] = user;
-          startStream(user);
+          // Under heavy load, multiple calls to refreshStreams can get stacked
+          // up, meaning that by the time we get the success callback from
+          // MySQL, a previous call has already started a given stream. So we
+          // check a second time that the stream isn't already running.
+          if (!streamingIds[userId]) {
+            startStream(user);
+          }
         } else {
           logger.info('User', user, 'missing or deactivated.');
           delete allUsers[userId];
