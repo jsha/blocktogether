@@ -237,7 +237,13 @@ BtUser.findAll({
   },
   limit: 100
 }).then(function(users) {
-  userCredentials = users;
+  if (users && users.length > 0) {
+    userCredentials = users;
+  } else {
+    logger.error('No user credentials found.');
+  }
+}).catch(function(err) {
+  logger.error(err);
 });
 
 if (require.main === module) {
