@@ -20,10 +20,6 @@ var config = setup.config,
  * database. A user needs update if it's just been inserted (no screen name)
  * or if it hasn't been updated in a day.
  *
- * We fetch a relatively large chunk from the DB every few seconds, rather than
- * smaller chunks every hundred milliseconds, to ensure there's enough time
- * between each DB query for the API query to complete and to write to the DB.
- *
  * @param {string} sqlFilter An SQL `where' clause to filter users by. Allows
  *   running separate update cycles for fresh users (with no screen name) vs
  *   users who need a refresh.
@@ -36,7 +32,9 @@ function findAndUpdateUsers(sqlFilter) {
         sqlFilter),
       limit: 100
     }).then(function(users) {
-      updateUsers(_.pluck(users, 'uid'), _.indexBy(users, 'uid'));
+      if (users && users.length > 0) {
+        updateUsers(_.pluck(users, 'uid'), _.indexBy(users, 'uid'));
+      }
     }).catch(function(err) {
       logger.error(err);
     });
@@ -263,10 +261,10 @@ if (require.main === module) {
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.
-  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
+  setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL']), 5000);
   // Poll for users needing update every 10 seconds.
   setInterval(
-    findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 2500);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)']), 2500);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }
