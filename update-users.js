@@ -34,7 +34,7 @@ function findAndUpdateUsers(sqlFilter) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 300
+      limit: 100
     }).then(function(users) {
       updateUsers(_.pluck(users, 'uid'), _.indexBy(users, 'uid'));
     }).catch(function(err) {
@@ -131,7 +131,7 @@ function updateUsers(uids, usersMap) {
     })
   ).then(function(results) {
     var ret = _.reduce(results, _.assign, {});
-    console.log(Object.keys(ret));
+    logger.info('Updated', Object.keys(ret).length, 'TwitterUsers');
     return ret;
   })
 }
@@ -174,14 +174,20 @@ function updateUsersChunk(uids, usersMap) {
   }).catch(function(err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited /users/lookup.');
+      return Q.reject();
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Delete all of them.
       logger.warn('Twitter returned 404 to /users/lookup, deactivating',
         uids.length, 'users');
-      uids.forEach(deactivateTwitterUser);
+      return Q.all(
+        uids.map(deactivateTwitterUser)
+      ).then(function() {
+        return Q.resolve({});
+      });
     } else {
       logger.error('Error /users/lookup', err.statusCode, err.data);
+      return Q.reject();
     }
     return;
   });
@@ -203,13 +209,7 @@ function storeUser(twitterUserResponse, userObj) {
     // Sequelize's built-in createdAt.
     user.account_created_at = new Date(twitterUserResponse.created_at);
     user.deactivatedAt = null;
-    // In general we want to write the user to DB so updatedAt gets bumped,
-    // so we know not to bother refreshing the user for a day. However, during
-    // startup of stream.js when we replay recent mentions, we receive a lot
-    // of 'incidental' user objects. We don't want to flood the TwitterUsers
-    // DB with writes during startup, so we skip writing to the DB if the user
-    // was updated in the last hour.
-    if (user.changed() || (new Date() - user.updatedAt) > 3600 * 1000 /* ms */) {
+    if (user.changed()) {
       user.save()
         .then(function(savedUser) {
           logger.debug('Saved user', savedUser.screen_name, savedUser.id_str);
