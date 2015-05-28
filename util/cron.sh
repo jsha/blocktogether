@@ -15,4 +15,4 @@ for TABLE in $TABLES; do
   find /data/mysql-backup/ -ctime +7 -exec rm {} \;
 done
 
-find /data/blocktogether/shared/log/ -ctime +7 -exec rm {} \;
+find /data/blocktogether/shared/log/ -ctime +3 -exec rm {} \;
