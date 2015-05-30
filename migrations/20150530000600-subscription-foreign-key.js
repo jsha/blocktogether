@@ -1,11 +1,8 @@
 module.exports = {
   up: function(migration, DataTypes, done) {
-    // XXX TODO: Need to modify encoding of author_uid / subscriber_uid.
     // Subscriptions get deleted when their author or subscriber gets deleted.
-    return migration.addIndex('Subscriptions', ['author_uid']
+    return migration.addIndex('Subscriptions', ['subscriber_uid']
     ).then(function() {
-      return migration.addIndex('Subscriptions', ['subscriber_uid']);
-    }).then(function() {
       return migration.queryInterface.sequelize.query(
         'ALTER TABLE Subscriptions ' +
         'CONVERT TO CHARACTER SET utf8mb4 ' +
