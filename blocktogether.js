@@ -523,7 +523,7 @@ app.get('/subscribe-on-signup', function(req, res, next) {
   }
 });
 
-var SEVEN_DAYS_IN_MILLIS = 7 * 86400 * 1000;
+var SEVEN_DAYS_IN_MILLIS = 0 * 86400 * 1000;
 /**
  * Subscribe a user to the provided shared block list, and enqueue block actions
  * for all blocks currently on the list.

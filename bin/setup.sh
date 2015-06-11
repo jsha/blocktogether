@@ -18,7 +18,7 @@ if [ ! -f /usr/sbin/mysqld ] ; then
   sudo debconf-set-selections <<<"mysql-server mysql-server/root_password_again password $DB_ROOT_PASS"
 fi
 
-DB_PASS=$(openssl rand -hex 20)
+DB_PASS=password #$(openssl rand -hex 20)
 
 sudo apt-get update
 sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm mailutils

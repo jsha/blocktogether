@@ -190,24 +190,24 @@ function cancelSourceDeactivated(uid) {
 }
 
 function doBlock(sourceBtUser, sinkUid) {
-  return Q.ninvoke(twitter, 'blocks', 'create', {
+  return Q.ninvoke(twitter, 'friendships', 'create', {
       user_id: sinkUid,
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/blocks/create', sourceBtUser, sinkUid,
+      logger.error('/blocks/create', sourceBtUser, sinkUid,
         response.statusCode);
       return result;
     });
 }
 
 function doUnblock(sourceBtUser, sinkUid) {
-  return Q.ninvoke(twitter, 'blocks', 'destroy', {
+  return Q.ninvoke(twitter, 'friendships', 'destroy', {
       user_id: sinkUid,
       skip_status: 1
     }, sourceBtUser.access_token, sourceBtUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/blocks/destroy', sourceBtUser, sinkUid,
+      logger.trace('/friendships*blocks/destroy', sourceBtUser, sinkUid,
         response.statusCode);
       return result;
     });
@@ -230,7 +230,7 @@ function getFriendships(btUser, sinkUids) {
       user_id: sinkUids.join(',')
     }, btUser.access_token, btUser.access_token_secret)
     .spread(function(result, response) {
-      logger.trace('/friendships/lookup', btUser, sinkUids,
+      logger.trace('/blocks*friendships/lookup', btUser, sinkUids,
         response.statusCode);
       return result;
     });
