@@ -118,6 +118,12 @@ function updateUsers(uids, usersMap) {
   if (!userCredentials.length) {
     logger.info('User credentials not yet loaded, setting timer');
     setTimeout(updateUsers.bind(null, uids), 500);
+    return;
+  }
+  var length = uids.length;
+  if (!length) {
+    logger.info('No uids to update');
+    return;
   }
   var chunkedUids = [];
   while (uids.length > 0) {
@@ -125,11 +131,11 @@ function updateUsers(uids, usersMap) {
   }
   return Q.all(
     chunkedUids.map(function(uidChunk) {
-      updateUsersChunk(uidChunk, usersMap);
+      return updateUsersChunk(uidChunk, usersMap);
     })
   ).then(function(results) {
     var ret = _.reduce(results, _.assign, {});
-    logger.info('Updated', Object.keys(ret).length, 'TwitterUsers');
+    logger.info('Updated', Object.keys(ret).length, 'TwitterUsers (asked for', length, ')');
     return ret;
   })
 }
