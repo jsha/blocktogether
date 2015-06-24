@@ -128,6 +128,24 @@ function refreshUsers() {
 }
 
 /**
+ * When a stream fails, we want to wait a while before restarting. This function
+ * replaces the stream with a placeholder, so it won't be restarted. After the
+ * given amount of time, if that placeholder is still in place, delete the
+ * stream so it will be restarted.
+ */
+function restartStreamAfter(seconds, uid) {
+  var randomPlaceholder = Math.random();
+  streams[uid] = randomPlaceholder;
+  setTimeout(function() {
+    if (streams[uid] === randomPlaceholder) {
+      delete streams[uid];
+    } else {
+      logger.error('Tried to delete stream but it had already been replaced', uid);
+    }
+  }, seconds * 1000);
+}
+
+/**
  * For a given user, connect to the Twitter Streaming API, start receiving
  * updates, and record that connection in the streams map. Also retroactively
  * check the REST API for any mentions we might have missed during downtime.
@@ -154,9 +172,7 @@ function startStream(user) {
     // Per https://dev.twitter.com/streaming/overview/connecting,
     // backoff up to 16 seconds for TCP/IP level network errors.
     // We don't implement the backoff, we just go right to 16 seconds.
-    setTimeout(function() {
-      delete streams[user.uid];
-    }, 16 * 1000);
+    restartStreamAfter(16, user.uid);
   });
   // In normal operation, each open stream should receive an empty data item
   // '{}' every 30 seconds for keepalive. Sometimes a connection will die
@@ -220,9 +236,7 @@ function endCallback(user, httpIncomingMessage) {
     // backoff up to 320 seconds (5.3 min) for HTTP errors.
     // We don't implement the backoff, just go straight to 320.
     logger.info('Scheduling', user, 'for stream restart in 5.3 min');
-    setTimeout(function() {
-      delete streams[user.uid];
-    }, 320 * 1000);
+    restartStreamAfter(320, user.uid);
   } else if (statusCode === 420) {
     // The streaming API will return 420 Enhance Your Calm
     // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
@@ -233,20 +247,10 @@ function endCallback(user, httpIncomingMessage) {
     // loops once a second.
     var stream = streams[user.uid];
     logger.info('Scheduling', user, 'for stream restart in 15 min');
-    setTimeout(function() {
-      // Double-check it's still the same stream before deleting.
-      if (stream === streams[user.uid]) {
-        delete streams[user.uid];
-      } else {
-        // This shouldn't happen.
-        logger.error('Tried to delete stream but it had already been replaced', user);
-      }
-    }, 15 * 60 * 1000);
+    restartStreamAfter(15 * 60, user.uid);
   } else {
     logger.info('Scheduling', user, 'for stream restart in 5.3 min');
-    setTimeout(function() {
-      delete streams[user.uid];
-    }, 320 * 1000);
+    restartStreamAfter(5.3 * 60, user.uid);
   }
 }
 
