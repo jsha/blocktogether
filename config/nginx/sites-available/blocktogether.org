@@ -21,9 +21,11 @@ server {
         }
         location /favicon.ico {
             alias /data/blocktogether/current/static/favicon.ico;
+            expires 2d;
         }
         location /static/ {
             alias /data/blocktogether/current/static/;
+            expires 2d;
         }
         location /docs/ {
             alias /data/blocktogether/current/docs/;
