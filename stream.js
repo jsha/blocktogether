@@ -375,13 +375,29 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    // For now, always update on unblock events. We'd like to do this for both
-    // blocks and unblocks but it can get expensive when large block lists fan
-    // out.
-    //if (data.event === 'unblock') {
-      remoteUpdateBlocks(recipientBtUser);
-    //}
+    updateNonPendingBlocks(recipientBtUser);
   }, 2000);
+}
+
+/**
+ * Call remote update blocks, but only the the user has zero pending actions.
+ * This reduces the amount of work update-blocks.js has to do for users who are
+ * in the middle of executing large block lists.
+ * @param {BtUser} recipientBtUser
+ */
+function updateNonPendingBlocks(recipientBtUser) {
+  Action.count({
+    where: {
+      source_uid: recipientBtUser.uid,
+      status: Action.PENDING
+    }
+  }).then(function(count) {
+    if (count === 0) {
+      remoteUpdateBlocks(recipientBtUser);
+    }
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
