@@ -18,7 +18,7 @@
     "passport-twitter": "~1.0.2",
     "q": "~1.0.1",
     "scmp": "0.0.3",
-    "sequelize": "~1.7.9",
+    "sequelize": "^3.3.1",
     "timeago": "~0.1.0",
     "upnode": "jsha/upnode#update-dnode",
     "yakaa": "~1.0.1"
