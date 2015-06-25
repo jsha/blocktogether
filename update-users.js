@@ -206,7 +206,7 @@ function updateUsersChunk(uids, usersMap) {
  *   object. Saves a lookup when running update-users.js as a daemon.
  */
 function storeUser(twitterUserResponse, userObj) {
-  function store(user) {
+  function store(user, created) {
     _.assign(user, twitterUserResponse);
     // This field is special because it needs to be parsed as a date, and
     // because the default name 'created_at' is too confusing alongside
@@ -235,8 +235,14 @@ function storeUser(twitterUserResponse, userObj) {
     store(userObj);
   } else {
     TwitterUser
-      .findOrCreate({ uid: twitterUserResponse.id_str })
-      .then(store)
+      .findOrCreate({
+        where: {
+          uid: twitterUserResponse.id_str
+        },
+        defaults: {
+          uid: twitterUserResponse.id_str
+        }
+      }).spread(store)
       .catch(function(err) {
         logger.error(err);
       });
