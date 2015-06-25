@@ -110,7 +110,7 @@ function makeApp() {
  *                        created.
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
-  logger.info(profile);
+  logger.debug(profile);
   var uid = profile.id;
   var screen_name = profile.username;
 
