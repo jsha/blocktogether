@@ -10,7 +10,7 @@
     "express": "~4.8.2",
     "log4js": "~0.6.21",
     "mariasql": "~0.1.21",
-    "mu2": "~0.5.20",
+    "mu2": "jsha/Mu",
     "mysql": "~2.4.2",
     "node-twitter-api": "jsha/node-twitter-api#1e9c9aae06fe26aeab65e99880f830219c91d52f",
     "nodemon": "~1.2.1",
