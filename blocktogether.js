@@ -115,8 +115,14 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
   var screen_name = profile.username;
 
   BtUser
-    .findOrCreate({ uid: uid })
-    .then(function(btUser) {
+    .findOrCreate({
+      where: {
+        uid: uid
+      },
+      defaults: {
+        uid: uid
+      }
+    }).spread(function(btUser, created) {
       // The user's access token may have changed since last login, or they may
       // have been previously deactivated. Overwrite appropriate values with
       // their latest version.

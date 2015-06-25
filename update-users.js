@@ -187,10 +187,14 @@ function updateUsersChunk(uids) {
  */
 function storeUser(twitterUserResponse) {
   TwitterUser
-    .findOrCreate({ uid: twitterUserResponse.id_str })
-    .error(function(err) {
-      logger.error(err);
-    }).success(function(user, created) {
+    .findOrCreate({
+      where: {
+        uid: twitterUserResponse.id_str
+      },
+      defaults: {
+        uid: twitterUserResponse.id_str
+      }
+    }).spread(function(user, created) {
       _.assign(user, twitterUserResponse);
       // This field is special because it needs to be parsed as a date, and
       // because the default name 'created_at' is too confusing alongside
@@ -205,7 +209,13 @@ function storeUser(twitterUserResponse) {
       // was updated in the last 5 seconds.
       if (user.changed() || (new Date() - user.updatedAt) > 5000 /* ms */) {
         user.save()
-          .error(function(err) {
+          .then(function(user) {
+            if (created) {
+              logger.debug('Created user', user.screen_name, user.id_str);
+            } else {
+              logger.debug('Updated user', user.screen_name, user.id_str);
+            }
+          }).catch(function(err) {
             if (err.code === 'ER_DUP_ENTRY') {
               // Sometimes these happen when a new user shows up in stream events in
               // very rapid succession. It just means we tried to insert two entries
@@ -213,16 +223,12 @@ function storeUser(twitterUserResponse) {
             } else {
               logger.error(err);
             }
-          }).success(function(user) {
-            if (created) {
-              logger.debug('Created user', user.screen_name, user.id_str);
-            } else {
-              logger.debug('Updated user', user.screen_name, user.id_str);
-            }
           });
       } else {
         logger.debug('Skipping update for', user.screen_name, user.id_str);
       }
+    }).catch(function(err) {
+      logger.error(err);
     });
 }
 

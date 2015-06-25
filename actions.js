@@ -180,11 +180,14 @@ function cancelSourceDeactivated(uid) {
   // Per 2.0.0-rc1 changelog,
   // "Model.update() signature has been changed from (values, where, options) to
   // (values, options), options now take a where parameter."
+  // FIXED NOW TEST
   return Action.update({
     status: Action.CANCELLED_SOURCE_DEACTIVATED
-  }, { /* where */
-    source_uid: uid,
-    status: Action.PENDING
+  }, {
+    where: {
+      source_uid: uid,
+      status: Action.PENDING
+    }
   }).then(function(actions) {
     return actions;
   }).catch(function(err) {
