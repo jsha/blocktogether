@@ -20,10 +20,6 @@ var config = setup.config,
  * database. A user needs update if it's just been inserted (no screen name)
  * or if it hasn't been updated in a day.
  *
- * We fetch a relatively large chunk from the DB every few seconds, rather than
- * smaller chunks every hundred milliseconds, to ensure there's enough time
- * between each DB query for the API query to complete and to write to the DB.
- *
  * @param {string} sqlFilter An SQL `where' clause to filter users by. Allows
  *   running separate update cycles for fresh users (with no screen name) vs
  *   users who need a refresh.
@@ -34,9 +30,11 @@ function findAndUpdateUsers(sqlFilter) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 300
+      limit: 100
     }).then(function(users) {
-      updateUsers(_.pluck(users, 'uid'));
+      if (users && users.length > 0) {
+        updateUsers(_.pluck(users, 'uid'), _.indexBy(users, 'uid'));
+      }
     }).catch(function(err) {
       logger.error(err);
     });
@@ -111,22 +109,33 @@ var userCredentialsIndex = 0;
  * return.
  *
  * @param {Array.<string>} uids List of user ids to look up.
+ * @param {Map.<string,TwitterUser>} usersMap A map from uids to TwitterUser
+ *   objects from a previous DB lookup. This can save a final lookup before
+ *   saving.
  * @return{Promise.<Object>} map of uids succesfully returned to user objects.
  */
-function updateUsers(uids) {
+function updateUsers(uids, usersMap) {
   if (!userCredentials.length) {
     logger.info('User credentials not yet loaded, setting timer');
     setTimeout(updateUsers.bind(null, uids), 500);
+    return;
+  }
+  var length = uids.length;
+  if (!length) {
+    logger.info('No uids to update');
+    return;
   }
   var chunkedUids = [];
   while (uids.length > 0) {
     chunkedUids.push(uids.splice(0, 100));
   }
   return Q.all(
-    chunkedUids.map(updateUsersChunk)
+    chunkedUids.map(function(uidChunk) {
+      return updateUsersChunk(uidChunk, usersMap);
+    })
   ).then(function(results) {
     var ret = _.reduce(results, _.assign, {});
-    console.log(Object.keys(ret));
+    logger.info('Updated', Object.keys(ret).length, 'TwitterUsers (asked for', length, ')');
     return ret;
   })
 }
@@ -135,9 +144,12 @@ function updateUsers(uids) {
  * Given a list of less than 100 uids, look them up using the Twitter API and
  * update the database accordingly.
  * @param {Array.<string>} uids List of user ids to look up.
+ * @param {Map.<string,TwitterUser>} usersMap A map from uids to TwitterUser
+ *   objects from a previous DB lookup. This can save a final lookup before
+ *   saving.
  * @return{Object} map of uids succesfully returned to user objects.
  */
-function updateUsersChunk(uids) {
+function updateUsersChunk(uids, usersMap) {
   // Iterate through the user credentials to spread out rate limit usage.
   var credential = userCredentials[userCredentialsIndex];
   userCredentialsIndex = (userCredentialsIndex + 1) % userCredentials.length;
@@ -156,7 +168,7 @@ function updateUsersChunk(uids) {
     var indexedResponses = _.indexBy(response, 'id_str');
     uids.forEach(function(uid) {
       if (indexedResponses[uid]) {
-        storeUser(indexedResponses[uid]);
+        storeUser(indexedResponses[uid], usersMap[uid]);
       } else {
         logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
         deactivateTwitterUser(uid);
@@ -166,14 +178,20 @@ function updateUsersChunk(uids) {
   }).catch(function(err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited /users/lookup.');
+      return Q.reject();
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Delete all of them.
       logger.warn('Twitter returned 404 to /users/lookup, deactivating',
         uids.length, 'users');
-      uids.forEach(deactivateTwitterUser);
+      return Q.all(
+        uids.map(deactivateTwitterUser)
+      ).then(function() {
+        return Q.resolve({});
+      });
     } else {
       logger.error('Error /users/lookup', err.statusCode, err.data);
+      return Q.reject();
     }
     return;
   });
@@ -184,52 +202,45 @@ function updateUsersChunk(uids) {
  * reactivate them.
  * @param {Object} twitterUserResponse A JSON User object as defined by the
  *   Twitter API. https://dev.twitter.com/docs/platform-objects/users
+ * @param {TwitterUser|null} userObj An optional param giving the existing user
+ *   object. Saves a lookup when running update-users.js as a daemon.
  */
-function storeUser(twitterUserResponse) {
-  TwitterUser
-    .findOrCreate({
-      where: {
-        uid: twitterUserResponse.id_str
-      },
-      defaults: {
-        uid: twitterUserResponse.id_str
-      }
-    }).spread(function(user, created) {
-      _.assign(user, twitterUserResponse);
-      // This field is special because it needs to be parsed as a date, and
-      // because the default name 'created_at' is too confusing alongside
-      // Sequelize's built-in createdAt.
-      user.account_created_at = new Date(twitterUserResponse.created_at);
-      user.deactivatedAt = null;
-      // In general we want to write the user to DB so updatedAt gets bumped,
-      // so we know not to bother refreshing the user for a day. However, during
-      // startup of stream.js when we replay recent mentions, we receive a lot
-      // of 'incidental' user objects. We don't want to flood the TwitterUsers
-      // DB with writes during startup, so we skip writing to the DB if the user
-      // was updated in the last 5 seconds.
-      if (user.changed() || (new Date() - user.updatedAt) > 5000 /* ms */) {
-        user.save()
-          .then(function(user) {
-            if (created) {
-              logger.debug('Created user', user.screen_name, user.id_str);
-            } else {
-              logger.debug('Updated user', user.screen_name, user.id_str);
-            }
-          }).catch(function(err) {
-            if (err.code === 'ER_DUP_ENTRY') {
-              // Sometimes these happen when a new user shows up in stream events in
-              // very rapid succession. It just means we tried to insert two entries
-              // with the same primary key (i.e. uid). It's harmless so we don't log.
-            } else {
-              logger.error(err);
-            }
-          });
-      } else {
-        logger.debug('Skipping update for', user.screen_name, user.id_str);
-      }
-    }).catch(function(err) {
-      logger.error(err);
-    });
+function storeUser(twitterUserResponse, userObj) {
+  function store(user) {
+    _.assign(user, twitterUserResponse);
+    // This field is special because it needs to be parsed as a date, and
+    // because the default name 'created_at' is too confusing alongside
+    // Sequelize's built-in createdAt.
+    user.account_created_at = new Date(twitterUserResponse.created_at);
+    user.deactivatedAt = null;
+    if (user.changed()) {
+      user.save()
+        .then(function(savedUser) {
+          logger.debug('Saved user', savedUser.screen_name, savedUser.id_str);
+        }).catch(function(err) {
+          if (err.code === 'ER_DUP_ENTRY') {
+            // Sometimes these happen when a new user shows up in stream events in
+            // very rapid succession. It just means we tried to insert two entries
+            // with the same primary key (i.e. uid). It's harmless so we don't log.
+          } else {
+            logger.error(err);
+          }
+        });
+    } else {
+      logger.debug('Skipping update for', user.screen_name, user.id_str);
+    }
+  }
+
+  if (userObj) {
+    store(userObj);
+  } else {
+    TwitterUser
+      .findOrCreate({ uid: twitterUserResponse.id_str })
+      .then(store)
+      .catch(function(err) {
+        logger.error(err);
+      });
+  }
 }
 
 module.exports = {
@@ -243,17 +254,23 @@ BtUser.findAll({
   },
   limit: 100
 }).then(function(users) {
-  userCredentials = users;
+  if (users && users.length > 0) {
+    userCredentials = users;
+  } else {
+    logger.error('No user credentials found.');
+  }
+}).catch(function(err) {
+  logger.error(err);
 });
 
 if (require.main === module) {
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.
-  setInterval(findAndUpdateUsers.bind(null, 'screen_name IS NULL'), 5000);
+  setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL']), 5000);
   // Poll for users needing update every 10 seconds.
   setInterval(
-    findAndUpdateUsers.bind(null, 'updatedAt < (now() - INTERVAL 1 DAY)'), 2500);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)']), 2500);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }

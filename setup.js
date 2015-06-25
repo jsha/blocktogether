@@ -253,7 +253,7 @@ function remoteUpdateBlocks(user) {
   if (!updateBlocksService) {
     updateBlocksService = upnode.connect({
       createStream: function() {
-        var stream = tls.connect({
+        var socket = tls.connect({
           host: config.updateBlocks.host,
           port: config.updateBlocks.port,
           // Provide a client certificate so the server knows it's us.
@@ -265,8 +265,8 @@ function remoteUpdateBlocks(user) {
           servername: 'blocktogether-rpc'
         });
         // Unref the RPC connection so shutdowns don't wait on it to close.
-        stream.socket.unref();
-        return stream;
+        socket.unref();
+        return socket;
       }
     });
   }
