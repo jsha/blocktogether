@@ -78,11 +78,7 @@ function makeApp() {
         // BtUser has been on Twiter.
         model: TwitterUser
       }]
-    }).error(function(err) {
-      logger.error(err);
-      // User not found in DB. Leave the user object undefined.
-      done(null, undefined);
-    }).success(function(user) {
+    }).then(function(user) {
       // It's probably unnecessary to do constant time compare on these, since
       // the HMAC on the session cookie should prevent an attacker from
       // submitting arbitrary valid sessions, but this is nice defence in depth
@@ -94,6 +90,10 @@ function makeApp() {
         logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
+    }).catch(function(err) {
+      logger.error(err);
+      // User not found in DB. Leave the user object undefined.
+      done(null, undefined);
     });
   });
   return app;
@@ -404,9 +404,10 @@ function updateSettings(user, settings, callback) {
 
   user
     .save()
-    .error(function(err) {
+    .then(callback)
+    .catch(function(err) {
       logger.error(err);
-    }).success(callback);
+    });
 }
 
 app.get('/actions',
@@ -480,9 +481,7 @@ app.get('/show-blocks/:slug',
       .find({
         where: ['deactivatedAt IS NULL AND shared_blocks_key LIKE ?',
           slug.slice(0, 10) + '%']
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(user) {
+      }).then(function(user) {
         // To avoid timing attacks that try and incrementally discover shared
         // block slugs, use only the first part of the slug for lookup, and
         // check the rest using constantTimeEquals. For details about timing
@@ -492,6 +491,8 @@ app.get('/show-blocks/:slug',
         } else {
           res.status(404).end('No such block list.');
         }
+      }).catch(function(err) {
+        logger.error(err);
       });
   });
 
@@ -569,9 +570,7 @@ app.post('/block-all.json',
             uid: req.body.author_uid,
             deactivatedAt: null
           }
-        }).error(function(err) {
-          logger.error(err);
-        }).success(function(author) {
+        }).then(function(author) {
           logger.debug('Found author', author);
           // If the shared_blocks_key is valid, find the most recent BlockBatch
           // from that share block list author, and copy each uid onto the
@@ -596,14 +595,10 @@ app.post('/block-all.json',
             author.getBlockBatches({
               limit: 1,
               order: 'complete desc, currentCursor is null, updatedAt desc'
-            }).error(function(err) {
-              logger.error(err);
-            }).success(function(blockBatches) {
+            }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
                 blockBatches[0].getBlocks()
-                  .error(function(err) {
-                    logger.error(err);
-                  }).success(function(blocks) {
+                  .then(function(blocks) {
                     var sinkUids = _.pluck(blocks, 'sink_uid');
                     actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
@@ -616,14 +611,20 @@ app.post('/block-all.json',
                     res.end(JSON.stringify({
                       block_count: sinkUids.length
                     }));
+                  }).catch(function(err) {
+                    logger.error(err);
                   });
               } else {
                 next(new Error('Empty block list.'));
               }
+            }).catch(function(err) {
+              logger.error(err);
             });
           } else {
             next(new Error('Invalid shared block list id.'));
           }
+        }).catch(function(err) {
+          logger.error(err);
         });
     } else {
       var err = new Error('Invalid parameters.');
