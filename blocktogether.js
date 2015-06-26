@@ -513,7 +513,7 @@ app.get('/subscribe-on-signup', function(req, res, next) {
   res.header('Content-Type', 'text/html');
   if (req.session.subscribe_on_signup) {
     var params = req.session.subscribe_on_signup;
-    BtUser.find(params.author_uid)
+    BtUser.findById(params.author_uid)
       .then(function(author) {
       mu.compileAndRender('subscribe-on-signup.mustache', {
         logged_in_screen_name: req.user.screen_name,

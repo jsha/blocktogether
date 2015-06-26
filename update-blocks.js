@@ -86,7 +86,7 @@ function findAndUpdateBlocks() {
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  return BtUser.find(uid).then(updateBlocks).catch(function (err) {
+  return BtUser.findById(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
 }
@@ -379,7 +379,7 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
   // rate limited for user lookups, which would cause us to miss unblocks.
-  BtUser.find(source_uid)
+  BtUser.findById(source_uid)
     .then(function(user) {
       if (!user) {
         return Q.reject("No user found for " + source_uid);

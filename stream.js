@@ -75,7 +75,7 @@ function refreshStreams() {
   // if the first 20 have some unexpected issue we don't get stuck on them.
   _.sample(missingUserIds, 20).forEach(function(userId) {
     logger.debug('Restarting stream for', userId);
-    BtUser.find(userId)
+    BtUser.findById(userId)
       .then(function(user) {
         if (user && !user.deactivatedAt) {
           allUsers[userId] = user;

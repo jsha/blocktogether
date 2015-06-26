@@ -51,7 +51,7 @@ function findAndUpdateUsers(sqlFilter) {
 function verifyMany() {
   BtUser
     .findAll({
-      where: ['BtUsers.uid % 3600 = ?',
+      where: ['BtUser.uid % 3600 = ?',
         Math.floor(new Date() / 1000) % 3600],
       include: [{
         model: TwitterUser
@@ -88,7 +88,7 @@ function verifyMany() {
  * @param {string} uid User to delete.
  */
 function deactivateTwitterUser(uid) {
-  TwitterUser.find(uid)
+  TwitterUser.findById(uid)
     .then(function(twitterUser) {
       twitterUser.deactivatedAt = new Date();
       return twitterUser.save();
