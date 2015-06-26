@@ -662,7 +662,9 @@ app.post('/unsubscribe.json',
       return next(err);
     }
     logger.info('Removing subscription: ', params);
-    Subscription.destroy(params).then(function() {
+    Subscription.destroy({
+      where: params
+    }).then(function() {
       res.end(JSON.stringify({}));
     }).catch(function(err) {
       next(new Error('Sequelize error.'));

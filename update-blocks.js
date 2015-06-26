@@ -441,8 +441,10 @@ function destroyOldBlocks(userId) {
   }).then(function(blockBatches) {
     if (blockBatches && blockBatches.length > 0) {
       return BlockBatch.destroy({
-        id: {
-          in: _.pluck(blockBatches, 'id')
+        where: {
+          id: {
+            in: _.pluck(blockBatches, 'id')
+          }
         }
       })
     } else {
