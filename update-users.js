@@ -59,8 +59,8 @@ function verifyMany() {
     }).then(function(btUsers) {
       btUsers.forEach(function (btUser) {
         verifyCredentials(btUser);
-        if (btUser.twitterUser) {
-          btUser.screen_name = btUser.twitterUser.screen_name;
+        if (btUser.TwitterUser) {
+          btUser.screen_name = btUser.TwitterUser.screen_name;
           if (btUser.changed()) {
             btUser.save().error(function(err) {
               logger.error(err);

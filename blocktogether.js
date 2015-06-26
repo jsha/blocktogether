@@ -267,7 +267,7 @@ function requireAuthentication(req, res, next) {
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (req.user && req.user.twitterUser) {
+  } else if (req.user && req.user.TwitterUser) {
     // If there's a req.user there should always be a corresponding TwitterUser.
     // If not, logging back in will fix.
     next();
@@ -555,7 +555,7 @@ app.post('/block-all.json',
     // large block lists. This consumes DB space unnecessarily for accounts that
     // are likely to be suspended soon. Impose a minimum age requirement for
     // subscribing to discourage this.
-    if (new Date() - req.user.twitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
+    if (new Date() - req.user.TwitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
       return next(new Error(
         'Sorry, Twitter accounts less than seven days old cannot subscribe ' +
         'to block lists. Please try again in a week.'));
@@ -828,8 +828,8 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     // Create a list of users that has at least a uid entry even if the
     // TwitterUser doesn't yet exist in our DB.
     paginationData.item_rows = paginationData.item_rows.map(function(block) {
-      if (block.twitterUser) {
-        var user = block.twitterUser;
+      if (block.TwitterUser) {
+        var user = block.TwitterUser;
         return _.extend(user, {
           account_age: timeago(user.account_created_at)
         });
