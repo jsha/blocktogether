@@ -88,16 +88,15 @@ function verifyMany() {
  * @param {string} uid User to delete.
  */
 function deactivateTwitterUser(uid) {
-  TwitterUser.find(uid).error(function(err) {
-    logger.error(err);
-  }).success(function(twitterUser) {
-    twitterUser.deactivatedAt = new Date();
-    twitterUser.save().error(function(err) {
-      logger.error(err);
-    }).success(function(twitterUser) {
+  TwitterUser.find(uid)
+    .then(function(twitterUser) {
+      twitterUser.deactivatedAt = new Date();
+      return twitterUser.save();
+    }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
+    }).catch(function(err) {
+      logger.error(err);
     });
-  });
 }
 
 var userCredentials = [];
@@ -190,7 +189,7 @@ function updateUsersChunk(uids, usersMap) {
         return Q.resolve({});
       });
     } else {
-      logger.error('Error /users/lookup', err.statusCode, err.data);
+      logger.error('Error /users/lookup', err.statusCode, err.data, err);
       return Q.reject();
     }
     return;

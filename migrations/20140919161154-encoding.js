@@ -13,7 +13,7 @@ module.exports = {
     migration.queryInterface.sequelize.query(
       'ALTER TABLE TwitterUsers CONVERT TO ' +
       'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;')
-      .success(done);
+      .then(done);
   },
   down: function(migration, DataTypes, done) {
     migration.changeColumn(
@@ -23,7 +23,7 @@ module.exports = {
     migration.queryInterface.sequelize.query(
       'ALTER TABLE TwitterUsers CONVERT TO ' +
       'CHARACTER SET latin1;')
-      .success(done);
+      .then(done);
     done()
   }
 }
