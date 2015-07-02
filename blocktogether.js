@@ -110,7 +110,6 @@ function makeApp() {
  *                        created.
  */
 function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) {
-  logger.info(profile);
   var uid = profile.id;
   var screen_name = profile.username;
 
@@ -233,7 +232,7 @@ app.get('/auth/twitter/callback', function(req, res, next) {
       if (err) {
         return next(err);
       } else if (!user) {
-        return next(new Error('Declined app authorization.'));
+        return next(new Error('Problem during app authorization.'));
       } else {
         // If this was a signup (vs a log on), set settings based on what the user
         // selected on the main page.
