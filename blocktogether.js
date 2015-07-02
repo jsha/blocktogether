@@ -752,6 +752,59 @@ function getPaginationData(items, perPage, currentPage) {
 }
 
 /**
+ * Get the appropriate number of blocks, plus the associated TwitterUsers
+ * for screen names. Note that we don't do say `include: TwitterUsers`,
+ * because that causes a JOIN, and the JOIN in combination with
+ * limit/offset gets expensive for high page numbers. Instead we do the
+ * blocks query first, then look up the TwitterUsers as a separate query.
+ * For any blocks where the sink_uid does not yet exist in the TwitterUsers
+ * table, return a fake TwitterUser with just a uid field.
+ * For blocks where the sink_uid does exist in TwitterUsers, augment the
+ * TwitterUser object with an `account_age` field.
+ * @param {BlockBatch} blockBatch The batch from which to pull the blocks.
+ * @param {Number} limit
+ * @param {Number} offset
+ * @return {Promise.<Array.<TwitterUser>>}
+ */
+function getBlockedUsers(blockBatch, limit, offset) {
+  return Block.findAll({
+    where: {
+      blockBatchId: blockBatch.id
+    },
+    limit: limit,
+    offset: offset
+  }).then(function(blocks) {
+    return [blocks, TwitterUser.findAll({
+      where: {
+        uid: {
+          in: _.pluck(blocks, 'sink_uid')
+        }
+      }
+    })];
+  }).spread(function(blocks, users) {
+    var indexedUsers = _.indexBy(users, 'uid');
+    // Turn blocks into blocked TwitterUsers
+    return blocks.map(function(block) {
+      var user = indexedUsers[block.sink_uid];
+      if (user) {
+        block.TwitterUser = indexedUsers[block.sink_uid];
+        // Add "N months ago" for rendering as account age.
+        return _.extend(user, {
+          account_age: timeago(user.account_created_at)
+        });
+      } else {
+        // If the TwitterUser doesn't yet exist in the DB, we create a fake
+        // one that just has a uid. This is important for template
+        // expansion, below.
+        return {
+          uid: block.sink_uid
+        }
+      }
+    });
+  });
+}
+
+/**
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
@@ -798,38 +851,17 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
           }
         }) : null;
 
-      var blocksPromise = Block.findAll({
-        where: {
-          blockBatchId: blockBatch.id
-        },
-        limit: perPage,
-        offset: perPage * (currentPage - 1),
-        include: [{
-          model: TwitterUser,
-          required: false
-        }]
-      });
+      var blockedUsersPromise = getBlockedUsers(blockBatch,
+        perPage, perPage * (currentPage - 1));
 
       // Find, count, and prepare block data for display:
-      return [subscriptionPromise, blockBatch, blocksPromise];
+      return [subscriptionPromise, blockBatch, blockedUsersPromise];
     }
-  }).spread(function(subscription, blockBatch, blocks) {
+  }).spread(function(subscription, blockBatch, blockedUsers) {
     var paginationData = getPaginationData({
       count: blockBatch.size || 0,
-      rows: blocks
+      rows: blockedUsers
     }, perPage, currentPage);
-    // Create a list of users that has at least a uid entry even if the
-    // TwitterUser doesn't yet exist in our DB.
-    paginationData.item_rows = paginationData.item_rows.map(function(block) {
-      if (block.twitterUser) {
-        var user = block.twitterUser;
-        return _.extend(user, {
-          account_age: timeago(user.account_created_at)
-        });
-      } else {
-        return {uid: block.sink_uid};
-      }
-    });
     var templateData = {
       updated: timeago(new Date(blockBatch.createdAt)),
       // The name of the logged-in user, for the nav bar.
