@@ -18,6 +18,8 @@ server {
         access_log /var/log/nginx/access.log no_ip;
 
         add_header Strict-Transport-Security "max-age=31536000; includeSubdomains";
+
+        root /data/blocktogether/current/static/;
         location / {
                 proxy_pass http://localhost:2078/;
         }
@@ -35,6 +37,13 @@ server {
         }
         location /docs/ {
             alias /data/blocktogether/current/docs/;
+        }
+        if (-f /data/blocktogether/current/static/maintenance.html) {
+            return 503;
+        }
+        error_page 503 @maintenance;
+        location @maintenance {
+                rewrite ^(.*)$ /maintenance.html break;
         }
 }
 
