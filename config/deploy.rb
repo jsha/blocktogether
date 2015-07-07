@@ -46,8 +46,11 @@ namespace :deploy do
   task :restart do
     process_names.each do |name|
       sudo "service blocktogether-instance restart NAME=#{name}"
+      # Only do nginx reloads on the web frontend.
+      if name == "blocktogether"
+        sudo "service nginx reload"
+      end
     end
-    sudo "service nginx reload"
   end
 end
 
