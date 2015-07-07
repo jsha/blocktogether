@@ -731,7 +731,7 @@ function getPaginationData(items, perPage, currentPage) {
   var pageCount = Math.ceil(items.count / perPage);
   // Pagination metadata to be returned:
   var paginationData = {
-    item_count: items.count,
+    item_count: (items.count > 20000) ? "more than 20,000" : items.count,
     item_rows: items.rows,
     // Are there enough items to paginate?
     paginate: pageCount > 1,
