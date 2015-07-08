@@ -58,14 +58,10 @@ fi
 
 if ! crontab -l >/dev/null; then
   crontab - <<-EOCRON
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     MAILTO=ubuntu
     23 10 * * * bash /data/blocktogether/current/util/cron.sh
 EOCRON
 fi
 
 sudo mkdir -p /data/blocktogether/shared/log/
-
-# NOTE FOR DEPLOYING TO PRODUCTION:
-# You will still have to install nodejs.
-# https://github.com/joyent/node/wiki/installing-node.js-via-package-manager#debian-and-ubuntu-based-linux-distributions
