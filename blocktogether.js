@@ -64,7 +64,7 @@ function makeApp() {
 
   // Given the serialized uid and credentials, try to find the corresponding
   // user in the BtUsers table. If not found, that's fine - it might be a
-  // logged-out path. Logged-out users are handed in requireAuthentication
+  // logged-out path. Logged-out users are handled in requireAuthentication
   // below.
   passport.deserializeUser(function(serialized, done) {
     var sessionUser = JSON.parse(serialized);
@@ -707,6 +707,7 @@ app.use(function(err, req, res, next) {
     res.clearCookie('express:sess');
     res.clearCookie('express:sess.sig');
     res.clearCookie('uid');
+    return res.redirect('/');
   }
   var message = err.message;
   res.status(err.statusCode || 500);
