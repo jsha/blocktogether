@@ -1,6 +1,5 @@
 'use strict';
 (function() {
-// TODO: Log off using GET allows drive-by logoff, fix that.
 var cluster = require('cluster'),
     express = require('express'), // Web framework
     url = require('url'),
@@ -42,10 +41,10 @@ function makeApp() {
     keys: [config.cookieSecret],
     secureProxy: config.secureProxy
   }));
-  app.use(passport.initialize());
-  app.use(passport.session());
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
@@ -65,7 +64,7 @@ function makeApp() {
 
   // Given the serialized uid and credentials, try to find the corresponding
   // user in the BtUsers table. If not found, that's fine - it might be a
-  // logged-out path. Logged-out users are handed in requireAuthentication
+  // logged-out path. Logged-out users are handled in requireAuthentication
   // below.
   passport.deserializeUser(function(serialized, done) {
     var sessionUser = JSON.parse(serialized);
@@ -78,11 +77,7 @@ function makeApp() {
         // BtUser has been on Twiter.
         model: TwitterUser
       }]
-    }).error(function(err) {
-      logger.error(err);
-      // User not found in DB. Leave the user object undefined.
-      done(null, undefined);
-    }).success(function(user) {
+    }).then(function(user) {
       // It's probably unnecessary to do constant time compare on these, since
       // the HMAC on the session cookie should prevent an attacker from
       // submitting arbitrary valid sessions, but this is nice defence in depth
@@ -94,6 +89,10 @@ function makeApp() {
         logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
+    }).catch(function(err) {
+      logger.error(err);
+      // User not found in DB. Leave the user object undefined.
+      done(null, undefined);
     });
   });
   return app;
@@ -114,8 +113,14 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
   var screen_name = profile.username;
 
   BtUser
-    .findOrCreate({ uid: uid })
-    .then(function(btUser) {
+    .findOrCreate({
+      where: {
+        uid: uid
+      },
+      defaults: {
+        uid: uid
+      }
+    }).spread(function(btUser, created) {
       // The user's access token may have changed since last login, or they may
       // have been previously deactivated. Overwrite appropriate values with
       // their latest version.
@@ -198,6 +203,11 @@ app.post('/auth/twitter', function(req, res, next) {
       author_uid: req.body.subscribe_on_signup_author_uid
     };
   }
+  // This happened once in development, and may be happening in production. Add
+  // logging to see if it is.
+  if (!passportAuthenticate) {
+    logger.error('passportAuthenticate is mysteriously undefined');
+  }
   passportAuthenticate(req, res, next);
 });
 
@@ -260,7 +270,7 @@ function requireAuthentication(req, res, next) {
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
     next();
-  } else if (req.user && req.user.twitterUser) {
+  } else if (req.user && req.user.TwitterUser) {
     // If there's a req.user there should always be a corresponding TwitterUser.
     // If not, logging back in will fix.
     next();
@@ -397,9 +407,10 @@ function updateSettings(user, settings, callback) {
 
   user
     .save()
-    .error(function(err) {
+    .then(callback)
+    .catch(function(err) {
       logger.error(err);
-    }).success(callback);
+    });
 }
 
 app.get('/actions',
@@ -473,9 +484,7 @@ app.get('/show-blocks/:slug',
       .find({
         where: ['deactivatedAt IS NULL AND shared_blocks_key LIKE ?',
           slug.slice(0, 10) + '%']
-      }).error(function(err) {
-        logger.error(err);
-      }).success(function(user) {
+      }).then(function(user) {
         // To avoid timing attacks that try and incrementally discover shared
         // block slugs, use only the first part of the slug for lookup, and
         // check the rest using constantTimeEquals. For details about timing
@@ -485,6 +494,8 @@ app.get('/show-blocks/:slug',
         } else {
           res.status(404).end('No such block list.');
         }
+      }).catch(function(err) {
+        logger.error(err);
       });
   });
 
@@ -505,7 +516,7 @@ app.get('/subscribe-on-signup', function(req, res, next) {
   res.header('Content-Type', 'text/html');
   if (req.session.subscribe_on_signup) {
     var params = req.session.subscribe_on_signup;
-    BtUser.find(params.author_uid)
+    BtUser.findById(params.author_uid)
       .then(function(author) {
       mu.compileAndRender('subscribe-on-signup.mustache', {
         logged_in_screen_name: req.user.screen_name,
@@ -531,7 +542,6 @@ var SEVEN_DAYS_IN_MILLIS = 7 * 86400 * 1000;
 app.post('/block-all.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
-    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
     // Special handling for subscribe-on-signup: Get key from session,
     // delete it on success.
@@ -547,7 +557,7 @@ app.post('/block-all.json',
     // large block lists. This consumes DB space unnecessarily for accounts that
     // are likely to be suspended soon. Impose a minimum age requirement for
     // subscribing to discourage this.
-    if (new Date() - req.user.twitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
+    if (new Date() - req.user.TwitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
       return next(new Error(
         'Sorry, Twitter accounts less than seven days old cannot subscribe ' +
         'to block lists. Please try again in a week.'));
@@ -562,12 +572,10 @@ app.post('/block-all.json',
             uid: req.body.author_uid,
             deactivatedAt: null
           }
-        }).error(function(err) {
-          logger.error(err);
-        }).success(function(author) {
+        }).then(function(author) {
           logger.debug('Found author', author);
           // If the shared_blocks_key is valid, find the most recent BlockBatch
-          // from that share block list author, and copy each uid onto the
+          // from that shared block list author, and copy each uid onto the
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
@@ -581,7 +589,7 @@ app.post('/block-all.json',
               subscriber_uid: req.user.uid
             }).then(req.user.addSubscription.bind(req.user))
             .catch(function(err) {
-              if (err.code !== 'ER_DUP_ENTRY') {
+              if (err.name !== 'SequelizeUniqueConstraintError') {
                 logger.error(err);
               }
             });
@@ -589,14 +597,10 @@ app.post('/block-all.json',
             author.getBlockBatches({
               limit: 1,
               order: 'complete desc, currentCursor is null, updatedAt desc'
-            }).error(function(err) {
-              logger.error(err);
-            }).success(function(blockBatches) {
+            }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
                 blockBatches[0].getBlocks()
-                  .error(function(err) {
-                    logger.error(err);
-                  }).success(function(blocks) {
+                  .then(function(blocks) {
                     var sinkUids = _.pluck(blocks, 'sink_uid');
                     actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
@@ -609,14 +613,20 @@ app.post('/block-all.json',
                     res.end(JSON.stringify({
                       block_count: sinkUids.length
                     }));
+                  }).catch(function(err) {
+                    logger.error(err);
                   });
               } else {
                 next(new Error('Empty block list.'));
               }
+            }).catch(function(err) {
+              logger.error(err);
             });
           } else {
             next(new Error('Invalid shared block list id.'));
           }
+        }).catch(function(err) {
+          logger.error(err);
         });
     } else {
       var err = new Error('Invalid parameters.');
@@ -638,12 +648,15 @@ app.post('/unsubscribe.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var params = NaN;
-    if (req.body.author_uid) {
+    // Important to require the client passes string ids. It's easy to
+    // accidentally pass integer ids, which results in failing to use the MySQL
+    // index. Also, it brings the possibility of mangling 64-bit integer ids.
+    if (req.body.author_uid && typeof req.body.author_uid === 'string') {
       params = {
         author_uid: req.body.author_uid,
         subscriber_uid: req.user.uid
       };
-    } else if (req.body.subscriber_uid) {
+    } else if (req.body.subscriber_uid && typeof req.body.subscriber_uid === 'string') {
       params = {
         author_uid: req.user.uid,
         subscriber_uid: req.body.subscriber_uid
@@ -654,7 +667,9 @@ app.post('/unsubscribe.json',
       return next(err);
     }
     logger.info('Removing subscription: ', params);
-    Subscription.destroy(params).then(function() {
+    Subscription.destroy({
+      where: params
+    }).then(function() {
       res.end(JSON.stringify({}));
     }).catch(function(err) {
       next(new Error('Sequelize error.'));
@@ -692,6 +707,7 @@ app.use(function(err, req, res, next) {
     res.clearCookie('express:sess');
     res.clearCookie('express:sess.sig');
     res.clearCookie('uid');
+    return res.redirect('/');
   }
   var message = err.message;
   res.status(err.statusCode || 500);

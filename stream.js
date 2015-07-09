@@ -75,7 +75,7 @@ function refreshStreams() {
   // if the first 20 have some unexpected issue we don't get stuck on them.
   _.sample(missingUserIds, 20).forEach(function(userId) {
     logger.debug('Restarting stream for', userId);
-    BtUser.find(userId)
+    BtUser.findById(userId)
       .then(function(user) {
         if (user && !user.deactivatedAt) {
           allUsers[userId] = user;
@@ -117,7 +117,7 @@ function refreshUsers() {
       sequelize.or(
         { block_new_accounts: true },
         { block_low_followers: true },
-        'shared_blocks_key IS NOT NULL'
+        { shared_blocks_key: { not: null } }
       ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
@@ -327,7 +327,7 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
     if (ageInDays < MIN_AGE || mentioningUser.followers_count < MIN_FOLLOWERS) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
-      recipientBtUser.reload().success(function(user) {
+      recipientBtUser.reload().then(function(user) {
         if (ageInDays < MIN_AGE && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
             mentioningUser.screen_name, mentioningUser.id_str);
@@ -337,6 +337,8 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
             mentioningUser.screen_name, mentioningUser.id_str);
           enqueueBlock(recipientBtUser, mentioningUser.id_str, Action.LOW_FOLLOWERS);
         }
+      }).catch(function(err) {
+        logger.error(err);
       });
     }
   }

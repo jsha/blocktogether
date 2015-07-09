@@ -231,7 +231,7 @@ function getManualUnblocks(uid) {
  * @return {Object}
  */
 function subscriptionBlocksAuthors(user) {
-  var subscriptions = user.subscriptions;
+  var subscriptions = user.Subscriptions;
   if (!subscriptions && subscriptions.length === 0) {
     logger.error('No subscriptions for', user);
     return {};
@@ -297,7 +297,7 @@ function fixUp(uid) {
     if (user.deactivatedAt !== null) {
       logger.info('No fixup for', user, 'because deactivated.');
       return null;
-    } else if (user.subscriptions.length === 0) {
+    } else if (user.Subscriptions.length === 0) {
       logger.info('No fixup for', user, 'because no subscriptions.');
       return null;
     } else if (pendingActionsCount > 0) {
@@ -403,7 +403,7 @@ function fixUpReadyUser(user) {
         // action we get the most recent one. Use this to get a list of actions
         // where each action is only the most recent for that sink_uid.
         var uniquedActions = _.values(_.indexBy(actions, 'sink_uid'));
-        var currentlySubscribed = _.indexBy(user.subscriptions, 'author_uid');
+        var currentlySubscribed = _.indexBy(user.Subscriptions, 'author_uid');
         var actionsToReverse = _.filter(uniquedActions, function(action) {
           var sink_uid = action.sink_uid;
           // We only care about blocks, and only blocks caused by a subscription

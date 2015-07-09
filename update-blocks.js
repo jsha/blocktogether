@@ -32,7 +32,7 @@ var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
 function findAndUpdateBlocks() {
   return BtUser.find({
     where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
-    order: 'BtUsers.updatedAt ASC'
+    order: 'updatedAt ASC'
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
@@ -83,7 +83,7 @@ function findAndUpdateBlocks() {
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  return BtUser.find(uid).then(updateBlocks).catch(function (err) {
+  return BtUser.findById(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
 }
@@ -376,7 +376,7 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
   // rate limited for user lookups, which would cause us to miss unblocks.
-  BtUser.find(source_uid)
+  BtUser.findById(source_uid)
     .then(function(user) {
       if (!user) {
         return Q.reject("No user found for " + source_uid);
@@ -438,8 +438,10 @@ function destroyOldBlocks(userId) {
   }).then(function(blockBatches) {
     if (blockBatches && blockBatches.length > 0) {
       return BlockBatch.destroy({
-        id: {
-          in: _.pluck(blockBatches, 'id')
+        where: {
+          id: {
+            in: _.pluck(blockBatches, 'id')
+          }
         }
       })
     } else {

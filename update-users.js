@@ -51,7 +51,7 @@ function findAndUpdateUsers(sqlFilter) {
 function verifyMany() {
   BtUser
     .findAll({
-      where: ['BtUsers.uid % 3600 = ?',
+      where: ['BtUser.uid % 3600 = ?',
         Math.floor(new Date() / 1000) % 3600],
       include: [{
         model: TwitterUser
@@ -59,8 +59,8 @@ function verifyMany() {
     }).then(function(btUsers) {
       btUsers.forEach(function (btUser) {
         verifyCredentials(btUser);
-        if (btUser.twitterUser) {
-          btUser.screen_name = btUser.twitterUser.screen_name;
+        if (btUser.TwitterUser) {
+          btUser.screen_name = btUser.TwitterUser.screen_name;
           if (btUser.changed()) {
             btUser.save().error(function(err) {
               logger.error(err);
@@ -88,16 +88,15 @@ function verifyMany() {
  * @param {string} uid User to delete.
  */
 function deactivateTwitterUser(uid) {
-  TwitterUser.find(uid).error(function(err) {
-    logger.error(err);
-  }).success(function(twitterUser) {
-    twitterUser.deactivatedAt = new Date();
-    twitterUser.save().error(function(err) {
-      logger.error(err);
-    }).success(function(twitterUser) {
+  TwitterUser.findById(uid)
+    .then(function(twitterUser) {
+      twitterUser.deactivatedAt = new Date();
+      return twitterUser.save();
+    }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
+    }).catch(function(err) {
+      logger.error(err);
     });
-  });
 }
 
 var userCredentials = [];
@@ -190,7 +189,7 @@ function updateUsersChunk(uids, usersMap) {
         return Q.resolve({});
       });
     } else {
-      logger.error('Error /users/lookup', err.statusCode, err.data);
+      logger.error('Error /users/lookup', err.statusCode, err.data, err);
       return Q.reject();
     }
     return;
@@ -206,7 +205,7 @@ function updateUsersChunk(uids, usersMap) {
  *   object. Saves a lookup when running update-users.js as a daemon.
  */
 function storeUser(twitterUserResponse, userObj) {
-  function store(user) {
+  function store(user, created) {
     _.assign(user, twitterUserResponse);
     // This field is special because it needs to be parsed as a date, and
     // because the default name 'created_at' is too confusing alongside
@@ -235,8 +234,14 @@ function storeUser(twitterUserResponse, userObj) {
     store(userObj);
   } else {
     TwitterUser
-      .findOrCreate({ uid: twitterUserResponse.id_str })
-      .then(store)
+      .findOrCreate({
+        where: {
+          uid: twitterUserResponse.id_str
+        },
+        defaults: {
+          uid: twitterUserResponse.id_str
+        }
+      }).spread(store)
       .catch(function(err) {
         logger.error(err);
       });

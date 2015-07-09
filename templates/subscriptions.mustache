@@ -21,10 +21,10 @@
   <p>You subscribe to block lists from:</p>
   <ul class='subscriptions'>
     {{#subscriptions}}
-    <li class='subscription-item'>@{{author.screen_name}}
-      <a data-author-uid='{{author.uid}}'
+    <li class='subscription-item'>@{{Author.screen_name}}
+      <a data-author-uid='{{Author.uid}}'
         class="unsubscribe glyphicon glyphicon-remove"
-        title="Unsubscribe from @{{author.screen_name}}'s shared blocks."
+        title="Unsubscribe from @{{Author.screen_name}}'s shared blocks."
         ></a>
     </li>
     {{/subscriptions}}
@@ -39,9 +39,9 @@
   <p>These people subscribe to your shared block list:</p>
   <ul class='subscribers'>
     {{#subscribers}}
-    <li class='subscription-item'>@{{subscriber.screen_name}}
-      <a data-subscriber-uid='{{subscriber.uid}}'
-        title="Force {{author.screen_name}} to stop subscribing to your shared blocks."
+    <li class='subscription-item'>@{{Subscriber.screen_name}}
+      <a data-subscriber-uid='{{Subscriber.uid}}'
+        title="Force {{Author.screen_name}} to stop subscribing to your shared blocks."
         class="unsubscribe glyphicon glyphicon-remove"></a>
     </li>
     {{/subscribers}}
