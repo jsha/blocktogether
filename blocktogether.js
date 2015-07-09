@@ -1,6 +1,5 @@
 'use strict';
 (function() {
-// TODO: Log off using GET allows drive-by logoff, fix that.
 var cluster = require('cluster'),
     express = require('express'), // Web framework
     url = require('url'),
@@ -42,10 +41,10 @@ function makeApp() {
     keys: [config.cookieSecret],
     secureProxy: config.secureProxy
   }));
-  app.use(passport.initialize());
-  app.use(passport.session());
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   passport.use(new TwitterStrategy({
     consumerKey: config.consumerKey,
@@ -203,6 +202,11 @@ app.post('/auth/twitter', function(req, res, next) {
       key: req.body.subscribe_on_signup_key,
       author_uid: req.body.subscribe_on_signup_author_uid
     };
+  }
+  // This happened once in development, and may be happening in production. Add
+  // logging to see if it is.
+  if (!passportAuthenticate) {
+    logger.error('passportAuthenticate is mysteriously undefined');
   }
   passportAuthenticate(req, res, next);
 });
@@ -538,7 +542,6 @@ var SEVEN_DAYS_IN_MILLIS = 7 * 86400 * 1000;
 app.post('/block-all.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
-    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
     var shared_blocks_key = req.body.shared_blocks_key;
     // Special handling for subscribe-on-signup: Get key from session,
     // delete it on success.
@@ -572,7 +575,7 @@ app.post('/block-all.json',
         }).then(function(author) {
           logger.debug('Found author', author);
           // If the shared_blocks_key is valid, find the most recent BlockBatch
-          // from that share block list author, and copy each uid onto the
+          // from that shared block list author, and copy each uid onto the
           // blocking user's list.
           if (author &&
               constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
@@ -586,7 +589,7 @@ app.post('/block-all.json',
               subscriber_uid: req.user.uid
             }).then(req.user.addSubscription.bind(req.user))
             .catch(function(err) {
-              if (err.code !== 'ER_DUP_ENTRY') {
+              if (err.name !== 'SequelizeUniqueConstraintError') {
                 logger.error(err);
               }
             });
@@ -645,12 +648,15 @@ app.post('/unsubscribe.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
     var params = NaN;
-    if (req.body.author_uid) {
+    // Important to require the client passes string ids. It's easy to
+    // accidentally pass integer ids, which results in failing to use the MySQL
+    // index. Also, it brings the possibility of mangling 64-bit integer ids.
+    if (req.body.author_uid && typeof req.body.author_uid === 'string') {
       params = {
         author_uid: req.body.author_uid,
         subscriber_uid: req.user.uid
       };
-    } else if (req.body.subscriber_uid) {
+    } else if (req.body.subscriber_uid && typeof req.body.subscriber_uid === 'string') {
       params = {
         author_uid: req.user.uid,
         subscriber_uid: req.body.subscriber_uid
@@ -921,9 +927,6 @@ function showActions(req, res, next) {
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
-    // TODO: This probably needs to be updated for compatibility with sequelize
-    // 2.0.0-rc3, per the changelog:
-    // http://docs.sequelizejs.com/en/latest/changelog/
     order: 'FIELD(status, "pending") DESC, updatedAt DESC',
     limit: perPage,
     offset: perPage * (currentPage - 1),

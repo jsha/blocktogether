@@ -90,17 +90,12 @@ Manual tests to run before a release:
 - Verify list of blocks appears.
 - Verify no username shows up in header.
 - Verify "Log On" shows up in header.
-- Click "Block all and subscribe". Verify popup says "Please log on."
-- Click "Log On" link in header.
+- Click "Block all and subscribe".
 - If prompted, authorize Block Together app for @twestact3.
-- Verify redirected to /settings. TODO: Fix this:
-    https://github.com/jsha/blocktogether/issues/26
-- Paste link in URL bar.
-- Verify list of blocks appears.
+- Verify redirected to /subscribe-on-signup, and result says "...will now block
+  N users..."
 - Verify username shows up in header.
 - Verify "Log Off" shows up in header.
-- Click "Block all and subscribe". Verify line appears on page saying "...will
-   now block N users..."
 - Visit /actions. Verify a list of blocks appears.
 - Reload /actions until none are listed as pending anymore.
 - Verify the action for @twestact3 is 'cancelled-self'.

@@ -117,7 +117,7 @@ function refreshUsers() {
       sequelize.or(
         { block_new_accounts: true },
         { block_low_followers: true },
-        'shared_blocks_key IS NOT NULL'
+        { shared_blocks_key: { not: null } }
       ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));

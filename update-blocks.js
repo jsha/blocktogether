@@ -32,10 +32,7 @@ var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
 function findAndUpdateBlocks() {
   return BtUser.find({
     where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
-    // TODO: This needs to be updated for compatibility with sequelize
-    // 2.0.0-rc3, per the changelog.
-    // http://docs.sequelizejs.com/en/latest/changelog/
-    order: 'BtUsers.updatedAt ASC'
+    order: 'updatedAt ASC'
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
