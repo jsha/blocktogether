@@ -543,6 +543,13 @@ function setupServer() {
       });
     });
   });
+  // The server will use HTTP keepalive by default, but also set a timeout
+  // on the TCP socket so clients can keep connections open a long time. The
+  // Node default is two minutes.
+  server.on('connection', function(socket) {
+    socket.setTimeout(10000 * 1000);
+    socket.unref();
+  });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();
   server.listen(setup.config.updateBlocks.port);
