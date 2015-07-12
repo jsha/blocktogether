@@ -260,7 +260,8 @@ function remoteUpdateBlocks(user) {
     cert: fs.readFileSync(configDir + 'rpc.crt'),
     key: fs.readFileSync(configDir + 'rpc.key'),
     // For validating the self-signed server cert
-    ca: fs.readFileSync(configDir + 'rpc.crt')
+    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    rejectUnauthorized: false
   };
   var req = https.request(opts, function(res) {
     deferred.resolve();
