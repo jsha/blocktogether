@@ -531,8 +531,8 @@ function setupServer() {
     rejectUnauthorized: true
   };
   var server = https.createServer(opts, function (request, response) {
-    // Assume we get exactly one uid, callerName pair and it shows up in one chunk.
     request.on('data', function(chunk) {
+      // Assume we all the data shows up in one chunk.
       var args = JSON.parse(chunk.toString('utf-8'));
       logger.info('Fulfilling remote update request for', args.uid,
         'from', args.callerName);

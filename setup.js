@@ -244,7 +244,7 @@ var keepAliveAgent = new https.Agent({
 });
 
 /**
- * Make a reques to update-blocks to update blocks for a user.
+ * Make a request to update-blocks to update blocks for a user.
  * @param {BtUser} user
  * @returns {Promise.<null>} A promise that resolves once blocks are updated.
  */
