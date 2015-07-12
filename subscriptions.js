@@ -307,11 +307,7 @@ function fixUp(uid) {
       return [user, remoteUpdateBlocks(user)];
     }
   }).spread(function(user, blocks) {
-    if (blocks) {
-      return fixUpReadyUser(user);
-    } else {
-      return null;
-    }
+    fixUpReadyUser(user);
   }).catch(function(err) {
     logger.error(err);
   });

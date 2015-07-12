@@ -137,7 +137,9 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
       updateUsers.storeUser(profile._json);
       return btUser;
     }).then(function(btUser) {
-      remoteUpdateBlocks(btUser);
+      remoteUpdateBlocks(btUser).catch(function(err) {
+        logger.error(err);
+      });
       done(null, btUser);
     }).catch(function(err) {
       logger.error(err);

@@ -3,7 +3,7 @@
 var fs = require('fs'),
     path = require('path'),
     tls = require('tls'),
-    dnode = require('dnode'),
+    https = require('https'),
     Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
@@ -238,61 +238,48 @@ BtUser.find({
   logger.error(err);
 });
 
-/**
- * A dnode client to call out to the update-blocks process to trigger block
- * updating when necessary. This ensures all processing of blocks (which can be
- * expensive) happens in a separate process from, e.g. the frontend or the
- * streaming daemon.
- */
-var updateBlocksService = null;
+var keepAliveAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000 * 1000
+});
 
-// Call the updateBlocksService to update blocks for a user, and return a
-// promise.
+/**
+ * Make a reques to update-blocks to update blocks for a user.
+ * @param {BtUser} user
+ * @returns {Promise.<null>} A promise that resolves once blocks are updated.
+ */
 function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
-  if (!updateBlocksService) {
-    logger.debug('Constructing dnode client.');
-    var socket = tls.connect({
-      host: config.updateBlocks.host,
-      port: config.updateBlocks.port,
-      // Provide a client certificate so the server knows it's us.
-      cert: fs.readFileSync(configDir + 'rpc.crt'),
-      key: fs.readFileSync(configDir + 'rpc.key'),
-      // For validating the self-signed server cert
-      ca: fs.readFileSync(configDir + 'rpc.crt'),
-      // The name on the self-signed cert is verified; it's "blocktogether-rpc".
-      servername: 'blocktogether-rpc'
-    });
-    // Unref the RPC connection so shutdowns don't wait on it to close.
-    socket.unref();
-
-    var dnodeInstance = dnode();
-    dnodeInstance.on('end', function() {
-      logger.warn('Dnode connection ended.');
-      updateBlocksService = null;
-    });
-    dnodeInstance.on('error', function(err) {
-      logger.error('Dnode error: ', err);
-    });
-    dnodeInstance.on('remote', function(remote, d) {
-      logger.debug('Successfully constructed dnode client.');
-      updateBlocksService = remote;
-      remoteUpdateBlocks(user);
-    });
-    dnodeInstance.pipe(socket).pipe(dnodeInstance);
-  } else {
-    logger.debug('Requesting block update for', user);
-    updateBlocksService.updateBlocksForUid(user.uid, scriptName, function(result) {
-      deferred.resolve(result);
-    });
-  }
+  logger.debug('Requesting block update for', user);
+  var opts = {
+    method: 'POST',
+    agent: keepAliveAgent,
+    host: config.updateBlocks.host,
+    port: config.updateBlocks.port,
+    // Provide a client certificate so the server knows it's us.
+    cert: fs.readFileSync(configDir + 'rpc.crt'),
+    key: fs.readFileSync(configDir + 'rpc.key'),
+    // For validating the self-signed server cert
+    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    rejectUnauthorized: false,
+    // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+    servername: 'blocktogether-rpc'
+  };
+  var req = https.request(opts, function(res) {
+    deferred.resolve();
+  });
+  req.on('error', function(err) {
+    logger.error(err);
+    deferred.reject(err);
+  });
+  req.end(JSON.stringify({
+    uid: user.uid,
+    callerName: scriptName
+  }));
   return deferred.promise;
 }
 
 function gracefulShutdown() {
-  if (updateBlocksService) {
-    updateBlocksService.close();
-  }
 }
 
 process.on('uncaughtException', function(err) {

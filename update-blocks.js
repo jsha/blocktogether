@@ -4,7 +4,7 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
     tls = require('tls'),
-    dnode = require('dnode'),
+    https = require('https'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     sequelize = require('sequelize'),
@@ -94,8 +94,10 @@ function updateBlocksForUid(uid) {
  * @param {BtUser} user The user whose blocks we want to fetch.
  */
 function updateBlocks(user) {
-  // Don't create multiple pending block update requests at the same time.
-  if (activeFetches[user.uid]) {
+  if (!user) {
+    return Q.reject('No user found.');
+  } else if (activeFetches[user.uid]) {
+    // Don't create multiple pending block update requests at the same time.
     logger.info('User', user, 'already updating, skipping duplicate. Status:',
       activeFetches[user.uid].inspect());
     return Q.resolve(null);
@@ -512,8 +514,13 @@ function recordAction(source_uid, sink_uid, type) {
 var rpcStreams = [];
 
 /**
- * Set up a dnode RPC server (using the dnode library, which can handle TLS
- * transport) so other daemons can send requests to update blocks.
+ * Set up a simple HTTPS server so other daemons can send requests to update blocks.
+ * The server expects a JSON POST with fields "uid" and "callerName." The latter
+ * is the name of the script that requested the block update, for logging
+ * purposes.
+ * The server uses a self-signed cert, which clients will verify. It also
+ * requires a client cert. The client happens to use the same self-signed cert
+ * and key to identify itself that the server does.
  */
 function setupServer() {
   var opts = {
@@ -523,19 +530,18 @@ function setupServer() {
     requestCert: true,
     rejectUnauthorized: true
   };
-  var server = tls.createServer(opts, function (stream) {
-    var dnodeInstance = dnode({
-      updateBlocksForUid: function(uid, callerName, cb) {
-        logger.info('Fulfilling remote update request for', uid,
-          'from', callerName);
-        updateBlocksForUid(uid).then(cb);
-      }
+  var server = https.createServer(opts, function (request, response) {
+    // Assume we get exactly one uid, callerName pair and it shows up in one chunk.
+    request.on('data', function(chunk) {
+      var args = JSON.parse(chunk.toString('utf-8'));
+      logger.info('Fulfilling remote update request for', args.uid,
+        'from', args.callerName);
+      updateBlocksForUid(args.uid).then(function() {
+        response.end();
+      }).catch(function(err) {
+        console.error(err);
+      });
     });
-    dnodeInstance.pipe(stream).pipe(dnodeInstance);
-    // Keep track of open streams to close them on graceful exit.
-    // Note: It seems that simply calling stream.socket.unref() is insufficient,
-    // because dnode's piping makes Node stay alive.
-    rpcStreams.push(stream);
   });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();
