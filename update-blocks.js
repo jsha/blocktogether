@@ -4,7 +4,7 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
     tls = require('tls'),
-    upnode = require('upnode'),
+    dnode = require('dnode'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     sequelize = require('sequelize'),
@@ -512,9 +512,8 @@ function recordAction(source_uid, sink_uid, type) {
 var rpcStreams = [];
 
 /**
- * Set up a dnode RPC server (using the upnode library, which can handle TLS
+ * Set up a dnode RPC server (using the dnode library, which can handle TLS
  * transport) so other daemons can send requests to update blocks.
- * TODO: Require client authentication with a cert.
  */
 function setupServer() {
   var opts = {
@@ -525,17 +524,17 @@ function setupServer() {
     rejectUnauthorized: true
   };
   var server = tls.createServer(opts, function (stream) {
-    var up = upnode(function(client, conn) {
-      this.updateBlocksForUid = function(uid, callerName, cb) {
+    var dnodeInstance = dnode({
+      updateBlocksForUid: function(uid, callerName, cb) {
         logger.info('Fulfilling remote update request for', uid,
           'from', callerName);
         updateBlocksForUid(uid).then(cb);
-      };
+      }
     });
-    up.pipe(stream).pipe(up);
+    dnodeInstance.pipe(stream).pipe(dnodeInstance);
     // Keep track of open streams to close them on graceful exit.
     // Note: It seems that simply calling stream.socket.unref() is insufficient,
-    // because upnode's piping make Node stay alive.
+    // because dnode's piping makes Node stay alive.
     rpcStreams.push(stream);
   });
   // Don't let the RPC server keep the process alive during a graceful exit.

@@ -7,6 +7,7 @@
   "dependencies": {
     "body-parser": "~1.6.2",
     "cookie-session": "~1.0.2",
+    "dnode": "^1.2.1",
     "express": "~4.8.2",
     "log4js": "~0.6.21",
     "mariasql": "~0.1.21",
@@ -21,7 +22,6 @@
     "sequelize": "^3.3.1",
     "sequelize-cli": "^1.7.1",
     "timeago": "~0.1.0",
-    "upnode": "jsha/upnode#update-dnode",
     "yakaa": "~1.0.1"
   }
 }

@@ -3,7 +3,7 @@
 var fs = require('fs'),
     path = require('path'),
     tls = require('tls'),
-    upnode = require('upnode'),
+    dnode = require('dnode'),
     Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
@@ -251,33 +251,41 @@ var updateBlocksService = null;
 function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
   if (!updateBlocksService) {
-    updateBlocksService = upnode.connect({
-      createStream: function() {
-        var socket = tls.connect({
-          host: config.updateBlocks.host,
-          port: config.updateBlocks.port,
-          // Provide a client certificate so the server knows it's us.
-          cert: fs.readFileSync(configDir + 'rpc.crt'),
-          key: fs.readFileSync(configDir + 'rpc.key'),
-          // For validating the self-signed server cert
-          ca: fs.readFileSync(configDir + 'rpc.crt'),
-          // The name on the self-signed cert is verified; it's "blocktogether-rpc".
-          servername: 'blocktogether-rpc'
-        });
-        // Unref the RPC connection so shutdowns don't wait on it to close.
-        socket.unref();
-        return socket;
-      }
+    logger.debug('Constructing dnode client.');
+    var socket = tls.connect({
+      host: config.updateBlocks.host,
+      port: config.updateBlocks.port,
+      // Provide a client certificate so the server knows it's us.
+      cert: fs.readFileSync(configDir + 'rpc.crt'),
+      key: fs.readFileSync(configDir + 'rpc.key'),
+      // For validating the self-signed server cert
+      ca: fs.readFileSync(configDir + 'rpc.crt'),
+      // The name on the self-signed cert is verified; it's "blocktogether-rpc".
+      servername: 'blocktogether-rpc'
     });
-  }
-  logger.debug('Requesting block update for', user);
-  // Note: We can't just call this once and store 'remote', because upnode
-  // queues the request in case the remote server is down.
-  updateBlocksService(function(remote) {
-    remote.updateBlocksForUid(user.uid, scriptName, function(result) {
+    // Unref the RPC connection so shutdowns don't wait on it to close.
+    socket.unref();
+
+    var dnodeInstance = dnode();
+    dnodeInstance.on('end', function() {
+      logger.warn('Dnode connection ended.');
+      updateBlocksService = null;
+    });
+    dnodeInstance.on('error', function(err) {
+      logger.error('Dnode error: ', err);
+    });
+    dnodeInstance.on('remote', function(remote, d) {
+      logger.debug('Successfully constructed dnode client.');
+      updateBlocksService = remote;
+      remoteUpdateBlocks(user);
+    });
+    dnodeInstance.pipe(socket).pipe(dnodeInstance);
+  } else {
+    logger.debug('Requesting block update for', user);
+    updateBlocksService.updateBlocksForUid(user.uid, scriptName, function(result) {
       deferred.resolve(result);
     });
-  });
+  }
   return deferred.promise;
 }
 
