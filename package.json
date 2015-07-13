@@ -7,7 +7,6 @@
   "dependencies": {
     "body-parser": "~1.6.2",
     "cookie-session": "~1.0.2",
-    "dnode": "^1.2.1",
     "express": "~4.8.2",
     "log4js": "~0.6.21",
     "mariasql": "~0.1.21",
