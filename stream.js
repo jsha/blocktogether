@@ -290,6 +290,8 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
     if (data.event === 'unblock' || data.event === 'block') {
+      logger.info('User', recipientBtUser, data.event,
+        data.target.screen_name, data.target.id_str);
       handleBlockEvent(recipientBtUser, data);
     }
   } else if (data.text && !data.retweeted_status && data.user) {
