@@ -267,8 +267,12 @@ function remoteUpdateBlocks(user) {
     deferred.resolve();
   });
   req.on('error', function(err) {
-    logger.error(err);
-    deferred.reject(err);
+    // Ignore ECONNRESET: The server will occasionally close the socket, which
+    // is fine.
+    if (err.code != 'ECONNRESET') {
+      logger.error(err);
+      deferred.reject(err);
+    }
   });
   req.end(JSON.stringify({
     uid: user.uid,
