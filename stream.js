@@ -9,7 +9,8 @@ var twitterAPI = require('node-twitter-api'),
     actions = require('./actions'),
     updateUsers = require('./update-users'),
     util = require('./util'),
-    setup = require('./setup');
+    setup = require('./setup'),
+    verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
     logger = setup.logger,
@@ -74,11 +75,17 @@ function refreshStreams() {
   // if the first 20 have some unexpected issue we don't get stuck on them.
   _.sample(missingUserIds, 20).forEach(function(userId) {
     logger.debug('Restarting stream for', userId);
-    BtUser.find(userId)
+    BtUser.findById(userId)
       .then(function(user) {
         if (user && !user.deactivatedAt) {
           allUsers[userId] = user;
-          startStream(user);
+          // Under heavy load, multiple calls to refreshStreams can get stacked
+          // up, meaning that by the time we get the success callback from
+          // MySQL, a previous call has already started a given stream. So we
+          // check a second time that the stream isn't already running.
+          if (!streamingIds[userId]) {
+            startStream(user);
+          }
         } else {
           logger.info('User', user, 'missing or deactivated.');
           delete allUsers[userId];
@@ -110,7 +117,7 @@ function refreshUsers() {
       sequelize.or(
         { block_new_accounts: true },
         { block_low_followers: true },
-        'shared_blocks_key IS NOT NULL'
+        { shared_blocks_key: { not: null } }
       ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
@@ -118,6 +125,24 @@ function refreshUsers() {
     }).error(function(err) {
       logger.error(err);
     });
+}
+
+/**
+ * When a stream fails, we want to wait a while before restarting. This function
+ * replaces the stream with a placeholder, so it won't be restarted. After the
+ * given amount of time, if that placeholder is still in place, delete the
+ * stream so it will be restarted.
+ */
+function restartStreamAfter(seconds, uid) {
+  var randomPlaceholder = Math.random();
+  streams[uid] = randomPlaceholder;
+  setTimeout(function() {
+    if (streams[uid] === randomPlaceholder) {
+      delete streams[uid];
+    } else {
+      logger.error('Tried to delete stream but it had already been replaced', uid);
+    }
+  }, seconds * 1000);
 }
 
 /**
@@ -144,7 +169,10 @@ function startStream(user) {
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
     logger.error('Socket error for', user, err.message);
-    delete streams[user.uid];
+    // Per https://dev.twitter.com/streaming/overview/connecting,
+    // backoff up to 16 seconds for TCP/IP level network errors.
+    // We don't implement the backoff, we just go right to 16 seconds.
+    restartStreamAfter(16, user.uid);
   });
   // In normal operation, each open stream should receive an empty data item
   // '{}' every 30 seconds for keepalive. Sometimes a connection will die
@@ -152,7 +180,7 @@ function startStream(user) {
   // This ensures the HTTPS request is aborted, which in turn calls
   // endCallback, removing the entry from streams and allowing it to be started
   // again.
-  req.setTimeout(70000, function() {
+  req.setTimeout(90000, function() {
     logger.error('Stream timeout for user', user, 'aborting.');
     req.abort();
   });
@@ -161,7 +189,9 @@ function startStream(user) {
 
   // When restarting the service or experiencing downtime, there's a gap in
   // streaming coverage. Make sure we cover any tweets we may have missed.
-  checkPastMentions(user);
+  // NOTE: Temporarily disabled due to performance issues and repeated enqueues
+  // of already-cancelled blocks.
+  //checkPastMentions(user);
 };
 
 /**
@@ -201,8 +231,12 @@ function endCallback(user, httpIncomingMessage) {
   var statusCode = httpIncomingMessage.statusCode;
   logger.warn('Ending stream for', user, statusCode);
   if (statusCode === 401 || statusCode === 403) {
-    user.verifyCredentials();
-    delete streams[user.uid];
+    verifyCredentials(user);
+    // Per https://dev.twitter.com/streaming/overview/connecting,
+    // backoff up to 320 seconds (5.3 min) for HTTP errors.
+    // We don't implement the backoff, just go straight to 320.
+    logger.info('Scheduling', user, 'for stream restart in 5.3 min');
+    restartStreamAfter(320, user.uid);
   } else if (statusCode === 420) {
     // The streaming API will return 420 Enhance Your Calm
     // (http://httpstatusdogs.com/420-enhance-your-calm) if the user is connected
@@ -212,17 +246,11 @@ function endCallback(user, httpIncomingMessage) {
     // fast, leading to an unproductive high-CPU loop of trying to restart those
     // loops once a second.
     var stream = streams[user.uid];
-    setTimeout(function() {
-      // Double-check it's still the same stream before deleting.
-      if (stream === streams[user.uid]) {
-        delete streams[user.uid];
-      } else {
-        // This shouldn't happen.
-        logger.error('Tried to delete stream but it had already been replaced', user);
-      }
-    }, 15 * 60 * 1000);
+    logger.info('Scheduling', user, 'for stream restart in 15 min');
+    restartStreamAfter(15 * 60, user.uid);
   } else {
-    delete streams[user.uid];
+    logger.info('Scheduling', user, 'for stream restart in 5.3 min');
+    restartStreamAfter(5.3 * 60, user.uid);
   }
 }
 
@@ -247,7 +275,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     if (data.disconnect.code === 6 ||
         data.disconnect.code === 13 ||
         data.disconnect.code === 14) {
-      recipientBtUser.verifyCredentials();
+      verifyCredentials(recipientBtUser);
     }
   } else if (data.warning) {
     if (data.warning.code === 'FOLLOWS_OVER_LIMIT') {
@@ -261,12 +289,6 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     }
   } else if (data.event) {
     logger.debug('User', recipientBtUser, 'event', data.event);
-    // If the event target is present, it's a Twitter User object, and we should
-    // save it if we don't already have it.
-    if (data.target) {
-      updateUsers.storeUser(data.target);
-    }
-
     if (data.event === 'unblock' || data.event === 'block') {
       handleBlockEvent(recipientBtUser, data);
     }
@@ -305,7 +327,7 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
     if (ageInDays < MIN_AGE || mentioningUser.followers_count < MIN_FOLLOWERS) {
       // The user may have changed settings since we started the stream. Reload to
       // get the latest setting.
-      recipientBtUser.reload().success(function(user) {
+      recipientBtUser.reload().then(function(user) {
         if (ageInDays < MIN_AGE && recipientBtUser.block_new_accounts) {
           logger.info('Queuing block', recipientBtUser, '-->',
             mentioningUser.screen_name, mentioningUser.id_str);
@@ -315,6 +337,8 @@ function checkReplyAndBlock(recipientBtUser, mentioningUser) {
             mentioningUser.screen_name, mentioningUser.id_str);
           enqueueBlock(recipientBtUser, mentioningUser.id_str, Action.LOW_FOLLOWERS);
         }
+      }).catch(function(err) {
+        logger.error(err);
       });
     }
   }
@@ -353,13 +377,29 @@ function handleBlockEvent(recipientBtUser, data) {
     clearTimeout(timerId);
   }
   updateBlocksTimers[recipientBtUser.uid] = setTimeout(function() {
-    // For now, always update on unblock events. We'd like to do this for both
-    // blocks and unblocks but it can get expensive when large block lists fan
-    // out.
-    if (data.event === 'unblock') {
+    updateNonPendingBlocks(recipientBtUser);
+  }, 2000);
+}
+
+/**
+ * Call remote update blocks, but only the the user has zero pending actions.
+ * This reduces the amount of work update-blocks.js has to do for users who are
+ * in the middle of executing large block lists.
+ * @param {BtUser} recipientBtUser
+ */
+function updateNonPendingBlocks(recipientBtUser) {
+  Action.count({
+    where: {
+      source_uid: recipientBtUser.uid,
+      status: Action.PENDING
+    }
+  }).then(function(count) {
+    if (count === 0) {
       remoteUpdateBlocks(recipientBtUser);
     }
-  }, 2000);
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
@@ -372,7 +412,12 @@ function handleBlockEvent(recipientBtUser, data) {
  */
 function enqueueBlock(sourceUser, sinkUserId, cause) {
   actions.queueActions(
-    sourceUser.uid, [sinkUserId], Action.BLOCK, cause);
+    sourceUser.uid, [sinkUserId], Action.BLOCK, cause
+  ).then(function() {
+    actions.processActionsForUserId(sourceUser.uid);
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 if (require.main === module) {

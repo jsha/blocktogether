@@ -21,10 +21,8 @@ if (process.argv.length < 4) {
 }
 
 BtUser
-  .find(process.argv[2])
-  .error(function(err) {
-    logger.error(err);
-  }).success(function(user) {
+  .findById(process.argv[2])
+  .then(function(user) {
     var filename = process.argv[3];
 
     var accessToken = user.access_token;
@@ -46,5 +44,7 @@ BtUser
           }
       });
     });
+  }).catch(function(err) {
+    logger.error(err);
   });
 })();

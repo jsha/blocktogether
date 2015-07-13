@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Streaming Clients Bug</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap.min.css' />
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap-theme.min.css' />
+    <link rel='stylesheet' href='style.css' />
+  </head>
+  <style>
+    body {
+      margin-left: 1em;
+    }
+  </style>
+  <body>
+
+
+<h3>Exporting and Importing Blocks directly from Twitter</h3>
+<p>
+Wed Jun 10 11:23 PDT 2015 - by <a href="https://twitter.com/j4cob">Jacob Hoffman-Andrews</a>
+<p>
+Today, Twitter announced native support for
+<a href="https://blog.twitter.com/2015/sharing-block-lists-to-help-make-twitter-safer"
+>importing and exporting lists of blocked user ids</a>.
+This brings functionality like Block Together's and
+<a href="https://twitter.com/theblockbot">The Block Bot's</a> into
+twitter.com. I'm very excited about this feature. It shows Twitter is
+working hard on giving people better tools to help defend each other against
+harassment.
+<p>
+Twitter's block list export is missing some important features, relative to Block
+Together. Because Twitter relies on a one-time block export, there is no way to
+<a href="https://blocktogether.org/#propagating-forgiveness">propagate
+forgiveness</a>. That is, the author of a block list may decide they made
+a mistake blocking a given account. On Block Together, an author can unblock, and the
+subscribers of their block list will automatically unblock too.
+<p>
+Similarly, Twitter doesn't offer ongoing subscriptions. As harassers bring new
+accounts online, the author of a block list can block the new accounts. But
+unless the author's community downloads and imports the block list regularly,
+community members won't automatically receive the new blocks.
+<p>
+Lastly, Twitter doesn't offer an easy way to publish a block list, once it is
+exported. With easy services like Pastebin, this is not a big problem, but it
+adds one more obstacle when sharing a block list.
+<p>
+Twitter's implementation does have some big advantages. By
+incorporating the feature into Twitter's web UI, Twitter can bring
+block lists to the many people who would not otherwise have come
+across them.  By using Twitter's resources to translate their import/export
+interface into many languages, Twitter can make block lists accessible to people
+all over the world. And Twitter's large engineering team means they can
+build a better, faster product that will scale to millions of users.
+<p>
+I anticipate that Twitter will continue improving their block list
+feature. Someday, when Twitter offers all of Block Together's features,
+I look forward to recommending their built-in features over Block
+Together. In the meantime, I'm thrilled to see more anti-abuse tools in the
+hands of individuals. Congratulations to
+<a href="https://twitter.com/XiaoyunZhang1">Xiaoyun Zhang</a> and the rest
+of the anti-abuse team at Twitter on a very important feature launch!
+
+</body>
+</html>

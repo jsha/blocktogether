@@ -3,7 +3,7 @@
 var fs = require('fs'),
     path = require('path'),
     tls = require('tls'),
-    upnode = require('upnode'),
+    https = require('https'),
     Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
@@ -114,49 +114,6 @@ var BtUser = sequelize.define('BtUser', {
     inspect: function() {
       return [this.screen_name, this.uid].join(" ");
     },
-
-    /**
-     * Ask Twitter to verify a user's credentials. If they not valid,
-     * store the current time in user's deactivatedAt. If they are valid, clear
-     * the user's deactivatedAt. Save the user to DB if it's changed.
-     * A user can be deactivated because of suspension, deactivation, or revoked
-     * app. Each of these states (even revocation!) can be undone, and we'd
-     * like the app to resume working normally if that happens. So instead of
-     * deleting the user when we get one of these codes, store a 'deactivatedAt'
-     * timestamp on the user object. Users with a non-null deactivatedAt
-     * get their credentials retried once per day for 30 days, after which (TOD)
-     * they should be deleted. Regular operations like checking blocks or
-     * streaming are not performed for users with non-null deactivatedAt.
-     */
-    verifyCredentials: function() {
-      var user = this;
-      twitter.account('verify_credentials', {}, user.access_token,
-        user.access_token_secret, function(err, results) {
-          if (err && err.data) {
-            // For some reason the error data is given as a string, so we have to
-            // parse it.
-            var errJson = JSON.parse(err.data);
-            if (errJson.errors &&
-                errJson.errors.some(function(e) { return e.code === 89 })) {
-              logger.warn('User', user, 'revoked app.');
-              user.deactivatedAt = new Date();
-            } else if (err.statusCode === 404) {
-              logger.warn('User', user, 'deactivated or suspended.')
-              user.deactivatedAt = new Date();
-            } else {
-              logger.warn('User', user, 'verify_credentials', err.statusCode);
-            }
-          } else {
-            logger.info('User', user, 'has not revoked app or deactivated.');
-            user.deactivatedAt = null;
-          }
-          if (user.changed()) {
-            user.save().error(function(err) {
-              logger.error(err);
-            });
-          }
-      });
-    }
   }
 });
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
@@ -287,54 +244,56 @@ BtUser.find({
   logger.error(err);
 });
 
-/**
- * A dnode client to call out to the update-blocks process to trigger block
- * updating when necessary. This ensures all processing of blocks (which can be
- * expensive) happens in a separate process from, e.g. the frontend or the
- * streaming daemon.
- */
-var updateBlocksService = null;
+var keepAliveAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000 * 1000
+});
 
-// Call the updateBlocksService to update blocks for a user, and return a
-// promise.
+/**
+ * Make a request to update-blocks to update blocks for a user.
+ * @param {BtUser} user
+ * @returns {Promise.<null>} A promise that resolves once blocks are updated.
+ */
 function remoteUpdateBlocks(user) {
   var deferred = Q.defer();
-  if (!updateBlocksService) {
-    updateBlocksService = upnode.connect({
-      createStream: function() {
-        var stream = tls.connect({
-          host: config.updateBlocks.host,
-          port: config.updateBlocks.port,
-          // Provide a client certificate so the server knows it's us.
-          cert: fs.readFileSync(configDir + 'rpc.crt'),
-          key: fs.readFileSync(configDir + 'rpc.key'),
-          // For validating the self-signed server cert
-          ca: fs.readFileSync(configDir + 'rpc.crt'),
-          // The name on the self-signed cert is verified; it's "blocktogether-rpc".
-          servername: 'blocktogether-rpc'
-        });
-        // Unref the RPC connection so shutdowns don't wait on it to close.
-        stream.socket.unref();
-        return stream;
-      }
-    });
-  }
   logger.debug('Requesting block update for', user);
-  // Note: We can't just call this once and store 'remote', because upnode
-  // queues the request in case the remote server is down.
-  updateBlocksService(function(remote) {
-    remote.updateBlocksForUid(user.uid, scriptName, function(result) {
-      deferred.resolve(result);
-    });
+  var opts = {
+    method: 'POST',
+    agent: keepAliveAgent,
+    host: config.updateBlocks.host,
+    port: config.updateBlocks.port,
+    // Provide a client certificate so the server knows it's us.
+    cert: fs.readFileSync(configDir + 'rpc.crt'),
+    key: fs.readFileSync(configDir + 'rpc.key'),
+    // For validating the self-signed server cert
+    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    rejectUnauthorized: false
+  };
+  var req = https.request(opts, function(res) {
+    deferred.resolve();
   });
+  req.on('error', function(err) {
+    // Ignore ECONNRESET: The server will occasionally close the socket, which
+    // is fine.
+    if (err.code != 'ECONNRESET') {
+      logger.error(err);
+      deferred.reject(err);
+    }
+  });
+  req.end(JSON.stringify({
+    uid: user.uid,
+    callerName: scriptName
+  }));
   return deferred.promise;
 }
 
 function gracefulShutdown() {
-  if (updateBlocksService) {
-    updateBlocksService.close();
-  }
 }
+
+process.on('uncaughtException', function(err) {
+  logger.fatal('uncaught exception, shutting down: ', err);
+  process.exit(133);
+});
 
 module.exports = {
   Action: Action,

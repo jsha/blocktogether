@@ -17,7 +17,7 @@ var twitter = setup.twitter,
     Block = setup.Block;
 
 if (process.argv.length < 3) {
-  logger.fatal('Usage: js many-blocks.js screen_name');
+  logger.fatal('Usage: js unblock-all.js screen_name');
   process.exit();
 }
 
@@ -41,7 +41,7 @@ function unblock5000(user) {
         ).catch(function(err) {
           logger.error(err);
         });
-      }).thenResolve(!!results[0].nextCursor);
+      }).thenResolve(true);
     }
   });
 }

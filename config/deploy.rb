@@ -30,7 +30,7 @@ task :db do
   role :app, *%w[ btdb.blocktogether.org ]
   set :process_names, %w[ stream actions update-users update-blocks ]
   after "deploy:create_symlink" do
-    run "cd #{current_path}; NODE_ENV=production js ./node_modules/.bin/sequelize --config #{sequelize_config} -m"
+    run "cd #{current_path}; NODE_ENV=production node ./node_modules/.bin/sequelize --config #{sequelize_config} db:migrate"
   end
 end
 
@@ -46,8 +46,11 @@ namespace :deploy do
   task :restart do
     process_names.each do |name|
       sudo "service blocktogether-instance restart NAME=#{name}"
+      # Only do nginx reloads on the web frontend.
+      if name == "blocktogether"
+        sudo "service nginx reload"
+      end
     end
-    sudo "service nginx reload"
   end
 end
 

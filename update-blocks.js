@@ -4,7 +4,7 @@ var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
     tls = require('tls'),
-    upnode = require('upnode'),
+    https = require('https'),
     /** @type{Function|null} */ timeago = require('timeago'),
     _ = require('sequelize').Utils._,
     sequelize = require('sequelize'),
@@ -33,7 +33,7 @@ var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
 function findAndUpdateBlocks() {
   return BtUser.find({
     where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL"],
-    order: 'BtUsers.updatedAt ASC'
+    order: 'updatedAt ASC'
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
@@ -84,7 +84,7 @@ function findAndUpdateBlocks() {
 var activeFetches = {};
 
 function updateBlocksForUid(uid) {
-  return BtUser.find(uid).then(updateBlocks).catch(function (err) {
+  return BtUser.findById(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
 }
@@ -95,8 +95,10 @@ function updateBlocksForUid(uid) {
  * @param {BtUser} user The user whose blocks we want to fetch.
  */
 function updateBlocks(user) {
-  // Don't create multiple pending block update requests at the same time.
-  if (activeFetches[user.uid]) {
+  if (!user) {
+    return Q.reject('No user found.');
+  } else if (activeFetches[user.uid]) {
+    // Don't create multiple pending block update requests at the same time.
     logger.info('User', user, 'already updating, skipping duplicate. Status:',
       activeFetches[user.uid].inspect());
     return Q.resolve(null);
@@ -377,7 +379,7 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
   // rate limited for user lookups, which would cause us to miss unblocks.
-  BtUser.find(source_uid)
+  BtUser.findById(source_uid)
     .then(function(user) {
       if (!user) {
         return Q.reject("No user found for " + source_uid);
@@ -439,8 +441,10 @@ function destroyOldBlocks(userId) {
   }).then(function(blockBatches) {
     if (blockBatches && blockBatches.length > 0) {
       return BlockBatch.destroy({
-        id: {
-          in: _.pluck(blockBatches, 'id')
+        where: {
+          id: {
+            in: _.pluck(blockBatches, 'id')
+          }
         }
       })
     } else {
@@ -480,20 +484,22 @@ function recordAction(source_uid, sink_uid, type) {
     'status': Action.DONE
   }
 
+  // Look for the most recent block or unblock action applying to this sink_uid.
+  // If it's the same type as the action we're trying to record, it's an action
+  // caused internally to Block Together and we shouldn't record it; It would be
+  // a duplicate.
+  // If it's a different type (i.e. we are recording a block and the most recent
+  // action was an unblock), go ahead and record.
   return Action.find({
-    where: _.extend(actionContents, {
-      updatedAt: {
-        // Look only at actions updated within the last day.
-        // Note: For this to be correct, we need to ensure that updateBlocks is
-        // always called within a day of performing a block or unblock
-        // action, which is true because of the regular update process.
-        gt: new Date(new Date() - ONE_DAY_IN_MILLIS)
-      }
-    })
+    where: _.extend(_.clone(actionContents), {
+      type: [Action.BLOCK, Action.UNBLOCK],
+    }),
+    order: 'updatedAt DESC',
   }).then(function(prevAction) {
-    // No previous action found, so create one. Add the cause and cause_uid
-    // fields, which we didn't use for the query.
-    if (!prevAction) {
+    // No previous action found, or previous action was a different type, so
+    // create a new action. Add the cause and cause_uid fields, which we didn't
+    // use for the query.
+    if (!prevAction || prevAction.type != type) {
       return Action.create(_.extend(actionContents, {
         cause: Action.EXTERNAL,
         cause_uid: null
@@ -546,8 +552,13 @@ function recordAction(source_uid, sink_uid, type) {
 var rpcStreams = [];
 
 /**
- * Set up a dnode RPC server (using the upnode library, which can handle TLS
- * transport) so other daemons can send requests to update blocks.
+ * Set up a simple HTTPS server so other daemons can send requests to update blocks.
+ * The server expects a JSON POST with fields "uid" and "callerName." The latter
+ * is the name of the script that requested the block update, for logging
+ * purposes.
+ * The server uses a self-signed cert, which clients will verify. It also
+ * requires a client cert. The client happens to use the same self-signed cert
+ * and key to identify itself that the server does.
  */
 function setupServer() {
   var opts = {
@@ -557,19 +568,25 @@ function setupServer() {
     requestCert: true,
     rejectUnauthorized: true
   };
-  var server = tls.createServer(opts, function (stream) {
-    var up = upnode(function(client, conn) {
-      this.updateBlocksForUid = function(uid, callerName, cb) {
-        logger.info('Fulfilling remote update request for', uid,
-          'from', callerName);
-        updateBlocksForUid(uid).then(cb);
-      };
+  var server = https.createServer(opts, function (request, response) {
+    request.on('data', function(chunk) {
+      // Assume we all the data shows up in one chunk.
+      var args = JSON.parse(chunk.toString('utf-8'));
+      logger.info('Fulfilling remote update request for', args.uid,
+        'from', args.callerName);
+      updateBlocksForUid(args.uid).then(function() {
+        response.end();
+      }).catch(function(err) {
+        console.error(err);
+      });
     });
-    up.pipe(stream).pipe(up);
-    // Keep track of open streams to close them on graceful exit.
-    // Note: It seems that simply calling stream.socket.unref() is insufficient,
-    // because upnode's piping make Node stay alive.
-    rpcStreams.push(stream);
+  });
+  // The server will use HTTP keepalive by default, but also set a timeout
+  // on the TCP socket so clients can keep connections open a long time. The
+  // Node default is two minutes.
+  server.on('connection', function(socket) {
+    socket.setTimeout(10000 * 1000);
+    socket.unref();
   });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();

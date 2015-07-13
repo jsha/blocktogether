@@ -20,8 +20,15 @@ fi
 
 DB_PASS=$(openssl rand -hex 20)
 
+# Set up the nodesource Node repo to get the latest.
+curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | sudo apt-key add -
+sudo tee /etc/apt/sources.list.d/nodesource.list <<EOAPT
+deb https://deb.nodesource.com/node_0.12 trusty main
+deb-src https://deb.nodesource.com/node_0.12 trusty main
+EOAPT
+
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm
+sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm mailutils
 sudo ln -sf nodejs /usr/bin/node
 
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
@@ -51,14 +58,10 @@ fi
 
 if ! crontab -l >/dev/null; then
   crontab - <<-EOCRON
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     MAILTO=ubuntu
     23 10 * * * bash /data/blocktogether/current/util/cron.sh
 EOCRON
 fi
 
 sudo mkdir -p /data/blocktogether/shared/log/
-
-# NOTE FOR DEPLOYING TO PRODUCTION:
-# You will still have to install nodejs.
-# https://github.com/joyent/node/wiki/installing-node.js-via-package-manager#debian-and-ubuntu-based-linux-distributions
