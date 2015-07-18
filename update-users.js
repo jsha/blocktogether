@@ -108,10 +108,13 @@ var userCredentialsIndex = 0;
  * return.
  *
  * @param {Array.<string>} uids List of user ids to look up.
- * @param {Map.<string,TwitterUser>} usersMap A map from uids to TwitterUser
+ * @param {Map.<string,TwitterUser>} usersMap Optional map from uids to TwitterUser
  *   objects from a previous DB lookup. This can save a final lookup before
  *   saving.
  * @return{Promise.<Object>} map of uids succesfully returned to user objects.
+ *   If the Twitter API returns no result for an account, there will be no entry
+ *   in the map under that uid, even if there is a deactivated TwitterUser
+ *   stored in the DB.
  */
 function updateUsers(uids, usersMap) {
   if (!userCredentials.length) {
@@ -149,6 +152,7 @@ function updateUsers(uids, usersMap) {
  * @return{Object} map of uids succesfully returned to user objects.
  */
 function updateUsersChunk(uids, usersMap) {
+  usersMap = usersMap || {};
   // Iterate through the user credentials to spread out rate limit usage.
   var credential = userCredentials[userCredentialsIndex];
   userCredentialsIndex = (userCredentialsIndex + 1) % userCredentials.length;
