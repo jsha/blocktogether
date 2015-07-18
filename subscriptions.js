@@ -166,7 +166,7 @@ function unblockFromSubscription(proposedUnblock) {
       // TODO: Use actions.queueActions here.
       return Action.create(proposedUnblock);
     } else {
-      logger.debug('Subscription-unblock: previous block not matched', logInfo);
+      logger.debug('Subscription-unblock: previous block not matched', logInfo, 'previous block:', prevAction);
       return Q.resolve(null);
     }
   }).catch(function(err) {

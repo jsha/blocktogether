@@ -119,17 +119,17 @@ var userCredentialsIndex = 0;
 function updateUsers(uids, usersMap) {
   if (!userCredentials.length) {
     logger.info('User credentials not yet loaded, setting timer');
-    setTimeout(updateUsers.bind(null, uids), 500);
-    return;
+    return Q.timeout(500).then(updateUsers.bind(null, uids, usersMap));
   }
   var length = uids.length;
   if (!length) {
     logger.info('No uids to update');
-    return;
+    return Q.resolve({});
   }
   var chunkedUids = [];
-  while (uids.length > 0) {
-    chunkedUids.push(uids.splice(0, 100));
+  var chunkSize = 100;
+  for (var i = 0; i < length; i += chunkSize) {
+    chunkedUids.push(uids.slice(i, i + chunkSize));
   }
   return Q.all(
     chunkedUids.map(function(uidChunk) {

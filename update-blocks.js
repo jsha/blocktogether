@@ -240,28 +240,37 @@ function handleIds(blockBatch, currentCursor, results) {
     });
 }
 
+// Error thrown when diffing blocks and no previous complete block batch exists.
+var INSUFFICIENT_BLOCK_BATCHES = 'Insufficient block batches to diff';
+
 function finalizeBlockBatch(blockBatch) {
   if (!blockBatch) {
     return Q.reject('No blockBatch passed to finalizeBlockBatch');
   }
   logger.info('Finished fetching blocks for user', blockBatch.source_uid,
     'batch', blockBatch.id);
-  // Mark the BlockBatch as complete and save that bit.
-  // TODO: Don't mark as complete until all block diffing and fanout is
-  // complete, otherwise there is potential to drop things on the floor.
-  // For now, just exit early if we are in the shutdown phase.
+  // Exit early if we are in the shutdown phase.
   if (shuttingDown) {
     return Q.resolve(null);
   }
-  blockBatch.complete = true;
-  return blockBatch
-    .save()
-    .then(function(blockBatch) {
-      diffBatchWithPrevious(blockBatch);
-      // Prune older BlockBatches for this user from the DB.
-      destroyOldBlocks(blockBatch.source_uid);
-      return Q.resolve(blockBatch);
-    });
+  return diffBatchWithPrevious(blockBatch).catch(function(err) {
+    // If there was no previous complete block batch to diff against, that's
+    // fine. Continue with saving the block batch. Any other error, however,
+    // should be propagated.
+    if (err === INSUFFICIENT_BLOCK_BATCHES) {
+      return Q.resolve(null);
+    } else {
+      return Q.reject(err);
+    }
+  }).then(function() {
+    // Prune older BlockBatches for this user from the DB.
+    return destroyOldBlocks(blockBatch.source_uid);
+  }).then(function() {
+    blockBatch.complete = true;
+    return blockBatch.save();
+  }).catch(function(err) {
+    logger.error(err);
+  });
 }
 
 /**
@@ -269,6 +278,7 @@ function finalizeBlockBatch(blockBatch) {
  * case they are not currently there. This triggers update-users.js to fetch
  * data about that uid, like screen name and display name.
  * @param {Array.<string>} idList A list of stringified Twitter uids.
+ * @returns {Promise.<Array.<TwitterUser> >} A list of TwitterUsers created.
  */
 function addIdsToTwitterUsers(idList) {
   return TwitterUser.bulkCreate(idList.map(function(id) {
@@ -283,74 +293,69 @@ function addIdsToTwitterUsers(idList) {
  * Compare a BlockBatch with the immediately previous completed BlockBatch
  * for the same uid. Generate Actions with cause = external from the result.
  * @param {BlockBatch} currentBatch The batch to compare to its previous batch.
+ * @returns {Promise.<null>} Resolves when diff is done and fanned out.
  */
 function diffBatchWithPrevious(currentBatch) {
   var source_uid = currentBatch.source_uid;
-  BlockBatch.findAll({
+  return BlockBatch.findOne({
     where: {
       source_uid: source_uid,
       id: { lte: currentBatch.id },
       complete: true
     },
-    order: 'id DESC',
-    limit: 2
-  }).then(function(batches) {
-    if (batches && batches.length === 2) {
-      var oldBatch = batches[1];
-      var currentBlocks = [];
-      var oldBlocks = [];
-      currentBatch.getBlocks().then(function(blocks) {
-        currentBlocks = blocks;
-        return oldBatch.getBlocks();
-      }).then(function(blocks) {
-        oldBlocks = blocks;
-        logger.debug('Current batch size', currentBlocks.length,
-          'old', oldBlocks.length, 'ids', batches[0].id, batches[1].id);
-        var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
-        var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
-        var start = process.hrtime();
-        var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
-        var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-        var elapsedMs = process.hrtime(start)[1] / 1000000;
-        logger.debug('Block diff for', source_uid,
-          'added:', addedBlockIds, 'removed:', removedBlockIds,
-          'current size:', currentBlockIds.length,
-          'msecs:', Math.round(elapsedMs));
-
-        var blockActionPromises = addedBlockIds.map(function(sink_uid) {
-          return recordAction(source_uid, sink_uid, Action.BLOCK);
-        });
-        // Enqueue blocks for subscribing users.
-        // NOTE: subscription fanout for unblocks happens within
-        // recordUnblocksUnlessDeactivated.
-        // TODO: use allSettled so even if some fail, we still fanout the rest
-        Q.all(blockActionPromises)
-          .then(function(actions) {
-          // Actions are not recorded if they already exist, i.e. are not
-          // external actions. Those come back as null and are filtered in
-          // fanoutActions.
-          subscriptions.fanoutActions(actions);
-        }).catch(function(err) {
-          logger.error(err);
-        });
-        // Make sure any new ids are in the TwitterUsers table.
-        addIdsToTwitterUsers(addedBlockIds);
-        recordUnblocksUnlessDeactivated(source_uid, removedBlockIds);
-      });
-    } else {
-      logger.warn('Insufficient block batches to diff.');
+    order: 'id DESC'
+  }).then(function(oldBatch) {
+    if (!oldBatch) {
+      logger.info('Insufficient block batches to diff for', currentBatch.source_uid);
       // If it's the first block fetch for this user, make sure all the blocked
       // uids are in TwitterUsers.
       if (currentBatch) {
         return currentBatch.getBlocks().then(function(blocks) {
           return addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+        }).then(function() {
+          return Q.reject(INSUFFICIENT_BLOCK_BATCHES);
         });
       } else {
-        return Q.resolve(null);
+        return Q.reject(INSUFFICIENT_BLOCK_BATCHES);
       }
     }
-  }).catch(function(err) {
-    logger.error(err);
+    return [oldBatch, currentBatch.getBlocks(), oldBatch.getBlocks()];
+  }).spread(function(oldBatch, currentBlocks, oldBlocks) {
+    var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
+    var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
+    var start = process.hrtime();
+    var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
+    var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
+    var elapsedMs = process.hrtime(start)[1] / 1000000;
+    logger.debug('Block diff for', source_uid,
+      'added:', addedBlockIds, 'removed:', removedBlockIds,
+      'current size:', currentBlockIds.length,
+      'old size:', oldBlockIds.length,
+      'msecs:', Math.round(elapsedMs));
+
+    // Make sure any new ids are in the TwitterUsers table. Don't block the
+    // overall Promise on the result, though.
+    addIdsToTwitterUsers(addedBlockIds);
+
+    // Enqueue blocks for users who subscribe
+    // NOTE: subscription fanout for unblocks happens within
+    // recordUnblocksUnlessDeactivated.
+    // TODO: use allSettled so even if some fail, we still fanout the rest
+    var blockActionsPromise = Q.all(addedBlockIds.map(function(sink_uid) {
+      // Actions are not recorded if they already exist, i.e. are not
+      // external actions. Those come back as null and are filtered in
+      // fanoutActions.
+      return recordAction(source_uid, sink_uid, Action.BLOCK);
+    })).then(function(blockActions) {
+      subscriptions.fanoutActions(blockActions);
+    });
+
+    var unblockActionsPromise = [];
+    if (removedBlockIds.length > 0) {
+      unblockActionsPromise = recordUnblocksUnlessDeactivated(
+        source_uid, removedBlockIds);
+    }
+    return [blockActionsPromise, unblockActionsPromise];
   });
 }
 
@@ -373,56 +378,32 @@ function diffBatchWithPrevious(currentBatch) {
  * @param {string} source_uid Uid of user doing the unblocking.
  * @param {Array.<string>} sink_uids List of uids that disappeared from a user's
  *   /blocks/ids.
+ * @returns {Promise.<Array.<Action> >} An array of recorded unblock actions.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
   // Use credentials from the source_uid to check for unblocks. We could use the
   // defaultAccessToken, but there's a much higher chance of that token being
   // rate limited for user lookups, which would cause us to miss unblocks.
-  BtUser.findById(source_uid)
+  return BtUser.findById(source_uid)
     .then(function(user) {
       if (!user) {
         return Q.reject("No user found for " + source_uid);
       }
-      while (sink_uids.length > 0) {
-        // Pop 100 uids off of the list.
-        var uidsToQuery = sink_uids.splice(0, 100);
-        twitter.users('lookup', {
-            skip_status: 1,
-            user_id: uidsToQuery.join(',')
-          },
-          user.access_token, user.access_token_secret,
-          function(err, response) {
-            if (err && err.statusCode === 404) {
-              logger.info('All unblocked users deactivated, ignoring unblocks.');
-            } else if (err && err.statusCode) {
-              logger.error('Error /users/lookup', user, err.statusCode, err.data,
-                'ignoring', uidsToQuery.length, 'unblocks');
-            } else if (err) {
-              logger.error('Error /users/lookup', user, err,
-                'ignoring', uidsToQuery.length, 'unblocks');
-            } else {
-              // If a uid was present in the response, the user is not deactivated,
-              // so go ahead and record it as an unblock.
-              var indexedResponses = _.indexBy(response, 'id_str');
-              var recordedActions = uidsToQuery.map(function(sink_uid) {
-                if (indexedResponses[sink_uid]) {
-                  return recordAction(source_uid, sink_uid, Action.UNBLOCK);
-                } else {
-                  return Q.resolve(null);
-                }
-              });
-              Q.all(recordedActions)
-                .then(function(actions) {
-                  subscriptions.fanoutActions(actions);
-                }).catch(function(err) {
-                  logger.error(err);
-                });
-            }
-          });
-      }
-    }).catch(function(err) {
-      logger.error(err);
-    });
+      return updateUsers.updateUsers(sink_uids);
+    }).then(function(usersMap) {
+      var recordedActions = sink_uids.map(function(sink_uid) {
+        // If a uid was present in the response, the user is not deactivated,
+        // so go ahead and record it as an unblock.
+        if (usersMap[sink_uid]) {
+          return recordAction(source_uid, sink_uid, Action.UNBLOCK);
+        } else {
+          return Q.resolve(null);
+        }
+      });
+      return Q.all(recordedActions);
+    }).then(function(actions) {
+      return subscriptions.fanoutActions(actions);
+    })
 }
 
 /**
@@ -435,22 +416,28 @@ function destroyOldBlocks(userId) {
     where: {
       source_uid: userId
     },
-    offset: 4,
     order: 'id DESC'
   }).then(function(blockBatches) {
-    if (blockBatches && blockBatches.length > 0) {
-      return BlockBatch.destroy({
-        where: {
-          id: {
-            in: _.pluck(blockBatches, 'id')
-          }
-        }
-      })
-    } else {
+    if (!blockBatches || blockBatches.length === 0) {
       return Q.resolve(0);
     }
-  }).then(function(destroyedCount) {
-    logger.info('Trimmed', destroyedCount, 'old BlockBatches for', userId);
+
+    // We want to leave at least 4 block batches where the 'complete' flag is
+    // set. So we iterate through in order until we've seen that many, then
+    // delete older ones.
+    for (var i = 0, completeCount = 0; i < blockBatches.length; i++) {
+      if (blockBatches[i].complete) {
+        completeCount++;
+        if (completeCount >= 4) {
+          break;
+        }
+      }
+    }
+    return Q.all(blockBatches.slice(i).map(function(batch) {
+      return batch.destroy();
+    }));
+  }).then(function(destroyedBatches) {
+    logger.info('Trimmed', destroyedBatches.length, 'old BlockBatches for', userId);
   }).catch(function(err) {
     logger.error(err);
   });
@@ -511,8 +498,6 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
-var rpcStreams = [];
-
 /**
  * Set up a simple HTTPS server so other daemons can send requests to update blocks.
  * The server expects a JSON POST with fields "uid" and "callerName." The latter
@@ -549,6 +534,11 @@ function setupServer() {
   server.on('connection', function(socket) {
     socket.setTimeout(10000 * 1000);
     socket.unref();
+    socket.on('error', function(err) {
+      if (err.code != 'ECONNRESET') {
+        logger.error(err);
+      }
+    });
   });
   // Don't let the RPC server keep the process alive during a graceful exit.
   server.unref();
@@ -573,9 +563,6 @@ if (require.main === module) {
       logger.info('Closing up shop.');
       clearInterval(interval);
       server.close();
-      rpcStreams.forEach(function(stream) {
-        stream.destroy();
-      });
       setup.gracefulShutdown();
     }
   }
