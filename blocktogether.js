@@ -98,6 +98,11 @@ function makeApp() {
   return app;
 }
 
+function HttpError(code, message) {
+  var error = new Error(message);
+  error.statusCode = code;
+  return error;
+}
 
 /**
  * Callback for Passport to call once a user has authorized with Twitter.
@@ -164,20 +169,18 @@ app.all('/*', requireAuthentication);
 app.post('/*', function(req, res, next) {
   if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
       !req.session.csrf) {
-    var err = new Error('Invalid CSRF token.');
-    err.status(403);
     logger.error('Invalid CSRF token. Session:', req.session.csrf,
       'Request body:', req.body.csrf_token);
-    return next(err);
+    return next(new HttpError(403, 'Invalid CSRF token.'));
   } else {
-    next();
+    return next();
   }
 });
 
 // Add CSRF token if not present in session.
 app.all('/*', function(req, res, next) {
   req.session.csrf = req.session.csrf || crypto.randomBytes(32).toString('base64');
-  next();
+  return next();
 });
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
@@ -271,14 +274,14 @@ function requireAuthentication(req, res, next) {
       req.url.match('/auth/.*') ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
-    next();
+    return next();
   } else if (req.user && req.user.TwitterUser) {
     // If there's a req.user there should always be a corresponding TwitterUser.
     // If not, logging back in will fix.
-    next();
+    return next();
   } else {
     // Not authenticated, but should be.
-    res.format({
+    return res.format({
       html: function() {
         // Clear the session in case it's in a bad state.
         req.session = null;
@@ -376,7 +379,8 @@ function updateSettings(user, settings, callback) {
   }
   // Enable sharing blocks
   if (!old_share_blocks && new_share_blocks) {
-    user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+    user.shared_blocks_key = (crypto.randomBytes(30).toString('base64')
+      .replace('+', '-').replace('/', '_'));
   }
 
   // Setting: Follow @blocktogether
@@ -468,19 +472,19 @@ app.get('/subscriptions',
         mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
       }).catch(function(err) {
         logger.error(err);
-        next(new Error('Failed to get subscription data.'));
+        return next(new Error('Failed to get subscription data.'));
       });
   });
 
 function validSharedBlocksKey(key) {
-  return key && key.match(/^[a-f0-9]{96}$/);
+  return key && key.match(/^[A-Za-z0-9-_]{40,96}$/);
 }
 
 app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      res.status(404).end('No such block list.');
+      return next(new HttpError(404, 'No such block list.'));
     }
     BtUser
       .find({
@@ -494,7 +498,7 @@ app.get('/show-blocks/:slug',
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           showBlocks(req, res, next, user, false /* ownBlocks */);
         } else {
-          res.status(404).end('No such block list.');
+          return next(new HttpError(404, 'No such block list.'));
         }
       }).catch(function(err) {
         logger.error(err);
