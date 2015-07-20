@@ -745,15 +745,23 @@ app.use(function(err, req, res, next) {
   }
   var message = err.message;
   res.status(err.statusCode || 500);
+  // Log one line of the stack trace for non-500 errors.
+  var shortStack = '';
+  if (err.stack) {
+    var split = err.stack.split('\n');
+    if (split.length > 1) {
+      shortStack = split[1];
+    }
+  }
   // Error codes in the 500 error range log stack traces because they represent
   // internal (unexpected) errors. Other errors only log the message, and only
   // at WARN level. They include the user if available.
   if (res.status >= 500) {
     logger.error(err.stack);
   } else if (req.user) {
-    logger.warn(req.user, message);
+    logger.warn(req.user, message, shortStack);
   } else {
-    logger.warn(message);
+    logger.warn(message, shortStack);
   }
   res.format({
     html: function() {
