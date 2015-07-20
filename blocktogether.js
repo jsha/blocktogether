@@ -879,10 +879,12 @@ function searchBlocks(req, res, next, btUser) {
     }
   }).then(function(blocks) {
     var templateData = {
-      logged_in_screen_name: req.user.screen_name,
       found: blocks && blocks.length > 0,
       source_screen_name: btUser.screen_name.toLowerCase(),
       sink_screen_name: req.query.screen_name.toLowerCase()
+    }
+    if (req.user) {
+      templateData.logged_in_screen_name = req.user.screen_name;
     }
     mu.compileAndRender('search-blocks.mustache', templateData).pipe(res);
   }).catch(next);
