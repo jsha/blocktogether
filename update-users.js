@@ -184,8 +184,8 @@ function updateUsersChunk(uids, usersMap) {
       return Q.reject();
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
-      // suspended or deleted), Twitter returns 404. Delete all of them.
-      logger.warn('Twitter returned 404 to /users/lookup, deactivating',
+      // suspended or deleted), Twitter returns 404. Deactivate all of them.
+      logger.info('Twitter returned 404 to /users/lookup, deactivating',
         uids.length, 'users');
       return Q.all(
         uids.map(deactivateTwitterUser)
