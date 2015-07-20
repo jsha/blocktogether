@@ -1,6 +1,18 @@
   {{>header.mustache}}
-  Block actions pending and performed on your account by Block Together.
-  "Cancelled-duplicate" means you already blocked the target.
+  <div class="explanation">
+  Actions performed on your account by Block Together, or observed by Block
+  Together from external sources since you signed up. Actions consist of blocks,
+  unblocks, mutes and unmutes.
+  "Cancelled-duplicate" means you already blocked the target. It's normal to see
+  multiple "cancelled-duplicate" results for a single target user, especially if
+  you use the auto-block features.
+  </div>
+  <div class="search">
+    <form action="" method="GET">
+      <input id="screen_name" name="screen_name" type="text"></input>
+      <button type="submit" class="btn btn-primary">Search by screen name</button>
+    </form>
+  </div>
   <table class='table table-condensed actions'>
   <thead>
     <tr class='table-header'>

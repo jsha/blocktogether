@@ -6,8 +6,14 @@
       >@{{author_screen_name}}</a>
     is blocking {{item_count}} users on Twitter (updated {{updated}}).
     {{#paginate}}
-    Showing {{per_page}} per page:
+    Showing {{per_page}} per page.
     {{/paginate}}
+    <div class="search">
+      <form action="" method="GET">
+        <input id="screen_name" name="screen_name" type="text"></input>
+        <button type="submit" class="btn btn-primary">Search by screen name</button>
+      </form>
+    </div>
   </p>
   {{/own_blocks}}
   {{#own_blocks}}

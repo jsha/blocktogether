@@ -183,6 +183,32 @@ app.all('/*', function(req, res, next) {
   return next();
 });
 
+// Both the actions page and the show-blocks page allow searching by screen
+// name. For either of them, we do the work of looking up the twitterUser here,
+// then store the result in req.searched_user. If the screen name requested is
+// not found, screenNameLookup will not error. It's up to the page itself
+// to decide how to display that information.
+app.get('/show-blocks/*', screenNameLookup);
+app.get('/actions', screenNameLookup);
+function screenNameLookup(req, res, next) {
+  if (req.query.screen_name) {
+    if (!req.query.screen_name.match(/^[A-Za-z0-9_]{1,20}$/)) {
+      return next(new HttpError(400, 'Invalid screen name'));
+    } else {
+      return TwitterUser.findOne({
+        where: {
+          screen_name: req.query.screen_name
+        }
+      }).then(function(twitterUser) {
+        req.searched_user = twitterUser;
+        return next();
+      }).catch(next);
+    }
+  } else {
+    return next();
+  }
+}
+
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
 //   /auth/twitter/callback
@@ -496,13 +522,15 @@ app.get('/show-blocks/:slug',
         // check the rest using constantTimeEquals. For details about timing
         // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
-          showBlocks(req, res, next, user, false /* ownBlocks */);
+          if (req.query.screen_name) {
+            searchBlocks(req, res, next, user);
+          } else {
+            showBlocks(req, res, next, user, false /* ownBlocks */);
+          }
         } else {
-          return next(new HttpError(404, 'No such block list.'));
+          return Q.reject(new HttpError(404, 'No such block list.'));
         }
-      }).catch(function(err) {
-        logger.error(err);
-      });
+      }).catch(next);
   });
 
 /**
@@ -826,6 +854,48 @@ function getBlockedUsers(blockBatch, limit, offset) {
 }
 
 /**
+ * Given a search by screen name, render a simple HTML page saying whether or
+ * not btUser blocks that screen name. The work of looking up the screen name is
+ * already done in another handler.
+ */
+function searchBlocks(req, res, next, btUser) {
+  getLatestBlockBatch(btUser).then(function(blockBatch) {
+    if (blockBatch && req.searched_user) {
+      return blockBatch.getBlocks({
+        where: {
+          sink_uid: req.searched_user.uid
+        }
+      });
+    } else {
+      return Q.resolve(null);
+    }
+  }).then(function(blocks) {
+    var templateData = {
+      logged_in_screen_name: req.user.screen_name,
+      found: blocks && blocks.length > 0,
+      source_screen_name: btUser.screen_name.toLowerCase(),
+      sink_screen_name: req.query.screen_name.toLowerCase()
+    }
+    mu.compileAndRender('search-blocks.mustache', templateData).pipe(res);
+  }).catch(next);
+}
+
+function getLatestBlockBatch(btUser) {
+  return BlockBatch.findOne({
+    where: { source_uid: btUser.uid },
+    // We prefer a the most recent complete BlockBatch, but if none is
+    // available we will choose the most recent non-complete BlockBatch.
+    // Additionally, for users with more than 75k blocks, updateBlocks will run
+    // into the rate limit before finishing updating the blocks. The updating
+    // will finish after waiting for the rate limit to lift, but in the meantime
+    // it's possible to have multiple non-complete BlockBatches. In that case,
+    // prefer ones with non-null currentCursors, i.e. those that have stored at
+    // least some blocks.
+    order: 'complete desc, currentCursor is null, updatedAt desc'
+  });
+}
+
+/**
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
@@ -847,18 +917,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     currentPage = 1;
   }
 
-  BlockBatch.find({
-    where: { source_uid: btUser.uid },
-    // We prefer a the most recent complete BlockBatch, but if none is
-    // available we will choose the most recent non-complete BlockBatch.
-    // Additionally, for users with more than 75k blocks, updateBlocks will run
-    // into the rate limit before finishing updating the blocks. The updating
-    // will finish after waiting for the rate limit to lift, but in the meantime
-    // it's possible to have multiple non-complete BlockBatches. In that case,
-    // prefer ones with non-null currentCursors, i.e. those that have stored at
-    // least some blocks.
-    order: 'complete desc, currentCursor is null, updatedAt desc'
-  }).then(function(blockBatch) {
+  getLatestBlockBatch(btUser).then(function(blockBatch) {
     if (!blockBatch) {
       res.end('No blocks fetched yet. Please try again soon.');
       return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
@@ -919,13 +978,20 @@ function showActions(req, res, next) {
   if (currentPage < 1) {
     currentPage = 1;
   }
+  var whereClause = {
+    source_uid: req.user.uid
+  };
+  if (req.query.screen_name) {
+    if (req.searched_user) {
+      whereClause.sink_uid = req.searched_user.uid;
+    } else {
+      return next(new HttpError(404, 'No actions found for @' + req.query.screen_name));
+    }
+  }
   // Find, count, and prepare action data for display. We avoid findAndCountAll
   // because of a Sequelize bug that does a join for the count because of the
   // include fields. That makes doing the count very slow for users with lots of
   // Actions.
-  var whereClause = {
-    source_uid: req.user.uid
-  };
   var countPromise = Action.count({
     where: whereClause
   });
@@ -947,7 +1013,6 @@ function showActions(req, res, next) {
       required: false
     }]
   });
-
   Q.spread([countPromise, actionsPromise], function(count, actions) {
     var paginationData = getPaginationData({
       count: count,
@@ -970,9 +1035,7 @@ function showActions(req, res, next) {
     _.extend(templateData, paginationData);
     res.header('Content-Type', 'text/html');
     mu.compileAndRender('actions.mustache', templateData).pipe(res);
-  }).catch(function(err) {
-    logger.error(err);
-  });
+  }).catch(next);
 }
 
 if (cluster.isMaster) {
