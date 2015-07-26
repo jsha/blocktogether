@@ -232,7 +232,7 @@ function checkPastMentions(user) {
 function endCallback(user, streamStartTime, httpIncomingMessage) {
   var statusCode = httpIncomingMessage.statusCode;
   logger.warn('Ending stream with', statusCode, 'for', user,
-    'after', Math.round((new Date() - streamStartTime) / 1000, 'seconds'));
+    'after', Math.round((new Date() - streamStartTime) / 1000), 'seconds');
   if (statusCode === 401 || statusCode === 403) {
     verifyCredentials(user);
     // Per https://dev.twitter.com/streaming/overview/connecting,
