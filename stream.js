@@ -112,7 +112,13 @@ function refreshUsers() {
           gt: allUsersLastUpdate
         },
       },
-      ['uid % ? = ?', numWorkers, workerId % numWorkers])
+      ['uid % ? = ?', numWorkers, workerId % numWorkers],
+      // Check for any option that monitors stream for autoblock criteria
+      sequelize.or(
+        { block_new_accounts: true },
+        { block_low_followers: true },
+        { shared_blocks_key: { not: null } }
+      ))
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
       allUsersLastUpdate = now;
