@@ -186,6 +186,24 @@ Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
  * efficient sorting and searching in shared block lists. This may also be a
  * good place to add a 'page' column for efficient pagination of large block
  * lists.
+ *
+ * Note: When diffing new blocks from the REST API against existing blocks in
+ * the AnnotatedBlocks table, there's a possibility for inconsistency: If a
+ * block arrived from the streaming API in the middle of fetching multiple
+ * chunks in a BlockBatch, the BlockBatch won't have that block, so the diff
+ * will make it look like there was an unblock. Solution: Each BlockBatch has a
+ * createdAt and updatedAt. When doing a diff, ignore any AnnotatedBlocks with
+ * createdAt after the BlockBatch's createdAt.
+ *
+ * Then there's the converse situation: an unblock arrives by the streaming API
+ * in the middle of a long BlockBatch update. To fix this, we'll use paranoid
+ * deletes in AnnotatedBlocks. When an unblock arrives, we don't delete the row,
+ * we just set a deletedAt timestamp to non-null. Then, when doing diffs, we
+ * treat rows with a deletedAt timestamp as if they were deleted, unless the
+ * deletedAt is newer than the createdAt of the BlockBatch, in which case we
+ * treat those rows as if they were still present, to avoid spurious block
+ * events.
+ *
  */
 var AnnotatedBlock = sequelize.define('AnnotatedBlock', {
   source_uid: 'VARCHAR(20)',
