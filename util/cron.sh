@@ -8,8 +8,7 @@ for TABLE in $TABLES; do
   mysqldump \
     --single-transaction \
     --extended-insert \
-    "$DB" "$TABLE" | \
-  gpg --encrypt --quiet -r f1faf31d > \
+    "$DB" "$TABLE" > \
     /data/mysql-backup/"$TABLE".$(date +%Y%m%d).gpg
   # Clean up old backups
   find /data/mysql-backup/ -ctime +2 -exec rm {} \;
