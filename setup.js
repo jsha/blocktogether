@@ -104,7 +104,9 @@ var BtUser = sequelize.define('BtUser', {
   // Otherwise we delete the BtUser and related data.
   // Users with a non-null deactivatedAt will be skipped when updating blocks,
   // performing actions, and streaming.
-  deactivatedAt: Sequelize.DATE
+  deactivatedAt: Sequelize.DATE,
+  // True if this user has any pending actions.
+  pendingActions: Sequelize.BOOLEAN
 }, {
   instanceMethods: {
     /**
