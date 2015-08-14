@@ -397,7 +397,8 @@ function updateNonPendingBlocks(recipientBtUser) {
     where: {
       source_uid: recipientBtUser.uid,
       status: Action.PENDING
-    }
+    },
+    limit: 1
   }).then(function(count) {
     if (count === 0) {
       remoteUpdateBlocks(recipientBtUser);
