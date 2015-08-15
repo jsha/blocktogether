@@ -77,7 +77,8 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
 function processActions() {
   return BtUser.findAll({
     where: {
-      pendingActions: true
+      pendingActions: true,
+      paused: false
     },
     limit: 300
   }).then(function(users) {
