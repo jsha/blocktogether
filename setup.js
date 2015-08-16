@@ -110,7 +110,7 @@ var BtUser = sequelize.define('BtUser', {
   // A user may be paused manually if they have a large number of pending
   // actions or blocks, and work on their account is slowing down work on other
   // accounts. We don't execute actions or update blocks for paused users.
-  paused: Sequelize.BOOLEAN
+  paused: { type: Sequelize.BOOLEAN, defaultValue: false },
 }, {
   instanceMethods: {
     /**

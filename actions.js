@@ -47,10 +47,10 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
         'status': Action.PENDING
       }
     })).then(function() {
-      return BtUser.findById(source_uid).then(function(user) {
-        user.pendingActions = true;
-        user.save();
-      });
+      return BtUser.findById(source_uid);
+    }).then(function(user) {
+      user.pendingActions = true;
+      return user.save();
     });
 }
 

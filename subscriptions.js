@@ -99,11 +99,22 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
   // of the sink_uid (and therefore shouldn't auto-block) will be handled
   // inside actions.js.
   if (inputAction.type === Action.BLOCK) {
-    // TODO: This should probably use actions.queueActions to take advantage of
-    // its instant kickoff of a processing run. But right now that run would
-    // take place in-process, adding extra work for update-blocks.js, which is
-    // already a CPU bottleneck.
-    return Action.bulkCreate(actions);
+    // TODO: This should probably use actions.queueActions to automatically set
+    // pendingActions = true. But that function doesn't support queuing multiple
+    // actions from different source_uids.
+    return Action.bulkCreate(actions).then(function(actions) {
+      var subscriber_uids = _.pluck(subscriptions, 'subscriber_uid');
+      return BtUser.findAll({
+        where: {
+          uid: subscriber_uids
+        }
+      }).then(function(users) {
+        return Q.all(users.map(function(user) {
+          user.pendingActions = true;
+          return user.save();
+        }));
+      });
+    });
   } else {
     // For Unblock Actions, we only want to fan out the unblock to users
     // who originally blocked the given user due to a subscription.
