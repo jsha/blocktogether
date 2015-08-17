@@ -25,7 +25,8 @@ function findAndDeleteOneOldUser() {
         deactivatedAt: {
           lt: new Date(Date.now() - 30 * 86400 * 1000)
         }
-      }
+      },
+      order: [['deactivatedAt', 'ASC']]
     }).then(function(user) {
       if (user) {
         return deleteOneOldUser(user);
