@@ -90,8 +90,12 @@ function verifyMany() {
 function deactivateTwitterUser(uid) {
   TwitterUser.findById(uid)
     .then(function(twitterUser) {
-      twitterUser.deactivatedAt = new Date();
-      return twitterUser.save();
+      if (twitterUser) {
+        twitterUser.deactivatedAt = new Date();
+        return twitterUser.save();
+      } else {
+        return Q.reject('No user found for uid', uid);
+      }
     }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
     }).catch(function(err) {
