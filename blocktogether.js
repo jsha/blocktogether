@@ -270,10 +270,21 @@ function logInAndRedirect(req, res, next, user) {
 app.get('/auth/twitter/callback', function(req, res, next) {
   var passportCallbackAuthenticate =
     passport.authenticate('twitter', function(err, user, info) {
-      if (err) {
-        return next(err);
+      // One common error case: Use visits blocktogether in two different
+      // browser tabs, hits 'log on' in each, gets Twitter login page on each,
+      // logs in on one, and then logs in on the other. Results in Passport
+      // error 'Failed to find request token in session'. Easy workaround:
+      // ignore errors if we already have a working session.
+      if (err && req.user) {
+        logInAndRedirect(req, res, next, req.user);
+      } else if (err) {
+        // Most errors default to 500 unless they are specifically treated
+        // differently, but Passport throws a number of errors that are mostly
+        // not internal (e.g. server failed, cookies not present in request,
+        // etc), so we call them 403's.
+        return next(new HttpError(403, err.message));
       } else if (!user) {
-        return next(new Error('Problem during app authorization.'));
+        return next(new HttpError(403, 'Problem during app authorization.'));
       } else {
         // If this was a signup (vs a log on), set settings based on what the user
         // selected on the main page.
