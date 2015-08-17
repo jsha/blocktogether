@@ -39,7 +39,7 @@ function findAndDeleteOneOldUser() {
 }
 
 function deleteOneOldUser(user) {
-  logger.info(user);
+  logger.info(user, user.dataValues);
   return Action.destroy({
     where: {
       source_uid: user.uid
