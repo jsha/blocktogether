@@ -169,8 +169,6 @@ app.all('/*', requireAuthentication);
 app.post('/*', function(req, res, next) {
   if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
       !req.session.csrf) {
-    logger.error('Invalid CSRF token. Session:', req.session.csrf,
-      'Request body:', req.body.csrf_token);
     return next(new HttpError(403, 'Invalid CSRF token.'));
   } else {
     return next();
@@ -590,7 +588,7 @@ app.post('/block-all.json',
     var shared_blocks_key = req.body.shared_blocks_key;
     // Special handling for subscribe-on-signup: Get key from session,
     // delete it on success.
-    if (req.body.subscribe_on_signup) {
+    if (req.body.subscribe_on_signup && req.session.subscribe_on_signup) {
       shared_blocks_key = req.session.subscribe_on_signup.key;
     }
 
