@@ -90,8 +90,12 @@ function verifyMany() {
 function deactivateTwitterUser(uid) {
   TwitterUser.findById(uid)
     .then(function(twitterUser) {
-      twitterUser.deactivatedAt = new Date();
-      return twitterUser.save();
+      if (twitterUser) {
+        twitterUser.deactivatedAt = new Date();
+        return twitterUser.save();
+      } else {
+        return Q.reject('No user found for uid', uid);
+      }
     }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
     }).catch(function(err) {
@@ -108,25 +112,28 @@ var userCredentialsIndex = 0;
  * return.
  *
  * @param {Array.<string>} uids List of user ids to look up.
- * @param {Map.<string,TwitterUser>} usersMap A map from uids to TwitterUser
+ * @param {Map.<string,TwitterUser>} usersMap Optional map from uids to TwitterUser
  *   objects from a previous DB lookup. This can save a final lookup before
  *   saving.
  * @return{Promise.<Object>} map of uids succesfully returned to user objects.
+ *   If the Twitter API returns no result for an account, there will be no entry
+ *   in the map under that uid, even if there is a deactivated TwitterUser
+ *   stored in the DB.
  */
 function updateUsers(uids, usersMap) {
   if (!userCredentials.length) {
     logger.info('User credentials not yet loaded, setting timer');
-    setTimeout(updateUsers.bind(null, uids), 500);
-    return;
+    return Q.timeout(500).then(updateUsers.bind(null, uids, usersMap));
   }
   var length = uids.length;
   if (!length) {
     logger.info('No uids to update');
-    return;
+    return Q.resolve({});
   }
   var chunkedUids = [];
-  while (uids.length > 0) {
-    chunkedUids.push(uids.splice(0, 100));
+  var chunkSize = 100;
+  for (var i = 0; i < length; i += chunkSize) {
+    chunkedUids.push(uids.slice(i, i + chunkSize));
   }
   return Q.all(
     chunkedUids.map(function(uidChunk) {
@@ -149,6 +156,7 @@ function updateUsers(uids, usersMap) {
  * @return{Object} map of uids succesfully returned to user objects.
  */
 function updateUsersChunk(uids, usersMap) {
+  usersMap = usersMap || {};
   // Iterate through the user credentials to spread out rate limit usage.
   var credential = userCredentials[userCredentialsIndex];
   userCredentialsIndex = (userCredentialsIndex + 1) % userCredentials.length;
@@ -180,8 +188,8 @@ function updateUsersChunk(uids, usersMap) {
       return Q.reject();
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
-      // suspended or deleted), Twitter returns 404. Delete all of them.
-      logger.warn('Twitter returned 404 to /users/lookup, deactivating',
+      // suspended or deleted), Twitter returns 404. Deactivate all of them.
+      logger.info('Twitter returned 404 to /users/lookup, deactivating',
         uids.length, 'users');
       return Q.all(
         uids.map(deactivateTwitterUser)

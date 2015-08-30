@@ -104,7 +104,13 @@ var BtUser = sequelize.define('BtUser', {
   // Otherwise we delete the BtUser and related data.
   // Users with a non-null deactivatedAt will be skipped when updating blocks,
   // performing actions, and streaming.
-  deactivatedAt: Sequelize.DATE
+  deactivatedAt: Sequelize.DATE,
+  // True if this user has any pending actions.
+  pendingActions: { type: Sequelize.BOOLEAN, defaultValue: false },
+  // A user may be paused manually if they have a large number of pending
+  // actions or blocks, and work on their account is slowing down work on other
+  // accounts. We don't execute actions or update blocks for paused users.
+  paused: { type: Sequelize.BOOLEAN, defaultValue: false },
 }, {
   instanceMethods: {
     /**

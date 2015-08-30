@@ -4,21 +4,8 @@
     "level": "INFO",
     "category": "blocktogether",
     "appender": {
-      "type": "dateFile",
-      "filename": "blocktogether-info",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
-      "layout": { "type": "colored" }
-    }
-  }, {
-    "type": "logLevelFilter",
-    "level": "INFO",
-    "category": "console",
-    "appender": {
-      "type": "dateFile",
-      "filename": "console",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "blocktogether-info.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -26,10 +13,8 @@
     "level": "INFO",
     "category": "stream",
     "appender": {
-      "type": "dateFile",
-      "filename": "stream-info",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "stream-info.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -37,10 +22,8 @@
     "level": "INFO",
     "category": "actions",
     "appender": {
-      "type": "dateFile",
-      "filename": "actions-info",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "actions-info.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -48,10 +31,8 @@
     "level": "INFO",
     "category": "update-users",
     "appender": {
-      "type": "dateFile",
-      "filename": "update-users-info",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "update-users-info.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -59,10 +40,8 @@
     "level": "INFO",
     "category": "update-blocks",
     "appender": {
-      "type": "dateFile",
-      "filename": "update-blocks-info",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "update-blocks-info.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -70,10 +49,8 @@
     "level": "WARN",
     "category": "blocktogether",
     "appender": {
-      "type": "dateFile",
-      "filename": "blocktogether-warn",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "blocktogether-warn.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -81,10 +58,8 @@
     "level": "WARN",
     "category": "stream",
     "appender": {
-      "type": "dateFile",
-      "filename": "stream-warn",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "stream-warn.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -92,10 +67,8 @@
     "level": "WARN",
     "category": "actions",
     "appender": {
-      "type": "dateFile",
-      "filename": "actions-warn",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "actions-warn.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -103,10 +76,8 @@
     "level": "WARN",
     "category": "update-users",
     "appender": {
-      "type": "dateFile",
-      "filename": "update-users-warn",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "update-users-warn.log",
       "layout": { "type": "colored" }
     }
   }, {
@@ -114,10 +85,47 @@
     "level": "WARN",
     "category": "update-blocks",
     "appender": {
-      "type": "dateFile",
-      "filename": "update-blocks-warn",
-      "pattern": "-dd.log",
-      "alwaysIncludePattern": false,
+      "type": "file",
+      "filename": "update-blocks-warn.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "TRACE",
+    "category": "verify-credentials",
+    "appender": {
+      "type": "console"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "TRACE",
+    "category": "deleter",
+    "appender": {
+      "type": "console"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "TRACE",
+    "category": "deleter",
+    "appender": {
+      "type": "file",
+      "filename": "deleter-info.log",
+      "layout": { "type": "colored" }
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "TRACE",
+    "category": "subscriptions",
+    "appender": {
+      "type": "console"
+    }
+  }, {
+    "type": "logLevelFilter",
+    "level": "TRACE",
+    "category": "console",
+    "appender": {
+      "type": "file",
+      "filename": "console.log",
       "layout": { "type": "colored" }
     }
   }],

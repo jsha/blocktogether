@@ -98,6 +98,11 @@ function makeApp() {
   return app;
 }
 
+function HttpError(code, message) {
+  var error = new Error(message);
+  error.statusCode = code;
+  return error;
+}
 
 /**
  * Callback for Passport to call once a user has authorized with Twitter.
@@ -164,21 +169,43 @@ app.all('/*', requireAuthentication);
 app.post('/*', function(req, res, next) {
   if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
       !req.session.csrf) {
-    var err = new Error('Invalid CSRF token.');
-    err.status(403);
-    logger.error('Invalid CSRF token. Session:', req.session.csrf,
-      'Request body:', req.body.csrf_token);
-    return next(err);
+    return next(new HttpError(403, 'Invalid CSRF token.'));
   } else {
-    next();
+    return next();
   }
 });
 
 // Add CSRF token if not present in session.
 app.all('/*', function(req, res, next) {
   req.session.csrf = req.session.csrf || crypto.randomBytes(32).toString('base64');
-  next();
+  return next();
 });
+
+// Both the actions page and the show-blocks page allow searching by screen
+// name. For either of them, we do the work of looking up the twitterUser here,
+// then store the result in req.searched_user. If the screen name requested is
+// not found, screenNameLookup will not error. It's up to the page itself
+// to decide how to display that information.
+app.get('/show-blocks/*', screenNameLookup);
+app.get('/actions', screenNameLookup);
+function screenNameLookup(req, res, next) {
+  if (req.query.screen_name) {
+    if (!req.query.screen_name.match(/^[A-Za-z0-9_]{1,20}$/)) {
+      return next(new HttpError(400, 'Invalid screen name'));
+    } else {
+      return TwitterUser.findOne({
+        where: {
+          screen_name: req.query.screen_name
+        }
+      }).then(function(twitterUser) {
+        req.searched_user = twitterUser;
+        return next();
+      }).catch(next);
+    }
+  } else {
+    return next();
+  }
+}
 
 // Redirect the user to Twitter for authentication.  When complete, Twitter
 // will redirect the user back to the application at
@@ -241,10 +268,21 @@ function logInAndRedirect(req, res, next, user) {
 app.get('/auth/twitter/callback', function(req, res, next) {
   var passportCallbackAuthenticate =
     passport.authenticate('twitter', function(err, user, info) {
-      if (err) {
-        return next(err);
+      // One common error case: Use visits blocktogether in two different
+      // browser tabs, hits 'log on' in each, gets Twitter login page on each,
+      // logs in on one, and then logs in on the other. Results in Passport
+      // error 'Failed to find request token in session'. Easy workaround:
+      // ignore errors if we already have a working session.
+      if (err && req.user) {
+        logInAndRedirect(req, res, next, req.user);
+      } else if (err) {
+        // Most errors default to 500 unless they are specifically treated
+        // differently, but Passport throws a number of errors that are mostly
+        // not internal (e.g. server failed, cookies not present in request,
+        // etc), so we call them 403's.
+        return next(new HttpError(403, err.message));
       } else if (!user) {
-        return next(new Error('Problem during app authorization.'));
+        return next(new HttpError(403, 'Problem during app authorization.'));
       } else {
         // If this was a signup (vs a log on), set settings based on what the user
         // selected on the main page.
@@ -271,14 +309,14 @@ function requireAuthentication(req, res, next) {
       req.url.match('/auth/.*') ||
       req.url.match('/show-blocks/.*') ||
       req.url.match('/static/.*')) {
-    next();
+    return next();
   } else if (req.user && req.user.TwitterUser) {
     // If there's a req.user there should always be a corresponding TwitterUser.
     // If not, logging back in will fix.
-    next();
+    return next();
   } else {
     // Not authenticated, but should be.
-    res.format({
+    return res.format({
       html: function() {
         // Clear the session in case it's in a bad state.
         req.session = null;
@@ -376,7 +414,8 @@ function updateSettings(user, settings, callback) {
   }
   // Enable sharing blocks
   if (!old_share_blocks && new_share_blocks) {
-    user.shared_blocks_key = crypto.randomBytes(48).toString('hex');
+    user.shared_blocks_key = (crypto.randomBytes(30).toString('base64')
+      .replace('+', '-').replace('/', '_'));
   }
 
   // Setting: Follow @blocktogether
@@ -468,19 +507,19 @@ app.get('/subscriptions',
         mu.compileAndRender('subscriptions.mustache', templateData).pipe(res);
       }).catch(function(err) {
         logger.error(err);
-        next(new Error('Failed to get subscription data.'));
+        return next(new Error('Failed to get subscription data.'));
       });
   });
 
 function validSharedBlocksKey(key) {
-  return key && key.match(/^[a-f0-9]{96}$/);
+  return key && key.match(/^[A-Za-z0-9-_]{40,96}$/);
 }
 
 app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      res.status(404).end('No such block list.');
+      return next(new HttpError(404, 'No such block list.'));
     }
     BtUser
       .find({
@@ -492,13 +531,15 @@ app.get('/show-blocks/:slug',
         // check the rest using constantTimeEquals. For details about timing
         // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
-          showBlocks(req, res, next, user, false /* ownBlocks */);
+          if (req.query.screen_name) {
+            searchBlocks(req, res, next, user);
+          } else {
+            showBlocks(req, res, next, user, false /* ownBlocks */);
+          }
         } else {
-          res.status(404).end('No such block list.');
+          return Q.reject(new HttpError(404, 'No such block list.'));
         }
-      }).catch(function(err) {
-        logger.error(err);
-      });
+      }).catch(next);
   });
 
 /**
@@ -547,7 +588,7 @@ app.post('/block-all.json',
     var shared_blocks_key = req.body.shared_blocks_key;
     // Special handling for subscribe-on-signup: Get key from session,
     // delete it on success.
-    if (req.body.subscribe_on_signup) {
+    if (req.body.subscribe_on_signup && req.session.subscribe_on_signup) {
       shared_blocks_key = req.session.subscribe_on_signup.key;
     }
 
@@ -713,15 +754,23 @@ app.use(function(err, req, res, next) {
   }
   var message = err.message;
   res.status(err.statusCode || 500);
+  // Log one line of the stack trace for non-500 errors.
+  var shortStack = '';
+  if (err.stack) {
+    var split = err.stack.split('\n');
+    if (split.length > 1) {
+      shortStack = split[1];
+    }
+  }
   // Error codes in the 500 error range log stack traces because they represent
   // internal (unexpected) errors. Other errors only log the message, and only
   // at WARN level. They include the user if available.
   if (res.status >= 500) {
     logger.error(err.stack);
   } else if (req.user) {
-    logger.warn(req.user, message);
+    logger.warn(req.user, message, shortStack);
   } else {
-    logger.warn(message);
+    logger.warn(message, shortStack);
   }
   res.format({
     html: function() {
@@ -822,6 +871,50 @@ function getBlockedUsers(blockBatch, limit, offset) {
 }
 
 /**
+ * Given a search by screen name, render a simple HTML page saying whether or
+ * not btUser blocks that screen name. The work of looking up the screen name is
+ * already done in another handler.
+ */
+function searchBlocks(req, res, next, btUser) {
+  getLatestBlockBatch(btUser).then(function(blockBatch) {
+    if (blockBatch && req.searched_user) {
+      return blockBatch.getBlocks({
+        where: {
+          sink_uid: req.searched_user.uid
+        }
+      });
+    } else {
+      return Q.resolve(null);
+    }
+  }).then(function(blocks) {
+    var templateData = {
+      found: blocks && blocks.length > 0,
+      source_screen_name: btUser.screen_name.toLowerCase(),
+      sink_screen_name: req.query.screen_name.toLowerCase()
+    }
+    if (req.user) {
+      templateData.logged_in_screen_name = req.user.screen_name;
+    }
+    mu.compileAndRender('search-blocks.mustache', templateData).pipe(res);
+  }).catch(next);
+}
+
+function getLatestBlockBatch(btUser) {
+  return BlockBatch.findOne({
+    where: { source_uid: btUser.uid },
+    // We prefer a the most recent complete BlockBatch, but if none is
+    // available we will choose the most recent non-complete BlockBatch.
+    // Additionally, for users with more than 75k blocks, updateBlocks will run
+    // into the rate limit before finishing updating the blocks. The updating
+    // will finish after waiting for the rate limit to lift, but in the meantime
+    // it's possible to have multiple non-complete BlockBatches. In that case,
+    // prefer ones with non-null currentCursors, i.e. those that have stored at
+    // least some blocks.
+    order: 'complete desc, currentCursor is null, updatedAt desc'
+  });
+}
+
+/**
  * Render the block list for a given BtUser as HTML.
  */
 function showBlocks(req, res, next, btUser, ownBlocks) {
@@ -843,18 +936,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     currentPage = 1;
   }
 
-  BlockBatch.find({
-    where: { source_uid: btUser.uid },
-    // We prefer a the most recent complete BlockBatch, but if none is
-    // available we will choose the most recent non-complete BlockBatch.
-    // Additionally, for users with more than 75k blocks, updateBlocks will run
-    // into the rate limit before finishing updating the blocks. The updating
-    // will finish after waiting for the rate limit to lift, but in the meantime
-    // it's possible to have multiple non-complete BlockBatches. In that case,
-    // prefer ones with non-null currentCursors, i.e. those that have stored at
-    // least some blocks.
-    order: 'complete desc, currentCursor is null, updatedAt desc'
-  }).then(function(blockBatch) {
+  getLatestBlockBatch(btUser).then(function(blockBatch) {
     if (!blockBatch) {
       res.end('No blocks fetched yet. Please try again soon.');
       return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
@@ -915,13 +997,20 @@ function showActions(req, res, next) {
   if (currentPage < 1) {
     currentPage = 1;
   }
+  var whereClause = {
+    source_uid: req.user.uid
+  };
+  if (req.query.screen_name) {
+    if (req.searched_user) {
+      whereClause.sink_uid = req.searched_user.uid;
+    } else {
+      return next(new HttpError(404, 'No actions found for @' + req.query.screen_name));
+    }
+  }
   // Find, count, and prepare action data for display. We avoid findAndCountAll
   // because of a Sequelize bug that does a join for the count because of the
   // include fields. That makes doing the count very slow for users with lots of
   // Actions.
-  var whereClause = {
-    source_uid: req.user.uid
-  };
   var countPromise = Action.count({
     where: whereClause
   });
@@ -943,7 +1032,6 @@ function showActions(req, res, next) {
       required: false
     }]
   });
-
   Q.spread([countPromise, actionsPromise], function(count, actions) {
     var paginationData = getPaginationData({
       count: count,
@@ -966,9 +1054,7 @@ function showActions(req, res, next) {
     _.extend(templateData, paginationData);
     res.header('Content-Type', 'text/html');
     mu.compileAndRender('actions.mustache', templateData).pipe(res);
-  }).catch(function(err) {
-    logger.error(err);
-  });
+  }).catch(next);
 }
 
 if (cluster.isMaster) {

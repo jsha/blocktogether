@@ -155,7 +155,7 @@ function startStream(user) {
   var accessToken = user.access_token;
   var accessTokenSecret = user.access_token_secret;
   var boundDataCallback = dataCallback.bind(undefined, user);
-  var boundEndCallback = endCallback.bind(undefined, user);
+  var boundEndCallback = endCallback.bind(undefined, user, new Date());
 
   logger.info('Starting stream for user', user);
   var req = twitter.getStream('user', {
@@ -226,10 +226,13 @@ function checkPastMentions(user) {
  * mark them as deactivated if necessary, and remove them from the active
  * streams map.
  * @param {BtUser} user The user whose stream ended.
+ * @param {Date} streamStartTime The time the stream started
+ * @param {http.IncomingMessage} httpIncomingMessage The HTTP message for the stream.
  */
-function endCallback(user, httpIncomingMessage) {
+function endCallback(user, streamStartTime, httpIncomingMessage) {
   var statusCode = httpIncomingMessage.statusCode;
-  logger.warn('Ending stream for', user, statusCode);
+  logger.warn('Ending stream with', statusCode, 'for', user,
+    'after', Math.round((new Date() - streamStartTime) / 1000), 'seconds');
   if (statusCode === 401 || statusCode === 403) {
     verifyCredentials(user);
     // Per https://dev.twitter.com/streaming/overview/connecting,
@@ -394,7 +397,8 @@ function updateNonPendingBlocks(recipientBtUser) {
     where: {
       source_uid: recipientBtUser.uid,
       status: Action.PENDING
-    }
+    },
+    limit: 1
   }).then(function(count) {
     if (count === 0) {
       remoteUpdateBlocks(recipientBtUser);
@@ -416,7 +420,7 @@ function enqueueBlock(sourceUser, sinkUserId, cause) {
   actions.queueActions(
     sourceUser.uid, [sinkUserId], Action.BLOCK, cause
   ).then(function() {
-    actions.processActionsForUserId(sourceUser.uid);
+    actions.processActionsForUser(sourceUser);
   }).catch(function(err) {
     logger.error(err);
   });
