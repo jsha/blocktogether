@@ -519,7 +519,7 @@ app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      return next(new HttpError(500, 'Invalid parameters'));
+      return next(new HttpError(400, 'Invalid parameters'));
     }
     BtUser
       .find({
@@ -563,7 +563,6 @@ app.get('/subscribe-on-signup', function(req, res, next) {
           typeof params.author_uid === 'string' &&
           params.author_uid.match(/^[0-9]+$/))) {
       delete req.session.subscribe_on_signup;
-      logger.error('x', params.author_uid, typeof params.author_uid);
       return next(new HttpError(400, 'Invalid parameters'));
     }
     BtUser.findById(params.author_uid)
