@@ -415,7 +415,7 @@ function updateSettings(user, settings, callback) {
   // Enable sharing blocks
   if (!old_share_blocks && new_share_blocks) {
     user.shared_blocks_key = (crypto.randomBytes(30).toString('base64')
-      .replace(/+/g, '-').replace(/\//g, '_'));
+      .replace(/\+/g, '-').replace(/\//g, '_'));
   }
 
   // Setting: Follow @blocktogether
