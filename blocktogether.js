@@ -768,7 +768,7 @@ app.use(function(err, req, res, next) {
       stack = split[1];
     }
   }
-  if (err.statusCode >= 500) {
+  if (res.statusCode >= 500) {
     stack = err.stack;
     logLevel = 'ERROR';
   }
