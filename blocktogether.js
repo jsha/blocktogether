@@ -323,7 +323,7 @@ function requireAuthentication(req, res, next) {
         res.redirect('/');
       },
       json: function() {
-        res.status(403);
+        res.statusCode = 403;
         res.end(JSON.stringify({
           error: 'Must be logged in.'
         }));
@@ -415,7 +415,7 @@ function updateSettings(user, settings, callback) {
   // Enable sharing blocks
   if (!old_share_blocks && new_share_blocks) {
     user.shared_blocks_key = (crypto.randomBytes(30).toString('base64')
-      .replace('+', '-').replace('/', '_'));
+      .replace(/\+/g, '-').replace(/\//g, '_'));
   }
 
   // Setting: Follow @blocktogether
@@ -519,7 +519,7 @@ app.get('/show-blocks/:slug',
   function(req, res, next) {
     var slug = req.params.slug;
     if (!validSharedBlocksKey(slug)) {
-      return next(new HttpError(404, 'No such block list.'));
+      return next(new HttpError(400, 'Invalid parameters'));
     }
     BtUser
       .find({
@@ -559,8 +559,17 @@ app.get('/subscribe-on-signup', function(req, res, next) {
   res.header('Content-Type', 'text/html');
   if (req.session.subscribe_on_signup) {
     var params = req.session.subscribe_on_signup;
+    if (!(params.author_uid &&
+          typeof params.author_uid === 'string' &&
+          params.author_uid.match(/^[0-9]+$/))) {
+      delete req.session.subscribe_on_signup;
+      return next(new HttpError(400, 'Invalid parameters'));
+    }
     BtUser.findById(params.author_uid)
       .then(function(author) {
+      if (!author) {
+        return Q.reject('No author found with uid =', params.author_uid);
+      }
       mu.compileAndRender('subscribe-on-signup.mustache', {
         logged_in_screen_name: req.user.screen_name,
         csrf_token: req.session.csrf,
@@ -593,7 +602,7 @@ app.post('/block-all.json',
     }
 
     if (req.body.author_uid === req.user.uid) {
-      return next(new Error('Cannot subscribe to your own block list.'));
+      return next(new HttpError(403, 'Cannot subscribe to your own block list.'));
     }
 
     // Some people create many new accounts and immediately subscribe them to
@@ -601,7 +610,7 @@ app.post('/block-all.json',
     // are likely to be suspended soon. Impose a minimum age requirement for
     // subscribing to discourage this.
     if (new Date() - req.user.TwitterUser.account_created_at < SEVEN_DAYS_IN_MILLIS) {
-      return next(new Error(
+      return next(new HttpError(403,
         'Sorry, Twitter accounts less than seven days old cannot subscribe ' +
         'to block lists. Please try again in a week.'));
     }
@@ -660,21 +669,19 @@ app.post('/block-all.json',
                     logger.error(err);
                   });
               } else {
-                next(new Error('Empty block list.'));
+                next(new HttpError(400, 'Empty block list.'));
               }
             }).catch(function(err) {
               logger.error(err);
             });
           } else {
-            next(new Error('Invalid shared block list id.'));
+            next(new HttpError(400, 'Invalid shared block list id.'));
           }
         }).catch(function(err) {
           logger.error(err);
         });
     } else {
-      var err = new Error('Invalid parameters.');
-      err.statusCode = 400;
-      return next(err);
+      return next(new HttpError(400, 'Invalid parameters.'));
     }
   });
 
@@ -705,9 +712,7 @@ app.post('/unsubscribe.json',
         subscriber_uid: req.body.subscriber_uid
       };
     } else {
-      var err = new Error('Invalid parameters.');
-      err.statusCode = 400;
-      return next(err);
+      return new HttpError(400, 'Invalid parameters.');
     }
     logger.info('Removing subscription: ', params);
     Subscription.destroy({
@@ -735,9 +740,7 @@ app.post('/do-actions.json',
         Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
       res.end('{}');
     } else {
-      var err = new Error('Invalid parameters.');
-      err.statusCode = 400;
-      return next(err);
+      return next(new HttpError(400, 'Invalid parameters.'));
     }
   });
 
@@ -753,29 +756,28 @@ app.use(function(err, req, res, next) {
     return res.redirect('/');
   }
   var message = err.message;
-  res.status(err.statusCode || 500);
-  // Log one line of the stack trace for non-500 errors.
-  var shortStack = '';
+  res.statusCode = err.statusCode || 500;
+  // Error codes in the 500 error range log stack traces because they represent
+  // internal (unexpected) errors. Other errors only log the message, and only
+  // at INFO level.
+  var stack = '';
+  var logLevel = 'INFO';
   if (err.stack) {
     var split = err.stack.split('\n');
     if (split.length > 1) {
-      shortStack = split[1];
+      stack = split[1];
     }
   }
-  // Error codes in the 500 error range log stack traces because they represent
-  // internal (unexpected) errors. Other errors only log the message, and only
-  // at WARN level. They include the user if available.
-  if (res.status >= 500) {
-    logger.error(err.stack);
-  } else if (req.user) {
-    logger.warn(req.user, message, shortStack);
-  } else {
-    logger.warn(message, shortStack);
+  if (res.statusCode >= 500) {
+    stack = err.stack;
+    logLevel = 'ERROR';
   }
+  logger.log(logLevel, '' + res.statusCode, req.url, req.user, message, stack);
   res.format({
     html: function() {
       res.header('Content-Type', 'text/html');
       mu.compileAndRender('error.mustache', {
+        logged_in_screen_name: req.user ? req.user.screen_name : null,
         error: message
       }).pipe(res);
     },

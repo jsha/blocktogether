@@ -78,16 +78,21 @@ $(function(){
   // Log on and save this block list in the session for subscribing up
   // successful sign on.
   function logOnAndSubscribe() {
-    $('<input>').attr({
-      type: 'hidden',
-      name: 'subscribe_on_signup_key',
-      value: shared_blocks_key,
-    }).appendTo('#log-on-form');
-    $('<input>').attr({
-      type: 'hidden',
-      name: 'subscribe_on_signup_author_uid',
-      value: author_uid,
-    }).appendTo('#log-on-form');
+    // The user may hit 'Block All and Subscribe' multiple times (e.g. by
+    // hitting escape after submitting, if the server is slow). If so, make
+    // sure we don't add the hidden inputs multiple times.
+    if ($('input[name=subscribe_on_signup_key]').length === 0) {
+      $('<input>').attr({
+        type: 'hidden',
+        name: 'subscribe_on_signup_key',
+        value: shared_blocks_key,
+      }).appendTo('#log-on-form');
+      $('<input>').attr({
+        type: 'hidden',
+        name: 'subscribe_on_signup_author_uid',
+        value: author_uid,
+      }).appendTo('#log-on-form');
+    }
     $('#log-on-form').submit();
   }
 
