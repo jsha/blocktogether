@@ -111,6 +111,8 @@ var BtUser = sequelize.define('BtUser', {
   // actions or blocks, and work on their account is slowing down work on other
   // accounts. We don't execute actions or update blocks for paused users.
   paused: { type: Sequelize.BOOLEAN, defaultValue: false },
+  // The number of blocks this user had at last fetch.
+  blockCount: { type: Sequelize.INTEGER, defaultValue: 0 },
 }, {
   instanceMethods: {
     /**

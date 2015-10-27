@@ -149,7 +149,10 @@ function updateBlocks(user) {
       logger.trace('nextCursor', user, nextCursor);
       // Check whether we're done or need to grab the items at the next cursor.
       if (nextCursor === '0') {
-        return finalizeBlockBatch(blockBatch);
+        user.blockCount = blockBatch.size;
+        return user.save().then(function() {
+          return finalizeBlockBatch(blockBatch);
+        });
       } else {
         logger.debug('Batch', blockBatch.id, 'cursoring', nextCursor);
         return fetchAndStoreBlocks(user, blockBatch, nextCursor);
@@ -552,7 +555,7 @@ module.exports = {
 
 if (require.main === module) {
   logger.info('Starting up.');
-  var interval = setInterval(findAndUpdateBlocks, 60 * 1000);
+  var interval = setInterval(findAndUpdateBlocks, 10 * 1000);
   var server = setupServer();
   var gracefulExit = function() {
     // On the second try, exit straight away.

@@ -369,6 +369,13 @@ var updateBlocksTimers = {};
  * @param {Object} data A JSON unblock event from the Twitter streaming API.
  */
 function handleBlockEvent(recipientBtUser, data) {
+  // Users with very high block counts don't get instant updates triggered by
+  // the streaming API, because those updates are somewhat costly. Instead their
+  // updates come from the periodic updateBlocks refresh, or from loading their
+  // my-blocks page.
+  if (recipientBtUser.blockCount && recipientBtUser.blockCount > 50000) {
+    return;
+  }
   // When we perform an unblock action, it gets echoed back from the Stream API
   // very quickly - on the order of milliseconds. In order to make sure
   // actions.js has had a chance to write the 'done' status to the DB, we wait a
