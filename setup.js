@@ -154,6 +154,7 @@ var Block = sequelize.define('Block', {
 }, {
   timestamps: false
 });
+Block.removeAttribute('id');
 
 /**
  * Represents a batch of blocks fetched from Twitter, using cursoring.
