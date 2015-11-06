@@ -3,6 +3,7 @@
   "name": "blocktogether",
   "description": "Share your blocks",
   "repository": "https://github.com/jsha/blocktogether.git",
+  "license": "GPLv3",
   "version": "1.7.2",
   "dependencies": {
     "body-parser": "~1.6.2",
