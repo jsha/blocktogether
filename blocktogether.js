@@ -656,7 +656,7 @@ app.post('/block-all.json',
                     var sinkUids = _.pluck(blocks, 'sink_uid');
                     actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
-                      Action.BULK_MANUAL_BLOCK, author.uid);
+                      Action.SUBSCRIPTION, author.uid);
                     // On a successful subscribe-on-signup, delete the entries
                     // from the session.
                     if (req.body.subscribe_on_signup) {
