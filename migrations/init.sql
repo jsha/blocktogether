@@ -13,7 +13,6 @@
 -- Table structure for table `Actions`
 --
 
-DROP TABLE IF EXISTS `Actions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `Actions` (
@@ -37,7 +36,6 @@ CREATE TABLE `Actions` (
 -- Table structure for table `BlockBatches`
 --
 
-DROP TABLE IF EXISTS `BlockBatches`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `BlockBatches` (
@@ -58,7 +56,6 @@ CREATE TABLE `BlockBatches` (
 -- Table structure for table `Blocks`
 --
 
-DROP TABLE IF EXISTS `Blocks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `Blocks` (
@@ -74,7 +71,6 @@ CREATE TABLE `Blocks` (
 -- Table structure for table `BtUsers`
 --
 
-DROP TABLE IF EXISTS `BtUsers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `BtUsers` (
@@ -103,7 +99,6 @@ CREATE TABLE `BtUsers` (
 -- Table structure for table `SharedBlocks`
 --
 
-DROP TABLE IF EXISTS `SharedBlocks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `SharedBlocks` (
@@ -120,7 +115,6 @@ CREATE TABLE `SharedBlocks` (
 -- Table structure for table `Subscriptions`
 --
 
-DROP TABLE IF EXISTS `Subscriptions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `Subscriptions` (
@@ -142,7 +136,6 @@ CREATE TABLE `Subscriptions` (
 -- Table structure for table `TwitterUsers`
 --
 
-DROP TABLE IF EXISTS `TwitterUsers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `TwitterUsers` (
@@ -168,7 +161,6 @@ CREATE TABLE `TwitterUsers` (
 -- Table structure for table `UnblockedUsers`
 --
 
-DROP TABLE IF EXISTS `UnblockedUsers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `UnblockedUsers` (
