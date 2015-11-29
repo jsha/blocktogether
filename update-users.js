@@ -197,6 +197,9 @@ function updateUsersChunk(uids, usersMap) {
         return Q.resolve({});
       });
     } else {
+      if (err.statusCode == 403 || err.statusCode == 401) {
+        verifyCredentials(credential);
+      }
       logger.error('Error /users/lookup', err.statusCode, err.data, err);
       return Q.reject();
     }
