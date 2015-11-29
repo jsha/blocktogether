@@ -20,12 +20,5 @@ module.exports = {
   },
 
   down: function (queryInterface, Sequelize) {
-    return queryInterface.dropTable('Actions'
-      ).dropTable('Blocks'
-      ).dropTable('Subscriptions'
-      ).dropTable('BtUsers'
-      ).dropTable('TwitterUsers'
-      ).dropTable('BlockBatches'
-      ).dropTable('BlockBatches');
   }
 };
