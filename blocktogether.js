@@ -737,7 +737,7 @@ app.post('/do-actions.json',
         validTypes[req.body.type]) {
       actions.queueActions(
         req.user.uid, req.body.list, req.body.type,
-        Action.BULK_MANUAL_BLOCK, req.body.cause_uid);
+        Action.SUBSCRIPTION, req.body.cause_uid);
       res.end('{}');
     } else {
       return next(new HttpError(400, 'Invalid parameters.'));
