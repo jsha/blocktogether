@@ -42,10 +42,10 @@ var allUsersLastUpdate = 0;
  */
 function startStreams() {
   var uids = Object.keys(allUsers);
-  // Start a stream for each user, spaced 100 ms apart. Once all users have had
+  // Start a stream for each user, spaced 150 ms apart. Once all users have had
   // their stream started, start the periodic process of checking for any
   // streams that have failed and restarting them.
-  util.slowForEach(uids, 100, function(uid) {
+  util.slowForEach(uids, 150, function(uid) {
     startStream(allUsers[uid]);
   }).then(function() {
     logger.info('Done with initial stream starts, moving to refresh mode.');
