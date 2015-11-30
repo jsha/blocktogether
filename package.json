@@ -11,6 +11,7 @@
     "express": "~4.8.2",
     "log4js": "~0.6.21",
     "mariasql": "~0.1.21",
+    "memwatch-next": "^0.2.10",
     "mu2": "jsha/Mu",
     "mysql": "~2.4.2",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",

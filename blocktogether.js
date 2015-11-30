@@ -1,6 +1,7 @@
 'use strict';
 (function() {
-var cluster = require('cluster'),
+var memwatch = require('memwatch-next'),
+    cluster = require('cluster'),
     express = require('express'), // Web framework
     url = require('url'),
     bodyParser = require('body-parser'),
@@ -1070,7 +1071,13 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
+  var hd = new memwatch.HeapDiff();
   var server = app.listen(config.port);
+  process.on('SIGUSR1', function () {
+    memwatch.gc()
+    logger.warn(JSON.stringify(hd.end(), null, 2));
+    hd = new memwatch.HeapDiff();
+  });
 
   process.on('SIGTERM', function () {
     logger.info('Shutting down.');
