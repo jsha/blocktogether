@@ -10,8 +10,6 @@
     "cookie-session": "~1.0.2",
     "express": "~4.8.2",
     "log4js": "~0.6.21",
-    "mariasql": "~0.1.21",
-    "memwatch-next": "^0.2.10",
     "mu2": "jsha/Mu",
     "mysql": "~2.4.2",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
@@ -22,7 +20,6 @@
     "scmp": "0.0.3",
     "sequelize": "^3.3.1",
     "sequelize-cli": "^1.7.1",
-    "timeago": "~0.1.0",
-    "yakaa": "~1.0.1"
+    "timeago": "~0.1.0"
   }
 }
