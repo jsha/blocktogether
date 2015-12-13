@@ -61,6 +61,7 @@ function verifyCredentials(user) {
         logger.info('User', user, 'has not revoked app, deactivated, or been suspended.');
         user.deactivatedAt = null;
       }
+      user.screen_name = response.screen_name;
       if (user.changed()) {
         user.save().error(function(err) {
           logger.error(err);
