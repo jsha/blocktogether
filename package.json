@@ -6,20 +6,20 @@
   "license": "GPL-3.0",
   "version": "1.7.2",
   "dependencies": {
-    "body-parser": "~1.6.2",
-    "cookie-session": "~1.0.2",
-    "express": "~4.8.2",
-    "log4js": "~0.6.21",
+    "body-parser": "^1.6.7",
+    "cookie-session": "^1.0.2",
+    "express": "^4.8.8",
+    "log4js": "^0.6.29",
     "mu2": "jsha/Mu",
-    "mysql": "~2.4.2",
+    "mysql": "^2.4.3",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
     "nodemon": "~1.2.1",
-    "passport": "~0.2.0",
-    "passport-twitter": "~1.0.2",
-    "q": "~1.0.1",
+    "passport": "^0.3.2",
+    "passport-twitter": "^1.0.3",
+    "q": "^1.0.1",
     "scmp": "0.0.3",
-    "sequelize": "^3.3.1",
-    "sequelize-cli": "^1.7.1",
-    "timeago": "~0.1.0"
+    "sequelize": "^3.14.2",
+    "sequelize-cli": "^1.9.2",
+    "timeago": "^0.1.0"
   }
 }
