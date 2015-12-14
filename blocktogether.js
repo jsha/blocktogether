@@ -718,9 +718,12 @@ app.post('/unsubscribe.json',
     Subscription.destroy({
       where: params
     }).then(function() {
+      return actions.cancelUnsubscribed(params.subscriber_uid, params.author_uid);
+    }).then(function() {
       res.end(JSON.stringify({}));
     }).catch(function(err) {
-      next(new Error('Sequelize error.'));
+      logger.error(err);
+      next(new Error('Unsubscribe failed.'));
     });
   });
 

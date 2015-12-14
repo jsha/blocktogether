@@ -219,6 +219,9 @@ _.extend(Action, {
   // When a user with pending actions is deactivated/suspended/revokes,
   // cancel those pending actions.
   CANCELLED_SOURCE_DEACTIVATED: 'cancelled-source-deactivated',
+  // When a user unsubscribes from a block list, any pending actions are
+  // cancelled.
+  CANCELLED_UNSUBSCRIBED: 'cancelled-unsubscribed',
 
   // Constants for the valid values of 'type'.
   BLOCK: 'block',

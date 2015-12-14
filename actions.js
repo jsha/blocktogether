@@ -199,6 +199,25 @@ function cancelSourceDeactivated(user) {
   })
 }
 
+/**
+ * Cancel any pending actions caused by subscriber's subscription to author's
+ * block list.
+ * @param {string} subscriber_uid
+ * @param {string} author_uid
+ */
+function cancelUnsubscribed(subscriber_uid, author_uid) {
+  return Action.update({
+    status: Action.CANCELLED_UNSUBSCRIBED
+  }, {
+    where: {
+      source_uid: subscriber_uid,
+      cause_uid: author_uid,
+      cause: Action.SUBSCRIPTION,
+      status: Action.PENDING
+    }
+  })
+}
+
 function doBlock(sourceBtUser, sinkUid) {
   return Q.ninvoke(twitter, 'blocks', 'create', {
       user_id: sinkUid,
@@ -478,6 +497,7 @@ function setActionStatus(action, newState) {
 }
 
 module.exports = {
+  cancelUnsubscribed: cancelUnsubscribed,
   queueActions: queueActions,
   processActionsForUser: processActionsForUser
 };
