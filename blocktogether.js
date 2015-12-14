@@ -1,7 +1,6 @@
 'use strict';
 (function() {
-var memwatch = require('memwatch-next'),
-    cluster = require('cluster'),
+var cluster = require('cluster'),
     express = require('express'), // Web framework
     url = require('url'),
     bodyParser = require('body-parser'),
