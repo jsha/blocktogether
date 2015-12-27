@@ -5,7 +5,7 @@
 # Safe to run multiple times.
 #
 DB_ROOT_PASS=${DB_ROOT_PASS:-$(openssl rand -hex 20)}
-if [ ! -f /usr/sbin/mysqld ] ; then
+if [ ! -f /root/my.cnf ] ; then
   echo "*********************** IMPORTANT ***********************"
   echo "*********************** IMPORTANT ***********************"
   echo "This will be your MySQL server root password, write it down:"
@@ -14,9 +14,16 @@ if [ ! -f /usr/sbin/mysqld ] ; then
   echo
   echo "*********************** IMPORTANT ***********************"
   echo "*********************** IMPORTANT ***********************"
-  sudo debconf-set-selections <<<"mysql-server mysql-server/root_password password $DB_ROOT_PASS"
-  sudo debconf-set-selections <<<"mysql-server mysql-server/root_password_again password $DB_ROOT_PASS"
+  sudo debconf-set-selections <<<"mariadb-server-5.5 mysql-server/root_password password $DB_ROOT_PASS"
+  sudo debconf-set-selections <<<"mariadb-server-5.5 mysql-server/root_password_again password $DB_ROOT_PASS"
+  sudo bash -c "echo -e \"[mysql]\npassword=$DB_ROOT_PASS\" > /root/.my.cnf"
 fi
+
+# Set postfix configs before installing mailutils so it doesn't fail in
+# non-interactive install.
+sudo debconf-set-selections <<<"postfix postfix/mailname string $HOSTNAME"
+sudo debconf-set-selections <<<"postfix postfix/main_mailer_type string 'Internet Site'"
+export DEBIAN_FRONTEND=noninteractive
 
 DB_PASS=$(openssl rand -hex 20)
 
@@ -28,7 +35,7 @@ deb-src https://deb.nodesource.com/node_0.12 trusty main
 EOAPT
 
 sudo apt-get update
-sudo apt-get install -y mysql-client mysql-server git nginx gnupg curl build-essential nodejs npm mailutils
+sudo apt-get install -y mariadb-client-5.5 mariadb-server-5.5 git nginx gnupg curl build-essential nodejs mailutils postfix
 sudo ln -sf nodejs /usr/bin/node
 
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
@@ -52,7 +59,7 @@ CONF=/etc/blocktogether
 if [ ! -f ${CONF}/rpc.key ] ; then
   openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 \
     -keyout ${CONF}/rpc.key -out ${CONF}/rpc.crt \
-    -subj /CN=blocktogether-rpc
+    -subj /CN=blocktogether-rpc 2>/dev/null
   chmod 0600 ${CONF}/rpc.key
 fi
 

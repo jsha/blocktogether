@@ -6,10 +6,8 @@
   },
   "callbackUrl": "https://blocktogether.org/auth/twitter/callback",
   "secureProxy": true,
-  "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
-  "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+  "userToFollow": "blocktogether",
   "cookieSecret": "__COOKIE_SECRET__",
-  "defaultAccessToken": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-  "defaultAccessTokenSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-  "userToFollow": "blocktogether"
+  "consumerKey": "XXXXXXXXXXXXXXXXXXXXXXXXX",
+  "consumerSecret": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
 }
