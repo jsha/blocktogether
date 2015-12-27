@@ -1,15 +1,16 @@
 #!/bin/bash
 cd $(dirname $0)
 run() {
-  js ${1}.js &
+  node ${1}.js &
 }
 
 trap 'pkill -P $$' EXIT
 
-run blocktogether
-run stream
-run actions
-run update-users
-run update-blocks
+run stream > /tmp/stream.log
+run actions > /tmp/actions.log
+run update-users > /tmp/update-users.log
+run update-blocks > /tmp/update-blocks.log
 
-while :; do sleep 10000 ; done
+node ./node_modules/nodemon/bin/nodemon.js -w . -e js,mustache,html,css blocktogether.js &
+
+wait
