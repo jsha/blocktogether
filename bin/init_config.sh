@@ -8,3 +8,4 @@
 sudo install -o "$USER" -d /etc/blocktogether
 sudo install -o "$USER" -d /data/blocktogether
 cp -a /vagrant/config/* /etc/blocktogether/
+cp ~/.btconfig.json /etc/blocktogether/config.json
