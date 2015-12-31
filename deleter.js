@@ -58,7 +58,7 @@ function deleteOneOldUser(user) {
 }
 
 if (require.main === module) {
-  findAndDeleteOneOldUser();
+  setInterval(findAndDeleteOneOldUser, 10000);
 }
 
 })();
