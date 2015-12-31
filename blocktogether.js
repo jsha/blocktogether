@@ -1,7 +1,6 @@
 'use strict';
 (function() {
-var cluster = require('cluster'),
-    express = require('express'), // Web framework
+var express = require('express'), // Web framework
     url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -1062,17 +1061,7 @@ function showActions(req, res, next) {
   }).catch(next);
 }
 
-if (cluster.isMaster) {
-  logger.info('Starting workers.');
-  for (var i = 0; i < 2; i++) {
-    cluster.fork();
-  }
-
-  cluster.on('exit', function(worker, code, signal) {
-    logger.error('worker', worker.process.pid, 'died, resurrecting.');
-    cluster.fork();
-  });
-} else {
+function main() {
   var server = app.listen(config.port);
 
   process.on('SIGTERM', function () {
@@ -1083,8 +1072,9 @@ if (cluster.isMaster) {
       process.exit(0);
     });
   });
-  logger.info('Worker', cluster.worker.id, 'up.');
+  logger.info('Listening on', config.port);
 }
 
+main();
 
 })();
