@@ -32,12 +32,7 @@ Next, make sure that you have [Vagrant](https://www.vagrantup.com/) installed.
 From the blocktogether directory, run:
 
     vagrant up
-
-You're now ready to run Block Together locally. :D SSH into the Vagrant box and
-start the daemons:
-
-    vagrant ssh
-    cd /vagrant && ./run-dev.sh
+    vagrant ssh -c /vagrant/run-dev.sh
 
 You can now access your local version of Block Together in a browser
 at http://localhost:3000.
