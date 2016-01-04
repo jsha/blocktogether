@@ -6,5 +6,5 @@
 # ******* WARNING *******
 #
 sudo install -o "$USER" -d /etc/blocktogether
+sudo install -o "$USER" -d /data/blocktogether
 cp -a /vagrant/config/* /etc/blocktogether/
-mv /etc/blocktogether/development.json /etc/blocktogether/config.json

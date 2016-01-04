@@ -37,9 +37,7 @@ end
 after "deploy:create_symlink" do
   run "cd #{current_path}; npm install -q"
   # Note: Have to cp instead of symlink since these must be root-owned.
-  run "sudo cp #{current_path}/config/production/upstart/blocktogether-instance.conf /etc/init/"
-  run "sudo cp #{current_path}/config/nginx/sites-available/* /etc/nginx/sites-available"
-  run "sudo ln -sf /etc/nginx/sites-available/* /etc/nginx/sites-enabled/"
+  run "sudo rsync -lr #{current_path}/config/etc/ /etc/"
 end
 
 namespace :deploy do

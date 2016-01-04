@@ -1,15 +1,12 @@
 # #!/bin/bash
-
-# Bootstraps the Block Together dev environment from a fresh Vagrant box.
-# Note that this will override any pre-existing config state (Twitter credentials, etc.)
-# and is NOT idempotent. (Check out setup.sh for that.)
-#
+# Bootstraps the Block Together dev environment on a fresh Vagrant box.
 source /vagrant/bin/init_config.sh
-source /vagrant/bin/setup.sh
+sudo /vagrant/bin/setup.sh
 
 sudo chown -R "$USER" /data/blocktogether
 
-cd /vagrant && npm install
+cd /vagrant
+npm install
 ./node_modules/.bin/sequelize --config /etc/blocktogether/sequelize.json db:migrate
 
 echo
