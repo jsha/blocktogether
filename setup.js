@@ -182,14 +182,20 @@ var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING,
   type: Sequelize.STRING, // block or unblock
-  status: { type: Sequelize.STRING, defaultValue: 'pending' },
+  status: { type: 'TINYINT', defaultValue: 1, field: 'statusNum' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
   // or 'new-account'. When the cause is another Block Together user,
   // e.g. in the bulk-manual-block case, the uid of that user is recorded in
   // cause_uid. When cause is 'new-account' or 'low-followers'
   // the cause_uid is empty.
-  cause: Sequelize.STRING,
+  cause: { type: 'TINYINT', defaultValue: 1, field: 'causeNum' },
   cause_uid: Sequelize.STRING
+}, {
+  instanceMethods: {
+    status_str: function() {
+      return Action.statusNames[this.status];
+    }
+  }
 });
 // From a BtUser we want to get a list of Actions.
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
@@ -198,6 +204,7 @@ Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 // And also the screen name of the user who caused the action if it was from a
 // subscription.
 Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
+/*
 
 _.extend(Action, {
   // Constants for the valid values of `status'.
@@ -228,13 +235,66 @@ _.extend(Action, {
   UNBLOCK: 'unblock',
 
   // Constants for the valid values of 'cause'
-  BULK_MANUAL_BLOCK: 'bulk-manual-block', // 'Block all' from a shared list.
+  EXTERNAL: 'external', // Done byTwitter web or other app, and observed by BT.
   NEW_ACCOUNT: 'new-account', // "Block new accounts"
   LOW_FOLLOWERS: 'low-followers', // "Block accounts with < 15 followers."
   SUBSCRIPTION: 'subscription', // Blocked because of a subscription.
-
-  EXTERNAL: 'external' // Done byTwitter web or other app, and observed by BT.
+  BULK_MANUAL_BLOCK: 'bulk-manual-block' // 'Block all' from a shared list.
 });
+*/
+
+Action.statusConstants = [
+  "PENDING",
+  "DONE",
+  "CANCELLED_FOLLOWING",
+  "CANCELLED_SUSPENDED",
+  "CANCELLED_DUPLICATE",
+  "CANCELLED_UNBLOCKED",
+  "CANCELLED_SELF",
+  "DEFERRED_TARGET_SUSPENDED",
+  "CANCELLED_SOURCE_DEACTIVATED",
+  "CANCELLED_UNSUBSCRIBED"
+];
+
+Action.statusNames = [];
+for (var i = 1; i < Action.statusConstants.length; i++) {
+  var name = Action.statusConstants[i-1];
+  logger.info("Assigning", name, i);
+  Action[name] = i;
+  Action.statusNames[i] = name;
+}
+
+Action.causeConstants = [
+  "EXTERNAL",
+  "SUBSCRIPTION",
+  "NEW_ACCOUNT",
+  "LOW_FOLLOWERS",
+  "BULK_MANUAL_BLOCK"
+];
+Action.causeNames = [];
+for (var i = 1; i < Action.causeConstants.length; i++) {
+  var name = Action.causeConstants[i-1];
+  Action[name] = i;
+  Action.causeNames[i] = name;
+}
+Action.cause_str = function() {
+  return Action.causeNames[this.cause];
+}
+
+Action.typeConstants = [
+  "BLOCK",
+  "UNBLOCK",
+  "MUTE",
+];
+Action.typeNames = [];
+for (var i = 1; i < Action.typeConstants.length; i++) {
+  var name = Action.typeConstants[i-1];
+  Action[name] = i;
+  Action.typeNames[i] = name;
+}
+Action.type_str = function() {
+  return Action.typeNames[this.type];
+}
 
 // User to follow from settings page. In prod this is @blocktogether.
 // Initially blank, and loaded asynchronously. It's unlikely the

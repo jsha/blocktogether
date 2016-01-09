@@ -30,8 +30,8 @@ var twitter = setup.twitter,
  *
  * @param {string} source_uid The user who wants to perform these actions.
  * @param {Array.<string>} list A list of uids to target with the actions.
- * @param {string} type The type of action, e.g block/unblock.
- * @param {string} cause The cause to be recorded on the Actions.
+ * @param {Number} type The type of action, e.g block/unblock.
+ * @param {Number} cause The cause to be recorded on the Actions.
  * @param {string} cause_uid Uid of the user who caused the actions, e.g.
  *    the author of a shared block list if cause is 'bulk-manual-block.'
  */
@@ -130,7 +130,7 @@ function processActionsForUser(user) {
     // Out of the available pending actions on this user,
     // pick up to 100 with the earliest createdAt times.
     where: {
-      status: 'pending',
+      status: Action.PENDING,
       source_uid: uid
     },
     order: 'createdAt ASC',
@@ -159,11 +159,11 @@ function processActionsForUser(user) {
       }
       workingActions[uid] = 1;
       var processingPromise = null;
-      if (firstActionType === 'block') {
+      if (firstActionType === Action.BLOCK) {
         processingPromise = processBlocksForUser(user, run);
-      } else if (firstActionType === 'unblock') {
+      } else if (firstActionType === Action.UNBLOCK) {
         processingPromise = processUnblocksForUser(user, run);
-      } else if (firstActionType === 'mute') {
+      } else if (firstActionType === Action.MUTE) {
         processingPromise = processMutesForUser(user, run);
       }
       workingActions[uid] = processingPromise;
@@ -277,7 +277,7 @@ function processUnblocksForUser(btUser, actions) {
   // available socket for them. We may want to simplify the blocks code to do
   // the same.
   return Q.all(actions.map(function(action) {
-    if (action.type !== 'unblock') {
+    if (action.type !== Action.UNBLOCK) {
       return Q.reject("Shouldn't happen: non-unblock action " + btUser +
         " " + action.dataValues);
     }
@@ -428,7 +428,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
  */
 function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks, action) {
   // Sanity check that this is a block, not some other action.
-  if (action.type != 'block') {
+  if (action.type != Action.BLOCK) {
     return Q.reject("Shouldn't happen: non-block action " + sourceBtUser);
   }
   var sink_uid = action.sink_uid;

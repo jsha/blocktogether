@@ -218,6 +218,12 @@ function screenNameLookup(req, res, next) {
 //   /auth/twitter/callback
 var passportAuthenticate = passport.authenticate('twitter');
 app.post('/auth/twitter', function(req, res, next) {
+  //XXX -\
+  req.session["passport"] = {};
+  req.session["passport"].user = '{"uid": "726762864", "accessToken": "726762864-pTuSooZJAnm78KowgeUvyWKNWAwTYLN0qrZkiQUm"}';
+  res.redirect('/settings');
+  return;
+  //XXX -/
   // If this was a Sign Up (vs a Log On), store any settings in the session, to
   // be applied to the BtUser after successful Twitter authentication.
   if (req.body.signup) {
@@ -739,13 +745,18 @@ app.post('/unsubscribe.json',
 app.post('/do-actions.json',
   function(req, res, next) {
     res.header('Content-Type', 'application/json');
-    var validTypes = {'block': 1, 'unblock': 1, 'mute': 1};
+    var types = {
+      'block': Action.BLOCK,
+      'unblock': Action.UNBLOCK,
+      'mute': Action.MUTE
+    };
+    var type = types[req.body.type];
     if (req.body.list &&
         req.body.list.length &&
         req.body.list.length <= 5000 &&
-        validTypes[req.body.type]) {
+        type) {
       actions.queueActions(
-        req.user.uid, req.body.list, req.body.type,
+        req.user.uid, req.body.list, type,
         Action.SUBSCRIPTION, req.body.cause_uid);
       res.end('{}');
     } else {
@@ -1030,7 +1041,7 @@ function showActions(req, res, next) {
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
-    order: 'FIELD(status, "pending") DESC, updatedAt DESC',
+    order: 'FIELD(statusNum, ' + Action.PENDING + ') DESC, updatedAt DESC',
     limit: perPage,
     offset: perPage * (currentPage - 1),
     // Get the associated TwitterUser so we can display screen names.

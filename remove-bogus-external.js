@@ -28,7 +28,7 @@ BtUser
         var hash = {};
         actions.forEach(function(action) {
           // We don't care about anything except blocks and unblocks.
-          if (action.type !== 'block' && action.type !== 'unblock') {
+          if (action.type !== Action.BLOCK && action.type !== Action.UNBLOCK) {
             return;
           }
           // If we find an external action where there was a previous action for
@@ -37,7 +37,7 @@ BtUser
           // (https://github.com/jsha/blocktogether/issues/178) as well as
           // duplicate block actions triggered by users deactivating and
           // reactivating.
-          if (action.cause === 'external' &&
+          if (action.cause === Action.EXTERNAL &&
               hash[action.sink_uid] &&
               hash[action.sink_uid].type === action.type) {
             process.stdout.write('destroying ' + action.id + ' bc ' + hash[action.sink_uid].id + '\n');
