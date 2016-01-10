@@ -51,8 +51,8 @@ EOSQL
   APP_MY_CONF=/home/${APPUSER}/.my.cnf
   cat > ${APP_MY_CONF} <<EOCONF
 [mysql]
-password=$DB_ROOT_PASS
-APPUSER=blocktogether
+password=$DB_PASS
+user=blocktogether
 database=blocktogether
 EOCONF
   chmod 0600 ${APP_MY_CONF}
