@@ -218,12 +218,6 @@ function screenNameLookup(req, res, next) {
 //   /auth/twitter/callback
 var passportAuthenticate = passport.authenticate('twitter');
 app.post('/auth/twitter', function(req, res, next) {
-  //XXX -\
-  req.session["passport"] = {};
-  req.session["passport"].user = '{"uid": "726762864", "accessToken": "726762864-pTuSooZJAnm78KowgeUvyWKNWAwTYLN0qrZkiQUm"}';
-  res.redirect('/settings');
-  return;
-  //XXX -/
   // If this was a Sign Up (vs a Log On), store any settings in the session, to
   // be applied to the BtUser after successful Twitter authentication.
   if (req.body.signup) {
