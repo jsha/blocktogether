@@ -7,8 +7,8 @@ module.exports = {
       '`id` int(11) NOT NULL AUTO_INCREMENT,' +
       '`source_uid` BIGINT UNSIGNED NOT NULL,' +
       '`sink_uid` BIGINT UNSIGNED NOT NULL,' +
-      '`type` TINYINT(1),' +
-      '`status` TINYINT(1),' +
+      '`type` TINYINT(1) NOT NULL,' +
+      '`status` TINYINT(1) NOT NULL,' +
       '`createdAt` datetime NOT NULL,' +
       '`updatedAt` datetime NOT NULL,' +
       '`cause` TINYINT(1) NOT NULL,' +
