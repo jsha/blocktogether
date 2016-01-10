@@ -178,18 +178,18 @@ BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
  * 'done' once completed. External actions are marked with cause = 'external',
  * and are inserted with status = 'done' as soon as we observe them.
  */
-var Action = sequelize.define('Action', {
-  source_uid: Sequelize.STRING,
-  sink_uid: Sequelize.STRING,
-  type: { type: 'TINYINT', field: 'typeNum' }, // Block, unblock, or mute
-  status: { type: 'TINYINT', defaultValue: 1, field: 'statusNum' },
+var Action = sequelize.define('Action2', {
+  source_uid: Sequelize.BIGINT,
+  sink_uid: Sequelize.BIGINT,
+  type: { type: 'TINYINT' }, // Block, unblock, or mute
+  status: { type: 'TINYINT' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
   // or 'new-account'. When the cause is another Block Together user,
   // e.g. in the bulk-manual-block case, the uid of that user is recorded in
   // cause_uid. When cause is 'new-account' or 'low-followers'
   // the cause_uid is empty.
-  cause: { type: 'TINYINT', defaultValue: 1, field: 'causeNum' },
-  cause_uid: Sequelize.STRING
+  cause: { type: 'TINYINT' },
+  cause_uid: Sequelize.BIGINT
 }, {
   instanceMethods: {
     status_str: function() {

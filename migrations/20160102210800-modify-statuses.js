@@ -3,7 +3,7 @@
 module.exports = {
   up: function (queryInterface, Sequelize) {
     var create =
-      'CREATE TABLE `Actions2` (' +
+      'CREATE TABLE `Action2s` (' +
       '`id` int(11) NOT NULL AUTO_INCREMENT,' +
       '`source_uid` BIGINT UNSIGNED NOT NULL,' +
       '`sink_uid` BIGINT UNSIGNED NOT NULL,' +
@@ -19,7 +19,7 @@ module.exports = {
       ') ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;';
 
     var insert =
-      'INSERT INTO Actions2 SELECT ' +
+      'INSERT INTO Action2s SELECT ' +
       'id, source_uid, sink_uid, ' +
       'FIELD(type, "block", "unblock", "mute"), ' +
       'FIELD(status, "pending", "done", "cancelled-following", "cancelled-suspended", "cancelled-duplicate", "cancelled-unblocked", "cancelled-self", "deferred-target-suspended", "cancelled-source-deactivated", "cancelled-unsubscribed"), ' +
