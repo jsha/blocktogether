@@ -1063,7 +1063,10 @@ function showActions(req, res, next) {
     paginationData.item_rows = paginationData.item_rows.map(function(action) {
       return _.extend(action, {
         prettyCreated: timeago(new Date(action.createdAt)),
-        prettyUpdated: timeago(new Date(action.updatedAt))
+        prettyUpdated: timeago(new Date(action.updatedAt)),
+        status_str: action.status_str(),
+        cause_str: action.cause_str(),
+        type_str: action.type_str()
       });
     });
     var templateData = {

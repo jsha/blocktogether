@@ -181,7 +181,7 @@ BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
 var Action = sequelize.define('Action', {
   source_uid: Sequelize.STRING,
   sink_uid: Sequelize.STRING,
-  type: Sequelize.STRING, // block or unblock
+  type: { type: 'TINYINT', field: 'typeNum' }, // Block, unblock, or mute
   status: { type: 'TINYINT', defaultValue: 1, field: 'statusNum' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
   // or 'new-account'. When the cause is another Block Together user,
@@ -194,6 +194,12 @@ var Action = sequelize.define('Action', {
   instanceMethods: {
     status_str: function() {
       return Action.statusNames[this.status];
+    },
+    cause_str: function() {
+      return Action.causeNames[this.cause];
+    },
+    type_str: function() {
+      return Action.typeNames[this.type];
     }
   }
 });
@@ -204,46 +210,9 @@ Action.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 // And also the screen name of the user who caused the action if it was from a
 // subscription.
 Action.belongsTo(BtUser, {foreignKey: 'cause_uid', as: 'CauseUser'});
-/*
-
-_.extend(Action, {
-  // Constants for the valid values of `status'.
-  PENDING: 'pending',
-  DONE: 'done',
-  CANCELLED_FOLLOWING: 'cancelled-following',
-  CANCELLED_SUSPENDED: 'cancelled-suspended',
-  // If the action did not need to be performed because the source was already
-  // blocking the sink.
-  CANCELLED_DUPLICATE: 'cancelled-duplicate',
-  // If a user has previously unblocked the target, the target should be immune
-  // from future automated blocks.
-  CANCELLED_UNBLOCKED: 'cancelled-unblocked',
-  // You cannot block yourself.
-  CANCELLED_SELF: 'cancelled-self',
-  // When we find a suspended user, we put it in a deferred state to be tried
-  // later.
-  DEFERRED_TARGET_SUSPENDED: 'deferred-target-suspended',
-  // When a user with pending actions is deactivated/suspended/revokes,
-  // cancel those pending actions.
-  CANCELLED_SOURCE_DEACTIVATED: 'cancelled-source-deactivated',
-  // When a user unsubscribes from a block list, any pending actions are
-  // cancelled.
-  CANCELLED_UNSUBSCRIBED: 'cancelled-unsubscribed',
-
-  // Constants for the valid values of 'type'.
-  BLOCK: 'block',
-  UNBLOCK: 'unblock',
-
-  // Constants for the valid values of 'cause'
-  EXTERNAL: 'external', // Done byTwitter web or other app, and observed by BT.
-  NEW_ACCOUNT: 'new-account', // "Block new accounts"
-  LOW_FOLLOWERS: 'low-followers', // "Block accounts with < 15 followers."
-  SUBSCRIPTION: 'subscription', // Blocked because of a subscription.
-  BULK_MANUAL_BLOCK: 'bulk-manual-block' // 'Block all' from a shared list.
-});
-*/
 
 Action.statusConstants = [
+  undefined,
   "PENDING",
   "DONE",
   "CANCELLED_FOLLOWING",
@@ -257,14 +226,15 @@ Action.statusConstants = [
 ];
 
 Action.statusNames = [];
-for (var i = 1; i < Action.statusConstants.length; i++) {
-  var name = Action.statusConstants[i-1];
-  logger.info("Assigning", name, i);
+for (var i = 0; i < Action.statusConstants.length; i++) {
+  if (i == 0) continue;
+  var name = Action.statusConstants[i];
   Action[name] = i;
-  Action.statusNames[i] = name;
+  Action.statusNames[i] = name.toLowerCase().replace(/_/g, "-");
 }
 
 Action.causeConstants = [
+  undefined,
   "EXTERNAL",
   "SUBSCRIPTION",
   "NEW_ACCOUNT",
@@ -272,25 +242,28 @@ Action.causeConstants = [
   "BULK_MANUAL_BLOCK"
 ];
 Action.causeNames = [];
-for (var i = 1; i < Action.causeConstants.length; i++) {
-  var name = Action.causeConstants[i-1];
+for (var i = 0; i < Action.causeConstants.length; i++) {
+  if (i == 0) continue;
+  var name = Action.causeConstants[i];
   Action[name] = i;
-  Action.causeNames[i] = name;
+  Action.causeNames[i] = name.toLowerCase().replace(/_/g, "-");
 }
 Action.cause_str = function() {
   return Action.causeNames[this.cause];
 }
 
 Action.typeConstants = [
+  undefined,
   "BLOCK",
   "UNBLOCK",
   "MUTE",
 ];
 Action.typeNames = [];
-for (var i = 1; i < Action.typeConstants.length; i++) {
-  var name = Action.typeConstants[i-1];
+for (var i = 0; i < Action.typeConstants.length; i++) {
+  if (i == 0) continue;
+  var name = Action.typeConstants[i];
   Action[name] = i;
-  Action.typeNames[i] = name;
+  Action.typeNames[i] = name.toLowerCase().replace(/_/g, "-");
 }
 Action.type_str = function() {
   return Action.typeNames[this.type];
