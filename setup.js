@@ -55,7 +55,7 @@ sequelize
 
 // Use snake_case for model accessors because that's SQL style.
 var TwitterUser = sequelize.define('TwitterUser', {
-  uid: { type: Sequelize.STRING, primaryKey: true },
+  uid: { type: Sequelize.BIGINT.UNSIGNED, primaryKey: true },
   friends_count: Sequelize.INTEGER,
   followers_count: Sequelize.INTEGER,
   profile_image_url_https: Sequelize.STRING,
@@ -75,7 +75,7 @@ var TwitterUser = sequelize.define('TwitterUser', {
  * specific to Block Together, as opposed to their Twitter user profile.
  */
 var BtUser = sequelize.define('BtUser', {
-  uid: { type: Sequelize.STRING, primaryKey: true },
+  uid: { type: Sequelize.BIGINT.UNSIGNED, primaryKey: true },
   // Technically we should get the screen name from the linked TwitterUser, but
   // it's much more convenient to have it right on the BtUser object.
   screen_name: Sequelize.STRING,
@@ -127,8 +127,8 @@ var BtUser = sequelize.define('BtUser', {
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
 
 var Subscription = sequelize.define('Subscription', {
-  author_uid: Sequelize.STRING,
-  subscriber_uid: Sequelize.STRING
+  author_uid: Sequelize.BIGINT.UNSIGNED,
+  subscriber_uid: Sequelize.BIGINT.UNSIGNED
 });
 BtUser.hasMany(Subscription, {foreignKey: 'author_uid', as: 'Subscribers'});
 BtUser.hasMany(Subscription, {foreignKey: 'subscriber_uid', as: 'Subscriptions'});
@@ -149,8 +149,7 @@ SharedBlock.belongsTo(BtUser, {foreignKey: 'author_uid'});
 SharedBlock.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 
 var Block = sequelize.define('Block', {
-  sink_uid: Sequelize.STRING,
-  type: Sequelize.STRING
+  sink_uid: Sequelize.STRING
 }, {
   timestamps: false
 });
@@ -160,7 +159,7 @@ Block.removeAttribute('id');
  * Represents a batch of blocks fetched from Twitter, using cursoring.
  */
 var BlockBatch = sequelize.define('BlockBatch', {
-  source_uid: Sequelize.STRING,
+  source_uid: Sequelize.BIGINT.UNSIGNED,
   currentCursor: Sequelize.STRING,
   complete: Sequelize.BOOLEAN,
   size: Sequelize.INTEGER
@@ -178,9 +177,9 @@ BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
  * 'done' once completed. External actions are marked with cause = 'external',
  * and are inserted with status = 'done' as soon as we observe them.
  */
-var Action = sequelize.define('Action2', {
-  source_uid: Sequelize.BIGINT,
-  sink_uid: Sequelize.BIGINT,
+var Action = sequelize.define('Action', {
+  source_uid: Sequelize.BIGINT.UNSIGNED,
+  sink_uid: Sequelize.BIGINT.UNSIGNED,
   type: { type: 'TINYINT' }, // Block, unblock, or mute
   status: { type: 'TINYINT' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',

@@ -12,7 +12,7 @@ module.exports = {
       '`createdAt` datetime NOT NULL,' +
       '`updatedAt` datetime NOT NULL,' +
       '`cause` TINYINT(1) NOT NULL,' +
-      '`cause_uid` BIGINT UNSIGNED NOT NULL,' +
+      '`cause_uid` BIGINT UNSIGNED,' +
       'PRIMARY KEY (`id`),' +
       'KEY `actions_source_uid_sink_uid` (`source_uid`,`sink_uid`),' +
       'KEY `actions_source_uid_status_created_at` (`source_uid`,`status`,`createdAt`)' +
