@@ -13,7 +13,6 @@
     "mu2": "jsha/Mu",
     "mysql": "^2.4.3",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
-    "nodemon": "~1.2.1",
     "passport": "^0.3.2",
     "passport-twitter": "^1.0.3",
     "q": "^1.0.1",

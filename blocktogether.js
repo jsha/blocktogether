@@ -159,6 +159,13 @@ app.get('/*', function(req, res, next) {
   res.header('Content-Security-Policy', "default-src 'self';");
   next();
 });
+// Reload templates automatically in dev mode.
+app.get('/*', function(req, res, next) {
+  if (process.env.NODE_ENV == 'development') {
+    mu.clearCache();
+  }
+  next();
+});
 // All requests get passed to the requireAuthentication function; Some are
 // exempted from authentication checks there.
 app.all('/*', requireAuthentication);

@@ -11,7 +11,6 @@ run actions > /tmp/actions.log
 run update-users > /tmp/update-users.log
 run update-blocks > /tmp/update-blocks.log
 run deleter > /tmp/update-blocks.log
-
-node ./node_modules/nodemon/bin/nodemon.js -w . -e js,mustache,html,css blocktogether.js &
+run blocktogether
 
 wait
