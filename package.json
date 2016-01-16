@@ -17,7 +17,7 @@
     "passport-twitter": "^1.0.3",
     "q": "^1.0.1",
     "scmp": "0.0.3",
-    "sequelize": "^3.14.2",
+    "sequelize": "^3.17.3",
     "sequelize-cli": "^1.9.2",
     "timeago": "^0.1.0"
   }
