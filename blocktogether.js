@@ -88,10 +88,12 @@ function makeApp() {
         logger.error('Incorrect access token in session for', sessionUser.uid);
         done(null, undefined);
       }
+      return null;
     }).catch(function(err) {
       logger.error(err);
       // User not found in DB. Leave the user object undefined.
       done(null, undefined);
+      return null;
     });
   });
   return app;
