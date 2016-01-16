@@ -67,7 +67,7 @@ function makeApp() {
   // below.
   passport.deserializeUser(function(serialized, done) {
     var sessionUser = JSON.parse(serialized);
-    BtUser.find({
+    return BtUser.find({
       where: {
         uid: sessionUser.uid,
         deactivatedAt: null
@@ -117,36 +117,49 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
   var screen_name = profile.username;
 
   BtUser
-    .findOrCreate({
+    .find({
       where: {
         uid: uid
-      },
-      defaults: {
-        uid: uid
       }
-    }).spread(function(btUser, created) {
-      // The user's access token may have changed since last login, or they may
-      // have been previously deactivated. Overwrite appropriate values with
-      // their latest version.
-      _.assign(btUser, {
-        screen_name: screen_name,
-        access_token: accessToken,
-        access_token_secret: accessTokenSecret,
-        deactivatedAt: null
-      });
-      return btUser.save();
+    }).then(function(btUser) {
+      if (!btUser) {
+        return BtUser.create({
+          uid: uid,
+          screen_name: screen_name,
+          access_token: accessToken,
+          access_token_secret: accessTokenSecret,
+          shared_blocks_key: null,
+          block_new_accounts: false,
+          block_low_followers: false,
+          follow_blocktogether: false,
+          pendingActions: 0,
+          paused: false,
+          blockCount: null,
+          deactivatedAt: null
+        });
+      } else {
+        // The user's access token may have changed since last login, or they may
+        // have been previously deactivated. Overwrite appropriate values with
+        // their latest version.
+        _.assign(btUser, {
+          screen_name: screen_name,
+          access_token: accessToken,
+          access_token_secret: accessTokenSecret,
+          deactivatedAt: null
+        });
+        return btUser.save();
+      }
     }).then(function(btUser) {
       // Make sure we have a TwitterUser for each BtUser. We rely on some of
       // the extended information in that structure being present.
-      updateUsers.storeUser(profile._json);
-      return btUser;
-    }).then(function(btUser) {
+      return [btUser, updateUsers.storeUser(profile._json)];
+    }).spread(function(btUser, twitterUser) {
       remoteUpdateBlocks(btUser).catch(function(err) {
-        logger.error(err);
+        logger.error('Updating blocks:', err);
       });
       done(null, btUser);
     }).catch(function(err) {
-      logger.error(err);
+      logger.error('Logging in:', err);
       done(null, undefined);
     });
 }
@@ -462,7 +475,7 @@ function updateSettings(user, settings, callback) {
 
 app.get('/actions',
   function(req, res, next) {
-    showActions(req, res, next);
+    return showActions(req, res, next);
   });
 
 app.get('/my-blocks',
@@ -501,7 +514,7 @@ app.get('/subscriptions',
         as: 'Subscriber'
       }]
     });
-    Q.spread([subscriptionsPromise, subscribersPromise],
+    return Q.spread([subscriptionsPromise, subscribersPromise],
       function(subscriptions, subscribers) {
         var templateData = {
           logged_in_screen_name: req.user.screen_name,
@@ -1048,7 +1061,7 @@ function showActions(req, res, next) {
       required: false
     }]
   });
-  Q.spread([countPromise, actionsPromise], function(count, actions) {
+  return Q.spread([countPromise, actionsPromise], function(count, actions) {
     var paginationData = getPaginationData({
       count: count,
       rows: actions

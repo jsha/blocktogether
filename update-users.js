@@ -173,15 +173,16 @@ function updateUsersChunk(uids, usersMap) {
     // return that user object in the response. Delete those users so they don't
     // clog future lookup attempts.
     var indexedResponses = _.indexBy(response, 'id_str');
-    uids.forEach(function(uid) {
+    return uids.forEach(function(uid) {
       if (indexedResponses[uid]) {
         storeUser(indexedResponses[uid], usersMap[uid]);
       } else {
         logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
         deactivateTwitterUser(uid);
       }
+    }).then(function() {
+      return indexedResponses;
     });
-    return indexedResponses;
   }).catch(function(err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited /users/lookup.');

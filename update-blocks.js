@@ -135,7 +135,8 @@ function updateBlocks(user) {
       if (!blockBatch) {
         return BlockBatch.create({
           source_uid: user.uid,
-          size: 0
+          size: 0,
+          complete: false
         }).then(function(createdBlockBatch) {
           blockBatch = createdBlockBatch;
           return handleIds(blockBatch, currentCursor, results[0]);
@@ -415,7 +416,7 @@ function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
  * @param {String} userId The uid for the BtUser whose blocks we want to trim.
  */
 function destroyOldBlocks(userId) {
-  BlockBatch.findAll({
+  return BlockBatch.findAll({
     where: {
       source_uid: userId
     },
