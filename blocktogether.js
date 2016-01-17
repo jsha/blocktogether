@@ -308,7 +308,7 @@ app.get('/auth/twitter/callback', function(req, res, next) {
         // If this was a signup (vs a log on), set settings based on what the user
         // selected on the main page.
         if (req.session.signUpSettings) {
-          updateSettings(user, req.session.signUpSettings, function(user) {
+          updateSettings(user, req.session.signUpSettings).then(function(user) {
             delete req.session.signUpSettings;
             logInAndRedirect(req, res, next, user);
           });
@@ -316,6 +316,7 @@ app.get('/auth/twitter/callback', function(req, res, next) {
           // If this was a log on, don't set signUpSettings.
           logInAndRedirect(req, res, next, user);
         }
+        return null
       }
     });
   passportCallbackAuthenticate(req, res, next);
@@ -399,7 +400,7 @@ app.get('/settings',
 app.post('/settings.json',
   function(req, res) {
     var user = req.user;
-    updateSettings(user, req.body, function(user) {
+    return updateSettings(user, req.body).then(function(user) {
       res.header('Content-Type', 'application/json');
       res.end(JSON.stringify({
         share_blocks: !!user.shared_blocks_key,
@@ -418,7 +419,7 @@ app.post('/settings.json',
  * @param {Object} settings JSON object with fields block_new_accounts,
  *   share_blocks, block_low_followers and follow_blocktogether.
  *   Absent fields will be treated as false.
- * @param {Function} callback
+ * @return {Promise.<BtUser>} promise
  */
 function updateSettings(user, settings, callback) {
   // Setting: Block new accounts
@@ -467,12 +468,7 @@ function updateSettings(user, settings, callback) {
     friendship('create', userToFollow, user);
   }
 
-  user
-    .save()
-    .then(callback)
-    .catch(function(err) {
-      logger.error(err);
-    });
+  return user.save()
 }
 
 app.get('/actions',
