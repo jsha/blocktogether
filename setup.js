@@ -43,6 +43,12 @@ var sequelizeConfigData = fs.readFileSync(
 var c = JSON.parse(sequelizeConfigData)[nodeEnv];
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
+      dialectOptions: _.extend(c.dialectOptions, {
+        bigNumberStrings: true,
+        supportBigNumbers: true,
+        charset: "utf8mb4",
+        collate: "utf8mb4_unicode_ci"
+      }),
       logging: function(message) {
         logger.trace(message);
       }
@@ -149,7 +155,7 @@ SharedBlock.belongsTo(BtUser, {foreignKey: 'author_uid'});
 SharedBlock.belongsTo(TwitterUser, {foreignKey: 'sink_uid'});
 
 var Block = sequelize.define('Block', {
-  sink_uid: Sequelize.STRING
+  sink_uid: Sequelize.BIGINT.UNSIGNED
 }, {
   timestamps: false
 });

@@ -4,11 +4,7 @@
     "password": "__PASSWORD__",
     "database": "blocktogether",
     "host": "127.0.0.1",
-    "dialect": "mysql",
-    "dialectOptions": {
-      "charset": "utf8mb4",
-      "collate": "utf8mb4_unicode_ci"
-    }
+    "dialect": "mysql"
   },
   "production": {
     "username": "blocktogether",
@@ -16,10 +12,6 @@
     "database": "blocktogether",
     "host": "btdbi.blocktogether.org",
     "port": 15000,
-    "dialect": "mysql",
-    "dialectOptions": {
-      "charset": "utf8mb4",
-      "collate": "utf8mb4_unicode_ci"
-    }
+    "dialect": "mysql"
   }
 }
