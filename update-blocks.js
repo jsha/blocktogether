@@ -385,9 +385,6 @@ function diffBatchWithPrevious(currentBatch) {
  * @returns {Promise.<Array.<Action> >} An array of recorded unblock actions.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
-  // Use credentials from the source_uid to check for unblocks. We could use the
-  // defaultAccessToken, but there's a much higher chance of that token being
-  // rate limited for user lookups, which would cause us to miss unblocks.
   return BtUser.findById(source_uid)
     .then(function(user) {
       if (!user) {

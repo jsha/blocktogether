@@ -553,9 +553,9 @@ app.get('/show-blocks/:slug',
         // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
           if (req.query.screen_name) {
-            searchBlocks(req, res, next, user);
+            return searchBlocks(req, res, next, user);
           } else {
-            showBlocks(req, res, next, user, false /* ownBlocks */);
+            return showBlocks(req, res, next, user, false /* ownBlocks */);
           }
         } else {
           return Q.reject(new HttpError(404, 'No such block list.'));
@@ -672,12 +672,13 @@ app.post('/block-all.json',
               order: 'complete desc, currentCursor is null, updatedAt desc'
             }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
-                blockBatches[0].getBlocks()
+                return blockBatches[0].getBlocks()
                   .then(function(blocks) {
                     var sinkUids = _.pluck(blocks, 'sink_uid');
-                    actions.queueActions(
+                    return [sinkUids, actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
-                      Action.SUBSCRIPTION, author.uid);
+                      Action.SUBSCRIPTION, author.uid)];
+                  }).spread(function(sinkUids, actions) {
                     // On a successful subscribe-on-signup, delete the entries
                     // from the session.
                     if (req.body.subscribe_on_signup) {
@@ -686,11 +687,10 @@ app.post('/block-all.json',
                     res.end(JSON.stringify({
                       block_count: sinkUids.length
                     }));
-                  }).catch(function(err) {
-                    logger.error(err);
                   });
               } else {
                 next(new HttpError(400, 'Empty block list.'));
+                return null;
               }
             }).catch(function(err) {
               logger.error(err);
@@ -698,6 +698,7 @@ app.post('/block-all.json',
           } else {
             next(new HttpError(400, 'Invalid shared block list id.'));
           }
+          return null;
         }).catch(function(err) {
           logger.error(err);
         });
@@ -967,7 +968,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     currentPage = 1;
   }
 
-  getLatestBlockBatch(btUser).then(function(blockBatch) {
+  return getLatestBlockBatch(btUser).then(function(blockBatch) {
     if (!blockBatch) {
       res.end('No blocks fetched yet. Please try again soon.');
       return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
@@ -1013,6 +1014,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
     mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+    return null;
   }).catch(function(err) {
     logger.error(err);
   });

@@ -88,7 +88,7 @@ function verifyMany() {
  * @param {string} uid User to delete.
  */
 function deactivateTwitterUser(uid) {
-  TwitterUser.findById(uid)
+  return TwitterUser.findById(uid)
     .then(function(twitterUser) {
       if (twitterUser) {
         twitterUser.deactivatedAt = new Date();
@@ -98,6 +98,7 @@ function deactivateTwitterUser(uid) {
       }
     }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
+      return twitterUser;
     }).catch(function(err) {
       logger.error(err);
     });
@@ -173,20 +174,19 @@ function updateUsersChunk(uids, usersMap) {
     // return that user object in the response. Delete those users so they don't
     // clog future lookup attempts.
     var indexedResponses = _.indexBy(response, 'id_str');
-    return uids.forEach(function(uid) {
+    uids.map(function(uid) {
       if (indexedResponses[uid]) {
         storeUser(indexedResponses[uid], usersMap[uid]);
       } else {
         logger.info('TwitterUser', uid, 'suspended, deactivated, or deleted. Marking so.');
         deactivateTwitterUser(uid);
       }
-    }).then(function() {
-      return indexedResponses;
     });
+    return indexedResponses;
   }).catch(function(err) {
     if (err.statusCode === 429) {
       logger.info('Rate limited /users/lookup.');
-      return Q.reject();
+      return Q.reject('Rate limited');
     } else if (err.statusCode === 404) {
       // When none of the users in a lookup are available (i.e. they are all
       // suspended or deleted), Twitter returns 404. Deactivate all of them.
@@ -202,9 +202,8 @@ function updateUsersChunk(uids, usersMap) {
         verifyCredentials(credential);
       }
       logger.error('Error /users/lookup', err.statusCode, err.data, err);
-      return Q.reject();
+      return Q.reject('Error /users/lookup');
     }
-    return;
   });
 }
 
@@ -225,9 +224,10 @@ function storeUser(twitterUserResponse, userObj) {
     user.account_created_at = new Date(twitterUserResponse.created_at);
     user.deactivatedAt = null;
     if (user.changed()) {
-      user.save()
+      return user.save()
         .then(function(savedUser) {
           logger.debug('Saved user', savedUser.screen_name, savedUser.id_str);
+          return savedUser;
         }).catch(function(err) {
           if (err.code === 'ER_DUP_ENTRY') {
             // Sometimes these happen when a new user shows up in stream events in
@@ -236,16 +236,18 @@ function storeUser(twitterUserResponse, userObj) {
           } else {
             logger.error(err);
           }
+          return null;
         });
     } else {
       logger.debug('Skipping update for', user.screen_name, user.id_str);
+      return user;
     }
   }
 
   if (userObj) {
-    store(userObj);
+    return store(userObj);
   } else {
-    TwitterUser
+    return TwitterUser
       .findOrCreate({
         where: {
           uid: twitterUserResponse.id_str
