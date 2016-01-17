@@ -10,4 +10,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "file", source: "~/.btconfig.json", destination: "~/.btconfig.json"
   config.vm.provision :shell, privileged: false, path: "bin/vagrant_up.sh"
   config.vm.network :forwarded_port, host: 3000, guest: 3000
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 1024
+  end
 end
