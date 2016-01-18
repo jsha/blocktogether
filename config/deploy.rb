@@ -27,7 +27,7 @@ task :web do
 end
 
 task :db do
-  role :app, *%w[ btdb.blocktogether.org ]
+  role :app, *%w[ btdb2 ]
   set :process_names, %w[ stream actions update-users update-blocks deleter ]
   after "deploy:create_symlink" do
     run "cd #{current_path}; NODE_ENV=production node ./node_modules/.bin/sequelize --config #{sequelize_config} db:migrate"
@@ -58,17 +58,19 @@ before "deploy:setup" do
           /data/blocktogether
           /data/blocktogether/releases
           /data/mysql-backup
+          /tmp/config
         }
   dirs.each do |dir|
     sudo "mkdir -p #{dir} -m 0755"
     sudo "chown ubuntu.ubuntu #{dir}"
   end
   ETC_BLOCKTOGETHER="/etc/blocktogether"
-  upload "config/sequelize.json", "/tmp/sequelize.json", :mode => 0600
-  upload "config/production.json", "/tmp/config.json", :mode => 0600
-  run "cp -n /tmp/sequelize.json /tmp/config.json #{ETC_BLOCKTOGETHER}"
-  upload "setup.sh", "#{ETC_BLOCKTOGETHER}/setup.sh", :mode => 0700
-  run "#{ETC_BLOCKTOGETHER}/setup.sh"
+  upload "config/", "/tmp/config/", :recursive => true
+  run "cp -n /tmp/config/sequelize.json #{ETC_BLOCKTOGETHER}"
+  run "cp -n /tmp/config/production.json #{ETC_BLOCKTOGETHER}/config.json"
+  run "sudo rsync -lr /tmp/config/etc/ /etc/"
+  upload "bin/setup.sh", "#{ETC_BLOCKTOGETHER}/setup.sh", :mode => 0700
+  run "sudo bash -c 'APPUSER=ubuntu #{ETC_BLOCKTOGETHER}/setup.sh'"
 end
 
 after "deploy:setup" do

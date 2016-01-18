@@ -39,15 +39,13 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
   sed -i s/__PASSWORD__/$DB_PASS/g $SEQUELIZE_CONFIG
   mysql --defaults-file=$ROOT_MY_CONF <<EOSQL
     CREATE DATABASE IF NOT EXISTS blocktogether;
-    CREATE USER blocktogether IDENTIFIED BY "${DB_PASS}";
     GRANT ALL PRIVILEGES ON blocktogether.* TO
-      'blocktogether'@'127.0.0.1';
+      'blocktogether'@'127.0.0.1' IDENTIFIED BY "${DB_PASS}";
     GRANT ALL PRIVILEGES ON blocktogether.* TO
-      'blocktogether'@'localhost';
+      'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
     GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
-      'blocktogether'@'172.31.%';
-    CREATE USER replication IDENTIFIED BY "${DB_PASS}";
-    GRANT REPLICATION SLAVE ON *.* TO 'replication'@'*';
+      'blocktogether'@'172.31.%' IDENTIFIED BY "${DB_PASS}";
+    GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%' IDENTIFIED BY "${DB_PASS};
 EOSQL
   APP_MY_CONF=/home/${APPUSER}/.my.cnf
   cat > ${APP_MY_CONF} <<EOCONF

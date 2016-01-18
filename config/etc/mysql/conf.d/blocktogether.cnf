@@ -1,6 +1,7 @@
 [mysqld]
 innodb_file_per_table = 1
 log-bin
+expire_logs_days = 30
 server_id=25518
 sql_mode=STRICT_ALL_TABLES
 bind-address		= 0.0.0.0
