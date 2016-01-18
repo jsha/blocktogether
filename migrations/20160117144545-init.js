@@ -4,7 +4,7 @@ var fs = require('fs');
 
 module.exports = {
   up: function (queryInterface, Sequelize) {
-    var sql = fs.readFileSync('migrations/init.sql');
+    var sql = fs.readFileSync('migrations/init2.sql');
     var queries = sql.toString().split(';');
     function doQueries(list) {
       if (list.length === 0) {
