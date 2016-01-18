@@ -45,7 +45,7 @@ if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
       'blocktogether'@'localhost' IDENTIFIED BY "${DB_PASS}";
     GRANT INSERT, SELECT, UPDATE, DELETE ON blocktogether.* TO
       'blocktogether'@'172.31.%' IDENTIFIED BY "${DB_PASS}";
-    GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%' IDENTIFIED BY "${DB_PASS};
+    GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%' IDENTIFIED BY "${DB_PASS}";
 EOSQL
   APP_MY_CONF=/home/${APPUSER}/.my.cnf
   cat > ${APP_MY_CONF} <<EOCONF
@@ -78,5 +78,7 @@ if ! crontab -u ${APPUSER} -l >/dev/null; then
     23 10 * * * bash /data/blocktogether/current/util/cron.sh
 EOCRON
 fi
+
+rm /etc/nginx/sites-enabled/default
 
 mkdir -p /data/blocktogether/shared/log/
