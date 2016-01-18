@@ -1,4 +1,4 @@
-# #!/bin/bash
+#!/bin/bash -ex
 # Bootstraps the Block Together dev environment on a fresh Vagrant box.
 source /vagrant/bin/init_config.sh
 sudo /vagrant/bin/setup.sh
