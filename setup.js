@@ -194,7 +194,7 @@ var Action = sequelize.define('Action', {
   // cause_uid. When cause is 'new-account' or 'low-followers'
   // the cause_uid is empty.
   cause: { type: 'TINYINT' },
-  cause_uid: Sequelize.BIGINT
+  cause_uid: Sequelize.BIGINT.UNSIGNED
 }, {
   instanceMethods: {
     status_str: function() {
