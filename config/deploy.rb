@@ -22,12 +22,12 @@ task :staging do
 end
 
 task :web do
-  role :app, *%w[ web1.blocktogether.org   ]
+  role :app, *%w[ web3.blocktogether.org   ]
   set :process_names, %w[ blocktogether ]
 end
 
 task :db do
-  role :app, *%w[ btdb2 ]
+  role :app, *%w[ btdb2.blocktogether.org ]
   set :process_names, %w[ stream actions update-users update-blocks deleter ]
   after "deploy:create_symlink" do
     run "cd #{current_path}; NODE_ENV=production node ./node_modules/.bin/sequelize --config #{sequelize_config} db:migrate"
@@ -54,7 +54,7 @@ end
 
 before "deploy:setup" do
   dirs = %w{
-          /etc/blocktogether
+          /etc/blocktogether/production
           /data/blocktogether
           /data/blocktogether/releases
           /data/mysql-backup
@@ -68,6 +68,7 @@ before "deploy:setup" do
   upload "config/", "/tmp/config/", :recursive => true
   run "cp -n /tmp/config/sequelize.json #{ETC_BLOCKTOGETHER}"
   run "cp -n /tmp/config/production.json #{ETC_BLOCKTOGETHER}/config.json"
+  run "cp -n /tmp/config/production/log4js.json #{ETC_BLOCKTOGETHER}/production/"
   run "sudo rsync -lr /tmp/config/etc/ /etc/"
   upload "bin/setup.sh", "#{ETC_BLOCKTOGETHER}/setup.sh", :mode => 0700
   run "sudo bash -c 'APPUSER=ubuntu #{ETC_BLOCKTOGETHER}/setup.sh'"

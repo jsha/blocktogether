@@ -79,6 +79,6 @@ if ! crontab -u ${APPUSER} -l >/dev/null; then
 EOCRON
 fi
 
-rm /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-enabled/default
 
 mkdir -p /data/blocktogether/shared/log/
