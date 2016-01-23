@@ -13,16 +13,31 @@ CREATE TABLE `Actions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `source_uid` BIGINT UNSIGNED NOT NULL,
   `sink_uid` BIGINT UNSIGNED NOT NULL,
-  `type` TINYINT(1) NOT NULL,
-  `status` TINYINT(1) NOT NULL,
+  `typeNum` TINYINT(1) DEFAULT NULL,
+  `statusNum` TINYINT(1) DEFAULT NULL,
   `createdAt` datetime NOT NULL,
   `updatedAt` datetime NOT NULL,
-  `cause` TINYINT(1) NOT NULL,
+  `causeNum` TINYINT(1) DEFAULT NULL,
   `cause_uid` BIGINT UNSIGNED,
+  `type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cause` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `actions_source_uid_sink_uid` (`source_uid`,`sink_uid`),
-  KEY `actions_source_uid_status_created_at` (`source_uid`,`status`,`createdAt`)
+  KEY `actions_source_uid_status_created_at` (`source_uid`,`statusNum`,`createdAt`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TRIGGER numifyInsert BEFORE INSERT ON Actions FOR EACH ROW SET
+  NEW.typeNum = FIELD(NEW.type, "block", "unblock", "mute"),
+  NEW.type = NULL,
+  NEW.statusNum = FIELD(NEW.status, "pending", "done", "cancelled-following", "cancelled-suspended", "cancelled-duplicate", "cancelled-unblocked", "cancelled-self", "deferred-target-suspended", "cancelled-source-deactivated", "cancelled-unsubscribed"),
+  NEW.status = NULL,
+  NEW.causeNum = FIELD(NEW.cause, "external", "subscription", "new-account", "low-followers", "bulk-manual-block"),
+  NEW.cause = NULL;
+
+CREATE TRIGGER numifyUpdate BEFORE UPDATE ON Actions FOR EACH ROW SET
+  NEW.statusNum = FIELD(NEW.status, "pending", "done", "cancelled-following", "cancelled-suspended", "cancelled-duplicate", "cancelled-unblocked", "cancelled-self", "deferred-target-suspended", "cancelled-source-deactivated", "cancelled-unsubscribed"),
+  NEW.status = NULL;
 
 CREATE TABLE `BlockBatches` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
