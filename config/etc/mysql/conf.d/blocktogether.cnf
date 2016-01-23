@@ -5,3 +5,5 @@ expire_logs_days = 30
 server_id=25518
 sql_mode=STRICT_ALL_TABLES
 bind-address		= 0.0.0.0
+datadir         = /data/mysql
+tmpdir          = /data/mysql/tmp
