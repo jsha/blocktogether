@@ -186,14 +186,14 @@ BtUser.hasMany(BlockBatch, {foreignKey: 'source_uid', onDelete: 'cascade'});
 var Action = sequelize.define('Action', {
   source_uid: Sequelize.BIGINT.UNSIGNED,
   sink_uid: Sequelize.BIGINT.UNSIGNED,
-  type: { type: 'TINYINT' }, // Block, unblock, or mute
-  status: { type: 'TINYINT' },
+  type: { type: 'TINYINT', field: 'typeNum' }, // Block, unblock, or mute
+  status: { type: 'TINYINT', field: 'statusNum' },
   // A cause indicates why the action occurred, e.g. 'bulk-manual-block',
   // or 'new-account'. When the cause is another Block Together user,
   // e.g. in the bulk-manual-block case, the uid of that user is recorded in
   // cause_uid. When cause is 'new-account' or 'low-followers'
   // the cause_uid is empty.
-  cause: { type: 'TINYINT' },
+  cause: { type: 'TINYINT', field: 'causeNum' },
   cause_uid: Sequelize.BIGINT.UNSIGNED
 }, {
   instanceMethods: {
