@@ -285,11 +285,18 @@ function finalizeBlockBatch(blockBatch) {
  * @returns {Promise.<Array.<TwitterUser> >} A list of TwitterUsers created.
  */
 function addIdsToTwitterUsers(idList) {
-  return TwitterUser.bulkCreate(idList.map(function(id) {
+  var chunkSize = 100;
+  return TwitterUser.bulkCreate(idList.slice(0, chunkSize).map(function(id) {
     return {uid: id};
   }), {
     // Use ignoreDuplicates so we don't overwrite already fleshed-out users.
     ignoreDuplicates: true
+  }).then(function() {
+    if (idList.length > chunkSize) {
+      return addIdsToTwitterUsers(idList.slice(chunkSize));
+    } else {
+      return null;
+    }
   });
 }
 
