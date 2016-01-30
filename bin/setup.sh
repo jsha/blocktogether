@@ -28,6 +28,9 @@ DB_PASS=$(openssl rand -hex 20)
 # Set up the nodesource Node repo to get the latest.
 curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
 
+mkdir /data/mysql/tmp -p
+chown mysql.mysql /data/mysql/tmp
+
 apt-get update
 apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
   mariadb-client-5.5 mariadb-server-5.5 git nginx gnupg curl build-essential \
