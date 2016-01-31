@@ -1,12 +1,12 @@
 # Build config for travis-ci.org
 language: node_js
 node_js:
-  - 0.10
+  - 5.5
 install:
-  - "wget http://dl.google.com/closure-compiler/compiler-latest.zip"
+  - "wget https://dl.google.com/closure-compiler/compiler-latest.zip"
   - "unzip -n compiler-latest.zip"
 script:
   # TODO: Enable checkTypes after adding more types to externs.js
-  - "java -jar compiler.jar --language_in=ECMASCRIPT5 --warning_level=VERBOSE --jscomp_off=checkTypes
+  - "cat *.js | java -jar compiler.jar --language_in=ECMASCRIPT5 --warning_level=VERBOSE --jscomp_off=checkTypes
     --externs=externs/externs.js --externs=externs/core.js --externs=externs/process.js
-    --externs=externs/underscore-1.5.1.js *.js > /dev/null"
+    --externs=externs/underscore-1.5.1.js > /dev/null"
