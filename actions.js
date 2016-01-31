@@ -278,8 +278,8 @@ function processUnblocksForUser(btUser, actions) {
   // the same.
   return Q.all(actions.map(function(action) {
     if (action.type !== Action.UNBLOCK) {
-      return Q.reject("Shouldn't happen: non-unblock action " + btUser +
-        " " + action.dataValues);
+      return Q.reject("Shouldn't happen: non-unblock action " + btUser.inspect() +
+        " " + JSON.stringify(action.dataValues));
     }
     return doUnblock(btUser, action.sink_uid).then(function() {
       logger.info('Unblocked', btUser, '-->', action.sink_uid);
@@ -309,9 +309,9 @@ function processUnblocksForUser(btUser, actions) {
 
 function processMutesForUser(btUser, actions) {
   return Q.all(actions.map(function(action) {
-    if (action.type !== 'mute') {
-      return Q.reject("Shouldn't happen: non-mute action " + btUser +
-        " " + action.dataValues);
+    if (action.type !== Action.MUTE) {
+      return Q.reject("Shouldn't happen: non-mute action " + btUser.inspect() +
+        " " + JSON.stringify(action.dataValues));
     }
     return doMute(btUser, action.sink_uid).then(function() {
       logger.info('Muted', btUser, '-->', action.sink_uid);
