@@ -1,6 +1,6 @@
 limit_req_zone $binary_remote_addr zone=showblocks:10m rate=20r/m;
 
-log_format no_ip '[$time_local] $request_time $status $body_bytes_sent $cookie_uid '
+log_format no_ip '$time_iso8601 $request_time $status $body_bytes_sent $cookie_uid '
   '"$request" "$http_referer" "$http_user_agent"';
 
 server {
