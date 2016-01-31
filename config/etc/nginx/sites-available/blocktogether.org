@@ -2,7 +2,6 @@ limit_req_zone $binary_remote_addr zone=showblocks:10m rate=20r/m;
 
 log_format no_ip '[$time_local] $request_time $status $body_bytes_sent $cookie_uid '
   '"$request" "$http_referer" "$http_user_agent"';
-access_log /var/log/nginx/access.log no_ip;
 
 server {
         listen 443 default_server ssl;
@@ -10,6 +9,8 @@ server {
         listen 80 default_server;
         listen [::]:80 default_server ipv6only=on;
         server_name blocktogether.org;
+
+        access_log /var/log/nginx/access.log no_ip;
 
         if ($scheme != "https") {
             return 301 https://$host$request_uri;
