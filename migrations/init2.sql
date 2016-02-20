@@ -21,7 +21,7 @@ CREATE TABLE `Actions` (
   `cause_uid` BIGINT UNSIGNED,
   PRIMARY KEY (`id`),
   KEY `actions_source_uid_sink_uid` (`source_uid`,`sink_uid`),
-  KEY `actions_source_uid_status_created_at` (`source_uid`,`status`,`createdAt`)
+  KEY `actions_source_uid_statusNum_created_at` (`source_uid`,`statusNum`,`createdAt`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `BlockBatches` (
