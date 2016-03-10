@@ -26,9 +26,14 @@ task :web do
   set :process_names, %w[ blocktogether ]
 end
 
+task :udb do
+  role :app, *%w[ btudb.blocktogether.org   ]
+  set :process_names, %w[ update-blocks ]
+end
+
 task :db do
   role :app, *%w[ btdb2.blocktogether.org ]
-  set :process_names, %w[ stream actions update-users update-blocks deleter ]
+  set :process_names, %w[ stream actions update-users deleter ]
   after "deploy:create_symlink" do
     run "cd #{current_path}; NODE_ENV=production node ./node_modules/.bin/sequelize --config #{sequelize_config} db:migrate"
   end
