@@ -8,7 +8,7 @@ var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
-    _ = require('sequelize').Utils._;
+    _ = require('lodash');
 
 /*
  * Config file should look like this:

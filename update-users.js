@@ -3,7 +3,7 @@
 /** @type{SetupModule} */
 var setup = require('./setup'),
     Q = require('q'),
-    _ = require('sequelize').Utils._,
+    _ = require('lodash'),
     verifyCredentials = require('./verify-credentials');
 
 var config = setup.config,

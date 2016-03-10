@@ -14,7 +14,7 @@ var express = require('express'), // Web framework
     setup = require('./setup'),
     actions = require('./actions'),
     updateUsers = require('./update-users'),
-    _ = require('sequelize').Utils._;
+    _ = require('lodash');
 
 var config = setup.config,
     twitter = setup.twitter,

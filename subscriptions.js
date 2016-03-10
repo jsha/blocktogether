@@ -1,7 +1,7 @@
 'use strict';
 (function() {
 var Q = require('q'),
-    _ = require('sequelize').Utils._,
+    _ = require('lodash'),
     setup = require('./setup'),
     actionsModule = require('./actions'),
     updateUsers = require('./update-users');
