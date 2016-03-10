@@ -10,6 +10,7 @@
     "cookie-session": "^1.0.2",
     "express": "^4.8.8",
     "log4js": "^0.6.29",
+    "lodash": "^3.10.1",
     "mu2": "jsha/Mu",
     "mysql": "^2.4.3",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
