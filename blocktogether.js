@@ -670,7 +670,7 @@ app.post('/block-all.json',
               if (blockBatches && blockBatches.length > 0) {
                 return blockBatches[0].getBlocks()
                   .then(function(blocks) {
-                    var sinkUids = _.pluck(blocks, 'sink_uid');
+                    var sinkUids = _.map(blocks, 'sink_uid');
                     return [sinkUids, actions.queueActions(
                       req.user.uid, sinkUids, Action.BLOCK,
                       Action.SUBSCRIPTION, author.uid)];
@@ -871,7 +871,7 @@ function getBlockedUsers(blockBatch, limit, offset) {
     return [blocks, TwitterUser.findAll({
       where: {
         uid: {
-          in: _.pluck(blocks, 'sink_uid')
+          in: _.map(blocks, 'sink_uid')
         }
       }
     })];

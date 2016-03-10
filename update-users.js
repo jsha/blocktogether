@@ -33,7 +33,7 @@ function findAndUpdateUsers(sqlFilter) {
       limit: 100
     }).then(function(users) {
       if (users && users.length > 0) {
-        updateUsers(_.pluck(users, 'uid'), _.indexBy(users, 'uid'));
+        updateUsers(_.map(users, 'uid'), _.indexBy(users, 'uid'));
       }
     }).catch(function(err) {
       logger.error(err);

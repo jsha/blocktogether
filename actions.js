@@ -348,7 +348,7 @@ function processMutesForUser(btUser, actions) {
  * @param {Array.<Action>} actions Actions to process.
  */
 function processBlocksForUser(btUser, actions) {
-  var sinkUids = _.pluck(actions, 'sink_uid');
+  var sinkUids = _.map(actions, 'sink_uid');
   if (sinkUids.length > 100) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return Q.reject('Too many sinkUids');
@@ -391,7 +391,7 @@ function processBlocksForUser(btUser, actions) {
  *   cancelled.
  */
 function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
-  var sinkUids = _.pluck(actions, 'sink_uid');
+  var sinkUids = _.map(actions, 'sink_uid');
   // Look for the any previous unblock Action for this sink_uid with
   // status = done, cause = external, and cancel if it exists.
   return Action.findAll({

@@ -322,7 +322,7 @@ function diffBatchWithPrevious(currentBatch) {
       // uids are in TwitterUsers.
       if (currentBatch) {
         return currentBatch.getBlocks().then(function(blocks) {
-          return addIdsToTwitterUsers(_.pluck(blocks, 'sink_uid'));
+          return addIdsToTwitterUsers(_.map(blocks, 'sink_uid'));
         }).then(function() {
           return Q.reject(INSUFFICIENT_BLOCK_BATCHES);
         });
@@ -332,8 +332,8 @@ function diffBatchWithPrevious(currentBatch) {
     }
     return [oldBatch, currentBatch.getBlocks(), oldBatch.getBlocks()];
   }).spread(function(oldBatch, currentBlocks, oldBlocks) {
-    var currentBlockIds = _.pluck(currentBlocks, 'sink_uid');
-    var oldBlockIds = _.pluck(oldBlocks, 'sink_uid');
+    var currentBlockIds = _.map(currentBlocks, 'sink_uid');
+    var oldBlockIds = _.map(oldBlocks, 'sink_uid');
     var start = process.hrtime();
     var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
     var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);

@@ -103,7 +103,7 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
     // pendingActions = true. But that function doesn't support queuing multiple
     // actions from different source_uids.
     return Action.bulkCreate(actions).then(function(actions) {
-      var subscriber_uids = _.pluck(subscriptions, 'subscriber_uid');
+      var subscriber_uids = _.map(subscriptions, 'subscriber_uid');
       return BtUser.findAll({
         where: {
           uid: subscriber_uids
@@ -248,7 +248,7 @@ function subscriptionBlocksAuthors(user) {
     return {};
   }
 
-  var authors = _.pluck(subscriptions, 'author_uid');
+  var authors = _.map(subscriptions, 'author_uid');
   logger.info('User', user, 'subscribes to', authors.join(', '));
   return Q.all(authors.map(getLatestBlocks))
     .then(function(blocklists) {
@@ -430,7 +430,7 @@ function fixUpReadyUser(user) {
         });
         // If there's anything left after those filters, it's a block action and
         // we should unblock.
-        var toBeUnblockedUids = _.pluck(actionsToReverse, 'sink_uid');
+        var toBeUnblockedUids = _.map(actionsToReverse, 'sink_uid');
         logger.info('User', user, 'should unblock', toBeUnblockedUids.length,
           'accounts for subscriptions:\n', toBeUnblockedUids.join("\n"));
         if (process.env['DO_IT']) {
