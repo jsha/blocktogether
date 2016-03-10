@@ -43,7 +43,7 @@ var sequelizeConfigData = fs.readFileSync(
 var c = JSON.parse(sequelizeConfigData)[nodeEnv];
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
-      dialectOptions: _.extend(c.dialectOptions, {
+      dialectOptions: _.extend(c.dialectOptions || {}, {
         bigNumberStrings: true,
         supportBigNumbers: true,
         charset: "utf8mb4",
