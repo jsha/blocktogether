@@ -64,6 +64,7 @@ var TwitterUser = sequelize.define('TwitterUser', {
   uid: { type: Sequelize.BIGINT.UNSIGNED, primaryKey: true },
   friends_count: Sequelize.INTEGER,
   followers_count: Sequelize.INTEGER,
+  profile_image_url_https: Sequelize.STRING,
   screen_name: Sequelize.STRING,
   name: Sequelize.STRING,
   deactivatedAt: Sequelize.DATE,
