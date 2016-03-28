@@ -298,6 +298,8 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       handleBlockEvent(recipientBtUser, data);
     } else if (data.event === 'user_update') {
       verifyCredentials(recipientBtUser);
+    } else if (data.event === 'quoted_tweet') {
+      checkReplyAndBlock(recipientBtUser, data.source);
     }
   } else if (data.text && !data.retweeted_status && data.user) {
     // If user A tweets "@foo hi" and user B retweets it, that should not count
