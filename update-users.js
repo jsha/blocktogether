@@ -142,7 +142,6 @@ function updateUsers(uids, usersMap) {
     })
   ).then(function(results) {
     var ret = _.reduce(results, _.assign, {});
-    ret = ret.map(x => x.profile_image_url_https = "");
     logger.info('Updated', Object.keys(ret).length, 'TwitterUsers (asked for', length, ')');
     return ret;
   })
@@ -224,6 +223,7 @@ function storeUser(twitterUserResponse, userObj) {
     // Sequelize's built-in createdAt.
     user.account_created_at = new Date(twitterUserResponse.created_at);
     user.deactivatedAt = null;
+    user.profile_image_url_https = "";
     if (user.changed()) {
       return user.save()
         .then(function(savedUser) {
