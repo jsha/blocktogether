@@ -55,15 +55,21 @@
   Subscriptions page</a>.
   {{/subscribed}}
   {{^subscribed}}
-  <p>
-  If you subscribe to @{{author_screen_name}}'s block list, they will be able
-  to see that you are a subscriber and will have the option to unsubscribe you.
-  They will not receive a notification.
-  </p>
-  <div>
-    <button class='btn btn-primary block-all'>Block All and Subscribe</button>
-    {{>block-all-processing.mustache}}
-  </div>
+    {{#too_big}}
+      This block list is too big to subscribe to. Maximum block list size for
+      subscriptions is 150,000.
+    {{/too_big}}
+    {{^too_big}}
+      <p>
+      If you subscribe to @{{author_screen_name}}'s block list, they will be able
+      to see that you are a subscriber and will have the option to unsubscribe you.
+      They will not receive a notification.
+      </p>
+      <div>
+        <button class='btn btn-primary block-all'>Block All and Subscribe</button>
+        {{>block-all-processing.mustache}}
+      </div>
+    {{/too_big}}
   {{/subscribed}}
   {{/own_blocks}}
   {{! For use in case there's an error. }}

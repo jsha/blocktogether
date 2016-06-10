@@ -28,6 +28,9 @@ var config = setup.config,
     TwitterUser = setup.TwitterUser,
     Subscription = setup.Subscription;
 
+// Maximum size of a block list that can be subscribed to.
+const maxSubscribeSize = 150000;
+
 // Look for templates here
 mu.root = __dirname + '/templates';
 
@@ -668,7 +671,12 @@ app.post('/block-all.json',
               order: 'complete desc, currentCursor is null, updatedAt desc'
             }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
-                return blockBatches[0].getBlocks()
+                var batch = blockBatches[0];
+                if (batch.size > maxSubscribeSize) {
+                  next(new HttpError(400, 'Block list too big to subscribe.'));
+                  return null;
+                }
+                return batch.getBlocks()
                   .then(function(blocks) {
                     var sinkUids = _.map(blocks, 'sink_uid');
                     return [sinkUids, actions.queueActions(
@@ -826,7 +834,7 @@ function getPaginationData(items, perPage, currentPage) {
   var pageCount = Math.ceil(items.count / perPage);
   // Pagination metadata to be returned:
   var paginationData = {
-    item_count: (items.count > 20000) ? "more than 20,000" : items.count,
+    item_count: items.count,
     item_rows: items.rows,
     // Are there enough items to paginate?
     paginate: pageCount > 1,
@@ -1004,6 +1012,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
       // Whether this is /my-blocks (rather than /show-blocks/foo)
       own_blocks: ownBlocks,
       subscribed: !!subscription,
+      too_big: paginationData.item_count > maxSubscribeSize,
       // uid of the authenticated user.
       user_uid: user_uid
     };
