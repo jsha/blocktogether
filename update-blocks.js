@@ -3,6 +3,7 @@
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
+    path = require('path'),
     tls = require('tls'),
     https = require('https'),
     /** @type{Function|null} */ timeago = require('timeago'),
@@ -517,9 +518,9 @@ function recordAction(source_uid, sink_uid, type) {
  */
 function setupServer() {
   var opts = {
-    key: fs.readFileSync(configDir + 'rpc.key'),
-    cert: fs.readFileSync(configDir + 'rpc.crt'),
-    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    key: fs.readFileSync(path.join(configDir, 'rpc.key')),
+    cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+    ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
     requestCert: true,
     rejectUnauthorized: true
   };
