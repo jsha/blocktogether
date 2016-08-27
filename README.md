@@ -54,7 +54,7 @@ want to develop on your local machine the steps are these:
 3. In MySQL, create a ’blocktogether’ database, a
    `'blocktogether'@'localhost'` user, and grant the latter privileges
    on the former (see `bin/setup.sh`).
-4. `sed 's/__PASSWORD__//' config/sequelize.json` (unless you set a
+4. `sed -i 's/__PASSWORD__//' config/sequelize.json` (unless you set a
    database password; then replace `__PASSWORD__` with that)
 5. `openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 -keyout config/rpc.key -out config/rpc.crt -subj /CN=blocktogether-rpc`
 6. Make a test Twitter account and an app with read/write permissions
