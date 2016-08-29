@@ -18,7 +18,7 @@ function checkBoxes() {
 // the app is already authorized and the user is already logged in. So we make
 // the click conditional on the presence of that form.
 function clickAuthorize() {
-  if (this.exists('form[action*="https://api.twitter.com/oauth/authorize"]')) {
+  if (this.exists('form[id="oauth_form"]')) {
     return this.fill(
       'form[action*="https://api.twitter.com/oauth/authorize"]',
       {}, true);
@@ -39,7 +39,7 @@ casper.test.begin('Sign up and log on', 6, function(test) {
 
   casper.then(function() {
     return this.fill(
-      'form[action*="https://api.twitter.com/oauth/authorize"]',
+      'form[id="oauth_form"]',
       // NB: must use single quotes
       { 'session[username_or_email]': user , 'session[password]': pass }, true);
   });
