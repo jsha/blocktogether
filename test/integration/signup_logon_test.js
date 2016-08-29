@@ -13,6 +13,19 @@ function checkBoxes() {
   ];
 }
 
+// Sometimes Twitter will immediately redirect back to the Block Together, but
+// sometimes it will show an interstitial with an "Authorize" button even though
+// the app is already authorized and the user is already logged in. So we make
+// the click conditional on the presence of that form.
+function clickAuthorize() {
+  if (this.exists('form[action*="https://api.twitter.com/oauth/authorize"]')) {
+    return this.fill(
+      'form[action*="https://api.twitter.com/oauth/authorize"]',
+      {}, true);
+  }
+  return true;
+}
+
 // API docs: http://docs.casperjs.org/en/latest/testing.html
 //
 // The first argument is the name of the test, the second is the
@@ -54,11 +67,7 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     return this.fill('form[action*="/auth/twitter"]', {}, true);
   });
 
-  casper.then(function() {
-    return this.fill(
-      'form[action*="https://api.twitter.com/oauth/authorize"]',
-      {}, true);
-  });
+  casper.then(clickAuthorize);
 
   casper.waitForSelector('.container-fluid', function() {
     var checks = this.evaluate(checkBoxes);
@@ -80,11 +89,7 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     return this.fill('form[action*="/auth/twitter"]', {}, true);
   });
 
-  casper.then(function() {
-    return this.fill(
-      'form[action*="https://api.twitter.com/oauth/authorize"]',
-      {}, true);
-  });
+  casper.then(clickAuthorize);
 
   casper.waitForSelector('.container-fluid', function() {
     var checks = this.evaluate(checkBoxes);
