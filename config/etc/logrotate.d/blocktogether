@@ -1,0 +1,11 @@
+/data/blocktogether/shared/log/*.log {
+	daily
+	missingok
+	rotate 30
+	size 500M
+	create 0644 ubuntu ubuntu
+	sharedscripts
+	postrotate
+		killall -HUP node
+	endscript
+}

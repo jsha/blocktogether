@@ -86,4 +86,4 @@ fi
 
 rm -f /etc/nginx/sites-enabled/default
 
-mkdir -p /data/blocktogether/shared/log/
+mkdir -m 0755 -p /data/blocktogether/shared/log/
