@@ -1,5 +1,3 @@
-Manual tests to run before a release:
-
 ## Initial setup
 
 - With @twestact3, visit https://twitter.com/settings/applications and revoke
@@ -7,6 +5,8 @@ Manual tests to run before a release:
   production instance of Block Together.
 
 ## Sign up and log on
+
+_(Automated by `integration/signup_logon_test.js`)_
 
 - Sign up for Block Together using @twestact3 and the default settings. Visit
   settings page and ensure those settings are there.
