@@ -42,6 +42,30 @@ on Twitter in order to be able to exercise the sharing functionality of Block
 Together, and so that you don't create or delete blocks on your main account
 unintentionally.
 
+## Developing locally
+
+It’s recommended that you develop in a Vagrant instance; but if you
+want to develop on your local machine the steps are these:
+
+### macOS
+
+1. `brew install mysql node` (MariaDB can be used in place of MySQL)
+2. `brew services start mysql`
+3. In MySQL, create a ’blocktogether’ database, a
+   `'blocktogether'@'localhost'` user, and grant the latter privileges
+   on the former (see `bin/setup.sh`).
+4. `sed -i 's/__PASSWORD__//' config/sequelize.json` (unless you set a
+   database password; then replace `__PASSWORD__` with that)
+5. `openssl req -new -newkey rsa:2048 -nodes -days 10000 -x509 -keyout config/rpc.key -out config/rpc.crt -subj /CN=blocktogether-rpc`
+6. Make a test Twitter account and an app with read/write permissions
+   ([follow the instructions above](#developer-setup-instructions)),
+   and add its keys to `config/development.json`
+7. `cp config/development.json config/config.json`
+8. `npm i`
+9. `./node_modules/.bin/sequelize --config config/sequelize.json db:migrate`
+10. `export BT_CONFIG_DIR=$(pwd)/config`
+11. `./run-dev.sh`
+
 # License
 
 This program is free software: you can redistribute it and/or modify

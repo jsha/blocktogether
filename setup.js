@@ -19,9 +19,9 @@ var fs = require('fs'),
  *    "cookieSecret": "...",
  *  }
  */
-var configDir = '/etc/blocktogether/';
+var configDir = process.env['BT_CONFIG_DIR'] || '/etc/blocktogether/';
 var nodeEnv = process.env['NODE_ENV'] || 'development';
-var configData = fs.readFileSync(configDir + 'config.json', 'utf8');
+var configData = fs.readFileSync(path.join(configDir, 'config.json'), 'utf8');
 var config = JSON.parse(configData);
 
 var twitter = new twitterAPI({
@@ -29,7 +29,7 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 
-log4js.configure(configDir + nodeEnv + '/log4js.json', {
+log4js.configure(path.join(configDir, nodeEnv, '/log4js.json'), {
   cwd: '/data/blocktogether/shared/log'
 });
 // The logging category is based on the name of the running script, e.g.
@@ -39,7 +39,7 @@ var scriptName = path.basename(require.main ? require.main.filename : 'repl')
 var logger = log4js.getLogger(scriptName);
 
 var sequelizeConfigData = fs.readFileSync(
-  configDir + 'sequelize.json', 'utf8');
+  path.join(configDir, 'sequelize.json'), 'utf8');
 var c = JSON.parse(sequelizeConfigData)[nodeEnv];
 var Sequelize = require('sequelize'),
     sequelize = new Sequelize(c.database, c.username, c.password, _.extend(c, {
@@ -307,10 +307,10 @@ function remoteUpdateBlocks(user) {
     host: config.updateBlocks.host,
     port: config.updateBlocks.port,
     // Provide a client certificate so the server knows it's us.
-    cert: fs.readFileSync(configDir + 'rpc.crt'),
-    key: fs.readFileSync(configDir + 'rpc.key'),
+    cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+    key: fs.readFileSync(path.join(configDir, 'rpc.key')),
     // For validating the self-signed server cert
-    ca: fs.readFileSync(configDir + 'rpc.crt'),
+    ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
     rejectUnauthorized: false
   };
   var req = https.request(opts, function(res) {
