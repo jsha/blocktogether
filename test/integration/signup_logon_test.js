@@ -18,14 +18,15 @@ function checkBoxes() {
 // The first argument is the name of the test, the second is the
 // number of assertions occuring in the test, and the last is the test
 // block itself.
-casper.test.begin('Sign up and log on', 5, function(test) {
+casper.test.begin('Sign up and log on', 6, function(test) {
   casper.start(host, function() {
+    test.assertExists('form[action*="/auth/twitter"]', "log on form is present");
     return this.fill('form[action*="/auth/twitter"]', {}, true);
   });
 
   casper.then(function() {
     return this.fill(
-      'form[action*="https://api.twitter.com/oauth/authenticate"]',
+      'form[action*="https://api.twitter.com/oauth/authorize"]',
       // NB: must use single quotes
       { 'session[username_or_email]': user , 'session[password]': pass }, true);
   });
@@ -53,6 +54,12 @@ casper.test.begin('Sign up and log on', 5, function(test) {
     return this.fill('form[action*="/auth/twitter"]', {}, true);
   });
 
+  casper.then(function() {
+    return this.fill(
+      'form[action*="https://api.twitter.com/oauth/authorize"]',
+      {}, true);
+  });
+
   casper.waitForSelector('.container-fluid', function() {
     var checks = this.evaluate(checkBoxes);
     test.assertEqual(checks, [true, false, false, true], 'after logging out and in, settings are preserved');
@@ -71,6 +78,12 @@ casper.test.begin('Sign up and log on', 5, function(test) {
   casper.then(function() {
     this.click('#share_blocks');
     return this.fill('form[action*="/auth/twitter"]', {}, true);
+  });
+
+  casper.then(function() {
+    return this.fill(
+      'form[action*="https://api.twitter.com/oauth/authorize"]',
+      {}, true);
   });
 
   casper.waitForSelector('.container-fluid', function() {
