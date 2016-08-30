@@ -41,7 +41,7 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     return this.fill(
       'form[id="oauth_form"]',
       // NB: must use single quotes
-      { 'session[username_or_email]': user , 'session[password]': pass }, true);
+      { 'session[username_or_email]': user, 'session[password]': pass }, true);
   });
 
   casper.waitForSelector('.container-fluid', function() {
@@ -50,7 +50,9 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     test.assertEqual(checks, [false, false, false, true], 'new account has default settings');
 
     this.click('#block_new_accounts');
+  });
 
+  casper.waitForSelector('.saved', function() {
     this.reload(function() {
       var checks = this.evaluate(checkBoxes);
       test.assertEqual(checks, [true, false, false, true], 'block_new_accounts was saved');

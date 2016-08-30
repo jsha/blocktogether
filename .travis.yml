@@ -1,12 +1,34 @@
-# Build config for travis-ci.org
+---
+sudo: true
+
 language: node_js
 node_js:
   - 5.5
+  - 6
+
+addons:
+  mariadb: '5.5'
+
+env:
+  global:
+    - DB_ROOT_PASS="$(openssl rand -hex 20)"
+    - APPUSER="$USER"
+    - secure: 'Sv6f1+ih/ov7TtiPSm8Abp+2DG8dSrQLkp6cConq5qEfaEEeQJhSzcNS2xu0flMCyD1ERVWZKuYke6rDJefaZA9fQrJS+YzJtkcSttHTOdY01VDIa2sofH//hE9ydP5Zfqm6Ru9UyTYkapUGrOPanxgtWMfja2GbeIdxsFlkZuf8mnBq42kNk8lj4M/Pg4i9mOKTuvmwdXgzgFVoS2ZeTEd4+59ik8RaVUssm6EJ1VOPOrTRAJ3lMqADuV41qi6J0piv/SDxFBHJTrGpKGH6EEud3pZgOirFBvD0udhIARiPu+RtSgsmC9Jtndl9PWEAxUHJJlgdk7MVUgP2klK0zukPintRQZTLKZyFiiw6Ftqo5XhYmV8AjjUN7VNH2QqhSf2x4yGclt7c/ETokdHjkA1ZqkEwSS1IlY8E59BBEtpF4kmRCq7bHB/g4Nh0gXdzpqjqG0tEL1bvRzJ3GiyV5BibfVo7/iV07l8ACjZLnCjzzMuhFju9q6mvOFsNjJZpwJtc1vsSdBVLvGexZnroKa8C7l+X/Up/ZZ5S9KWaAsoM7+bdlqqCjUAP4DYUg0DONKb3779tDUBMb3U0d3pww554r9sz0R/j8NpT5K7CsT4L0+5cVDM/pjK8WdXXk6BfOr69JgcpBGk7PpSjJaiW4AnpIklPRarXW+fDQdxq9gs='
+    - secure: 'lXaGJ8MDC3PQwu3LbBBNd2Ae/ig5RWD693iu4Xwft8ZNEy3/hypqTTE1gizbn3oDM2Q8s2Qkm0yYUGpFHR/98KuPK5C7F62mBpFMVNQyDlW08ouFnmVX7y6y+2nsQwwOX1BS6HTjvhK5t7mwPDshl460JgeULIS1vrrLAofvsw1ecJSa6/WU/WggMdwmxOoaSiN63lShT9rhPHcV/S69jaq779daNlNuR3qG20LP/8IGq5tMq/T13gJE2oVMaWzuj+eOsuF9O9xyqT0OGHnU1K3L5bPsL8j7vZ4do3uCxeFYdLc+9ipo8F7SZEcM0PyHwuT7OPtTAi7TtQuVkRV78AfCQEgclWRpktRiD6BVQhDLyOKap1EZXjd+n/hnxeAUvUUh/fj/Z664quPLjuKxge9c1o10CwipCgpeRt+2wo6RjypbEOTK9czLlP/jzy1OdFaML/VhH4Sk2OszFBEcX2z4nhxzDoE6+CXnbWct9/PA+hm18eFsTBflX57xqQbeyngTRqc3THHdAPV4B19lkY9Cilp/ww01hdCBoHbSJHs8JYlAabSkIw1x0lWfBYcVpV5Wg3P3vFZ0Nn+vvkV5GUuTaicG4rulfYbYa3jNMGSdRC+RNFrSWevalYJPxNn24oFsZxb/cs3494xAevV8Y9stWqZlzuYoqdSncxMuxFA='
+    - secure: 'kpwd5Wl7rlVBoNzVvhU7A8FN7lIxjoL1V5gCQSdKU7FJD5SHMXctBkaw1mcvpwMqDjcvX0XCcvPyCToe2yzdRRLif8cJJqVC/CMcArkLoyhhBcqBjw9Fq3Qaj2eZZW8K0T3Ie2rLu0n3XmAW9HGUa2osc9sALXxDYwZSW+Tk4AjwcXdTzkonQe9sz+oYhOpYMX8qhjJ7LJk4sdEInemnoK0vjRTIu/9ndUcFe5WpJaNMo+k3GhfM4r+Kvv26l0m/j+daVOALzBcLTLn6XgTo0/YkTGl+50VPYhz8WbYAPWa02JzwXOzfezxe3UQDzWClU+G1CpnBpAOsvqj4Q54ccqZTrFOXvvH61n9aSI/WxFxSWRka3crGjmr//jcGfTr2dIi5YmDtDv7vD2cRzy2Gh3xZe7FtfyXMIDSiXpZ52Dq+ZESKPlWOWfYhncQ7dwj+xptqpPsZXFFI6dA5QqfGJYq8Wtelu0o8bSwSdFEUE4y656/sY4pOGpXpE/jZ091kFCQQTHb2bjXl8asKeA7FBkSJKbbaJeyQ56y3PMmn7OqPDMtzOKTtK9MDrK0fiaZUDgEMp7AOzHMViFX3vSH/u1rX+3UfkYCeKW52bK4xiGQKpsmNIK3BCqIjJfX17qW5GOgSjsAnfWTT81rdcydpf0rxI3JWse65ZMAHudNn/2k='
+    - secure: 'y+crCYO9hfMVE8PYe3hTpxsLQzg0zc4AWPyUClmdHUA+VvH3pPw7gtJNpO+D51IrR82pDMBrDcUH1KaEcAsN2rKDG5yLbwrt7/n2nnzFfnvUY0tA/MyR+gcu/lrjNid8VpttW5C0GF2BPkzRSy+MKfa47Iodu7OTndr3ie8KRJpjJ+R8AnSU+wIRyCe+aE5ttMHKEx7TC3ItjtGrUuwZL0lJv0OBYenRzU1QhZBR5+0Wh0yHpOdHcwhQGuutjyYC1g4iDEBygBUTWK69nEIFknUv46gAAOXk53cj9IFTeMhnUL/SFepelxMVI8Z5YrzFS0S6hQp8zliO5iv6f1H0xT6V2plngBKLP+ZzUkJdzAU1RB2Ukj3VBsEAR3PZir9nVnf+OxZhmDqiaI1uaDtCWOGA4tzeYa6jtbbrOY/7ouTCzxCHJwZia7rpH4cIHTgluVypm9wMxMcxdEB0noowEnn2miaQYB/4/FP5KNnqMC7mjT/RXDQd3LTgospLMmZDDPC26lnW841pAEA/RjbdDOhlBrN4IDSP7Jv4gYXhSHwuxEzH26LciWy/4AKz/tuQhw3Gzw3epHBYUo3iH/GQ02OTSTXmJ5Dyuv3PfZYCe0nY0J4p8yEM8otGX3qd9nAKYjEnnXta6AvSZr5nL99MHQzLtEySYsr/mPFC2SEjSMw='
+
 install:
-  - "wget https://dl.google.com/closure-compiler/compiler-latest.zip"
-  - "unzip -n compiler-latest.zip"
+  - wget https://dl.google.com/closure-compiler/compiler-latest.zip
+  - unzip -n compiler-latest.zip
+  - if [ -n "$CONSUMER_KEY" ]; then ./bin/travis/install.sh; fi
+
 script:
   # TODO: Enable checkTypes after adding more types to externs.js
   - "cat *.js | java -jar closure-compiler-*.jar --language_in=ECMASCRIPT6 --warning_level=VERBOSE --jscomp_off=checkTypes
     --externs=externs/externs.js --externs=externs/core.js --externs=externs/process.js
     --externs=externs/underscore-1.5.1.js > /dev/null"
+  - if [ -n "$CONSUMER_KEY" ]; then npm test; fi
+
+after_failure:
+  - if [ -n "$CONSUMER_KEY" ]; then cat bt.log; fi
