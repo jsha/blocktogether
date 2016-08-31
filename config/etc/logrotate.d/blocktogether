@@ -2,7 +2,6 @@
 	daily
 	missingok
 	rotate 30
-	size 500M
 	create 0644 ubuntu ubuntu
 	sharedscripts
 	postrotate
