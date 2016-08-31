@@ -11,7 +11,9 @@ var twitterAPI = require('node-twitter-api'),
     sequelize = require('sequelize'),
     setup = require('./setup'),
     subscriptions = require('./subscriptions'),
-    updateUsers = require('./update-users');
+    updateUsers = require('./update-users'),
+    promRegister = require('prom-client/lib/register'),
+    prom = require('prom-client');
 
 var twitter = setup.twitter,
     logger = setup.logger,
@@ -64,6 +66,7 @@ function findAndUpdateBlocks() {
       logger.debug('User', user.uid, 'has updated blocks from',
         timeago(new Date(batch.createdAt)));
       if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
+        stats.updateRequests.labels('self').inc()
         return updateBlocks(user);
       } else {
         return Q.resolve(null);
@@ -81,7 +84,19 @@ function findAndUpdateBlocks() {
   });
 }
 
-var activeFetches = {};
+var activeFetches = new Map();
+
+var stats = {
+  numActiveFetches: new prom.Gauge('num_active_fetches', 'Number of active block fetches'),
+  updateRequests: new prom.Counter('update_requests', 'Number of requests to update blocks', ['caller']),
+  finalize: new prom.Counter('finalize', 'Number of times finalizeBlockBatch was reached'),
+  finalizeDone: new prom.Counter('finalizeDone', 'finalizeBlockBatch\'s Promise completed.'),
+  deleteFromActive: new prom.Counter('deleteFromActive', 'Fetch was deleted from activeFetches map.'),
+}
+
+setInterval(function() {
+  stats.numActiveFetches.set(activeFetches.size);
+}, 1000)
 
 function updateBlocksForUid(uid) {
   return BtUser.findById(uid).then(updateBlocks).catch(function (err) {
@@ -97,10 +112,10 @@ function updateBlocksForUid(uid) {
 function updateBlocks(user) {
   if (!user) {
     return Q.reject('No user found.');
-  } else if (activeFetches[user.uid]) {
+  } else if (activeFetches.has(user.uid)) {
     // Don't create multiple pending block update requests at the same time.
     logger.info('User', user, 'already updating, skipping duplicate. Status:',
-      activeFetches[user.uid].inspect());
+      activeFetches.get(user.uid).inspect());
     return Q.resolve(null);
   } else {
     logger.info('Updating blocks for', user);
@@ -192,7 +207,7 @@ function updateBlocks(user) {
 
   var fetchPromise = fetchAndStoreBlocks(user, null, null);
   // Remember there is a fetch running for a user so we don't overlap.
-  activeFetches[user.uid] = fetchPromise;
+  activeFetches.set(user.uid, fetchPromise);
   // Once the promise resolves, success or failure, delete the entry in
   // activeFetches so future fetches can proceed.
   fetchPromise.then(function() {
@@ -200,7 +215,8 @@ function updateBlocks(user) {
     logger.error(err);
   }).finally(function() {
     logger.info('Deleting activeFetches[', user, '].');
-    delete activeFetches[user.uid];
+    stats.deleteFromActive.inc();
+    activeFetches.delete(user.uid);
   });
   } catch (e) {
     logger.error('Exception in fetchAndStoreBlocks', e);
@@ -249,6 +265,7 @@ function handleIds(blockBatch, currentCursor, results) {
 var INSUFFICIENT_BLOCK_BATCHES = 'Insufficient block batches to diff';
 
 function finalizeBlockBatch(blockBatch) {
+  stats.finalize.inc();
   if (!blockBatch) {
     return Q.reject('No blockBatch passed to finalizeBlockBatch');
   }
@@ -275,6 +292,8 @@ function finalizeBlockBatch(blockBatch) {
     return blockBatch.save();
   }).catch(function(err) {
     logger.error(err);
+  }).finally(function() {
+    stats.finalizeDone.inc();
   });
 }
 
@@ -507,6 +526,14 @@ function recordAction(source_uid, sink_uid, type) {
   })
 }
 
+var tlsOpts = {
+  key: fs.readFileSync(path.join(configDir, 'rpc.key')),
+  cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+  ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+  requestCert: true,
+  rejectUnauthorized: true
+};
+
 /**
  * Set up a simple HTTPS server so other daemons can send requests to update blocks.
  * The server expects a JSON POST with fields "uid" and "callerName." The latter
@@ -517,19 +544,13 @@ function recordAction(source_uid, sink_uid, type) {
  * and key to identify itself that the server does.
  */
 function setupServer() {
-  var opts = {
-    key: fs.readFileSync(path.join(configDir, 'rpc.key')),
-    cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
-    ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
-    requestCert: true,
-    rejectUnauthorized: true
-  };
-  var server = https.createServer(opts, function (request, response) {
+  var server = https.createServer(tlsOpts, function (request, response) {
     request.on('data', function(chunk) {
       // Assume we all the data shows up in one chunk.
       var args = JSON.parse(chunk.toString('utf-8'));
       logger.info('Fulfilling remote update request for', args.uid,
         'from', args.callerName);
+      stats.updateRequests.labels(args.callerName).inc()
       updateBlocksForUid(args.uid).then(function() {
         response.end();
       }).catch(function(err) {
@@ -555,6 +576,14 @@ function setupServer() {
   return server;
 }
 
+function setupStats() {
+  var server = https.createServer(tlsOpts, function (req, res) {
+    res.end(promRegister.metrics());
+  });
+  server.listen(6440);
+  return server;
+}
+
 module.exports = {
   updateBlocks: updateBlocks
 };
@@ -563,6 +592,7 @@ if (require.main === module) {
   logger.info('Starting up.');
   var interval = setInterval(findAndUpdateBlocks, 10 * 1000);
   var server = setupServer();
+  var statsServer = setupStats();
   var gracefulExit = function() {
     // On the second try, exit straight away.
     if (shuttingDown) {
@@ -572,6 +602,7 @@ if (require.main === module) {
       logger.info('Closing up shop.');
       clearInterval(interval);
       server.close();
+      statsServer.close();
       setup.gracefulShutdown();
     }
   }
