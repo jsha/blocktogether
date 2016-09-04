@@ -39,6 +39,9 @@ EOAPT
           nodejs mailutils postfix
 
   ln -sf nodejs /usr/bin/node
+  wget https://github.com/prometheus/node_exporter/releases/download/0.12.0/node_exporter-0.12.0.linux-amd64.tar.gz
+  tar --strip 1 --wildcards -xpvzf node_exporter-0.12.0.linux-amd64.tar.gz */node_exporter
+  sudo install node_exporter /usr/local/bin/
 fi
 
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
