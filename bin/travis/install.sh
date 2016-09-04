@@ -12,7 +12,7 @@ sed "s/__CONSUMER_KEY__/$CONSUMER_KEY/" ./config/development.json > /etc/blockto
 sed -i "s/__CONSUMER_SECRET__/$CONSUMER_SECRET/" /etc/blocktogether/config.json
 
 mysqladmin -u root password "$DB_ROOT_PASS"
-sudo ./bin/setup.sh
+./bin/setup.sh
 
 npm install
 
