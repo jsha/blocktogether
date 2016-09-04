@@ -25,19 +25,21 @@ export DEBIAN_FRONTEND=noninteractive
 
 DB_PASS=$(openssl rand -hex 20)
 
-# Set up the nodesource Node repo to get the latest.
-curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
-sudo tee /etc/apt/sources.list.d/nodesource.list <<EOAPT
+if [[ -z "$CI" ]]; then
+  # Set up the nodesource Node repo to get the latest.
+  curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
+  sudo tee /etc/apt/sources.list.d/nodesource.list <<EOAPT
 deb https://deb.nodesource.com/node_5.x trusty main
 deb-src https://deb.nodesource.com/node_5.x trusty main
 EOAPT
 
-apt-get update
-apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-  mariadb-client-5.5 mariadb-server-5.5 git nginx gnupg curl build-essential \
-  nodejs mailutils postfix
+  apt-get update
+  apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+          mariadb-client-5.5 mariadb-server-5.5 git nginx gnupg curl build-essential \
+          nodejs mailutils postfix
 
-ln -sf nodejs /usr/bin/node
+  ln -sf nodejs /usr/bin/node
+fi
 
 SEQUELIZE_CONFIG=/etc/blocktogether/sequelize.json
 if grep -q __PASSWORD__ $SEQUELIZE_CONFIG ; then
