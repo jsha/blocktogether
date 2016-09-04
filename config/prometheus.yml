@@ -1,0 +1,17 @@
+scrape_configs:
+  - job_name: 'blocktogether'
+    scheme: https
+    tls_config:
+      ca_file: /etc/blocktogether/rpc.crt
+      cert_file: /etc/blocktogether/rpc.crt
+      key_file: /etc/blocktogether/rpc.key
+      server_name: blocktogether-rpc
+    static_configs:
+     - targets: ['btudb.blocktogether.org:6440']
+
+  - job_name: 'node'
+    static_configs:
+     - targets:
+       - 'btudb.blocktogether.org:9100'
+       - 'btdb2.blocktogether.org:9100'
+       - 'web3.blocktogether.org:9100'
