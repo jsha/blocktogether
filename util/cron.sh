@@ -1,6 +1,5 @@
 #!/bin/bash -e
-# Back up MySQL DB and delete backups older than 30 days
-# and log files older than 7 days.
+# Back up MySQL DB and delete backups older than 7 days.
 # Assumes there is a ~/.my.cnf with username, password, and DB.
 TABLES="`mysql -e 'show tables' -B --skip-column-names`"
 DB=blocktogether
