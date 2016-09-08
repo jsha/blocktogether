@@ -1,6 +1,9 @@
 #!/bin/bash -e
 # Back up MySQL DB and delete backups older than 7 days.
-# Assumes there is a ~/.my.cnf with username, password, and DB.
+# Assumes there is a ~/.my.cnf like so:
+# [mysqldump]
+# user=blocktogether
+# password=xyz123
 TABLES="`mysql -e 'show tables' -B --skip-column-names`"
 DB=blocktogether
 for TABLE in $TABLES; do
