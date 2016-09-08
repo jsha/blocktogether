@@ -11,7 +11,5 @@ for TABLE in $TABLES; do
     "$DB" "$TABLE" | gzip > \
     /data/mysql-backup/"$TABLE".$(date +%Y%m%d).gz
   # Clean up old backups
-  find /data/mysql-backup/ -ctime +2 -exec rm {} \;
+  find /data/mysql-backup/ -ctime +7 -exec rm {} \;
 done
-
-find /data/blocktogether/shared/log/ -ctime +7 -exec rm {} \;
