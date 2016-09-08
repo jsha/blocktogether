@@ -58,6 +58,7 @@ function deleteOneOldUser(user) {
 }
 
 if (require.main === module) {
+  setup.statsServer(6443);
   setInterval(findAndDeleteOneOldUser, 10000);
 }
 

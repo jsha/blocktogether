@@ -449,6 +449,7 @@ if (require.main === module) {
     });
   } else {
     workerId = cluster.worker.id;
+    setup.statsServer(6600 + workerId);
     refreshUsers()
       .then(startStreams);
   }

@@ -284,6 +284,7 @@ BtUser.findAll({
 });
 
 if (require.main === module) {
+  setup.statsServer(6444);
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.

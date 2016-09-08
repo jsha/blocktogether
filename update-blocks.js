@@ -576,14 +576,6 @@ function setupServer() {
   return server;
 }
 
-function setupStats() {
-  var server = https.createServer(tlsOpts, function (req, res) {
-    res.end(promRegister.metrics());
-  });
-  server.listen(6440);
-  return server;
-}
-
 module.exports = {
   updateBlocks: updateBlocks
 };
@@ -592,7 +584,7 @@ if (require.main === module) {
   logger.info('Starting up.');
   var interval = setInterval(findAndUpdateBlocks, 10 * 1000);
   var server = setupServer();
-  var statsServer = setupStats();
+  var statsServer = setup.statsServer(6440);
   var gracefulExit = function() {
     // On the second try, exit straight away.
     if (shuttingDown) {

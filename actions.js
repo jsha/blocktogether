@@ -503,6 +503,7 @@ module.exports = {
 };
 
 if (require.main === module) {
+  setup.statsServer(6441);
   // When many users are have processing, it takes about 180 seconds to get
   // through all of the batches of 100 blocks. Space out intervals to avoid
   // overlap. NOTE: with workingActions[] keeping track now, this should no

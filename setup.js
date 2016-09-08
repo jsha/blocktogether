@@ -8,6 +8,8 @@ var fs = require('fs'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
     https = require('https'),
+    promRegister = require('prom-client/lib/register'),
+    prom = require('prom-client'),
     _ = require('lodash');
 
 /*
@@ -334,6 +336,22 @@ function remoteUpdateBlocks(user) {
 function gracefulShutdown() {
 }
 
+function statsServer(port) {
+  var tlsOpts = {
+    key: fs.readFileSync(path.join(configDir, 'rpc.key')),
+    cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+    ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
+    requestCert: true,
+    rejectUnauthorized: true
+  };
+  var server = https.createServer(tlsOpts, function (req, res) {
+    res.end(promRegister.metrics());
+  });
+  server.unref();
+  server.listen(port);
+  return server;
+}
+
 process.on('uncaughtException', function(err) {
   logger.fatal('uncaught exception, shutting down: ', err);
   process.exit(133);
@@ -354,6 +372,7 @@ module.exports = {
   twitter: twitter,
   userToFollow: userToFollow,
   remoteUpdateBlocks: remoteUpdateBlocks,
-  gracefulShutdown: gracefulShutdown
+  gracefulShutdown: gracefulShutdown,
+  statsServer: statsServer
 };
 })();

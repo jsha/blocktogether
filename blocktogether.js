@@ -1099,6 +1099,7 @@ function showActions(req, res, next) {
 }
 
 function main() {
+  setup.statsServer(6442);
   var server = app.listen(config.port);
 
   process.on('SIGTERM', function () {
