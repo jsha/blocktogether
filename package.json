@@ -12,6 +12,7 @@
     "body-parser": "^1.6.7",
     "cookie-session": "^1.0.2",
     "express": "^4.8.8",
+    "heapdump": "^0.3.7",
     "lodash": "^3.10.1",
     "log4js": "jsha/log4js-node#logrotate",
     "mu2": "jsha/Mu",
