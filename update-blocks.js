@@ -89,13 +89,14 @@ function findAndUpdateBlocks() {
 var activeFetches = new Map();
 
 var stats = {
-  numActiveFetches: new prom.Gauge('num_active_fetches', 'Number of active block fetches'),
+  numActiveFetches: new prom.Gauge('num_active_fetches', 'Number of active block fetches.'),
   updateRequests: new prom.Counter('update_requests', 'Number of requests to update blocks', ['caller']),
-  finalize: new prom.Counter('finalize', 'Number of times finalizeBlockBatch was reached'),
+  finalize: new prom.Counter('finalize', 'Number of times finalizeBlockBatch was reached.'),
   finalizeDone: new prom.Counter('finalize_done', 'finalizeBlockBatch\'s Promise completed.'),
   deleteFromActive: new prom.Counter('delete_from_active', 'Fetch was deleted from activeFetches map.'),
   heapUsed: new prom.Gauge('heap_used', 'Heap used by Node.'),
   heapTotal: new prom.Gauge('heap_total', 'Heap used by Node.'),
+  diffTimeNanos: new prom.Summary('diff_time_nanos', 'Time taken to diff block batches.'),
 }
 
 setInterval(function() {
@@ -356,6 +357,7 @@ function diffBatchWithPrevious(currentBatch) {
         return Q.reject(INSUFFICIENT_BLOCK_BATCHES);
       }
     }
+    logger.info('Getting blocks for batches', currentBatch.id, oldBatch.id);
     return [oldBatch, currentBatch.getBlocks(), oldBatch.getBlocks()];
   }).spread(function(oldBatch, currentBlocks, oldBlocks) {
     var currentBlockIds = _.map(currentBlocks, 'sink_uid');
@@ -363,12 +365,13 @@ function diffBatchWithPrevious(currentBatch) {
     var start = process.hrtime();
     var addedBlockIds = _.difference(currentBlockIds, oldBlockIds);
     var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
-    var elapsedMs = process.hrtime(start)[1] / 1000000;
+    var elapsedNanos = process.hrtime(start)[1];
+    stats.diffTimeNanos.observe(elapsedNanos);
     logger.debug('Block diff for', source_uid,
       'added:', addedBlockIds, 'removed:', removedBlockIds,
       'current size:', currentBlockIds.length,
       'old size:', oldBlockIds.length,
-      'msecs:', Math.round(elapsedMs));
+      'msecs:', Math.round(elapsedNanos / 1000000));
 
     // Make sure any new ids are in the TwitterUsers table. Don't block the
     // overall Promise on the result, though.
@@ -384,6 +387,7 @@ function diffBatchWithPrevious(currentBatch) {
       // fanoutActions.
       return recordAction(source_uid, sink_uid, Action.BLOCK);
     })).then(function(blockActions) {
+      logger.debug('Calling fanoutActions for', source_uid, 'with', blockActions.length, 'actions');
       subscriptions.fanoutActions(blockActions);
     });
 
