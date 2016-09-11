@@ -32,5 +32,8 @@ script:
     --externs=externs/underscore-1.5.1.js > /dev/null"
   - if [ -n "$CONSUMER_KEY" ]; then npm test; fi
 
+after_script:
+  - if [ -n "$CONSUMER_KEY" ]; then npm run-script unblock; fi
+
 after_failure:
   - if [ -n "$CONSUMER_KEY" ]; then cat bt.log; fi
