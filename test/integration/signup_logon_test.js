@@ -96,6 +96,14 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     test.assert(text.indexOf('unlisted, unguessable') > -1, 'there is a valid show-blocks URL');
   });
 
+  casper.thenOpen(host + '/logout', function() {
+    return true;
+  });
+
+  casper.thenOpen('https://twitter.com/logout', function() {
+    return this.fill('form[action*="/logout"]', {}, true);
+  });
+
   casper.run(function() {
     test.done();
   });
