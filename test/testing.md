@@ -64,6 +64,8 @@ _(Automated by `integration/signup_logon_test.js`)_
 
 ## Blocking low follower users
 
+_(Automated by `integration/block_low_follower_users_test.js`)_
+
 - Log on with @twestact3, enable block_low_followers.
 - Ensure @twestact6 has < 15 followers.
 - Using @twestact6, @-mention @twestact3.

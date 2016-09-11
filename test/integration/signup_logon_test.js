@@ -59,10 +59,8 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     });
   });
 
-  casper.then(function() {
-    casper.open(host + '/logout', function() {
-      return true;
-    });
+  casper.thenOpen(host + '/logout', function() {
+    return true;
   });
 
   casper.waitForSelector('.log-on-link', function() {
@@ -76,10 +74,8 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     test.assertEqual(checks, [true, false, false, true], 'after logging out and in, settings are preserved');
   });
 
-  casper.then(function() {
-    casper.open(host + '/logout', function() {
-      return true;
-    });
+  casper.thenOpen(host + '/logout', function() {
+    return true;
   });
 
   casper.waitForSelector('.log-on-link', function() {
