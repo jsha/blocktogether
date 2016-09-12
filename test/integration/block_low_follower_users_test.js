@@ -64,7 +64,7 @@ casper.test.begin('Block low follower users', 2, function(test) {
     return this.fill('form[id="update-form"]', {}, true);
   });
 
-  casper.wait(5000, function() {
+  casper.wait(15000, function() {
     casper.open('https://twitter.com/' + mainUser, function() {
       return true;
     });
