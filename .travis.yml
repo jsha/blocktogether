@@ -8,11 +8,17 @@ node_js:
 
 addons:
   mariadb: '5.5'
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.8
 
 env:
   global:
     - DB_ROOT_PASS="$(openssl rand -hex 20)"
     - APPUSER="$USER"
+    - CXX=g++-4.8
 
 install:
   - wget https://dl.google.com/closure-compiler/compiler-latest.zip
