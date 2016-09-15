@@ -2,16 +2,10 @@ var system = require('system');
 var user = system.env.BT_TEST_MAIN_USER;
 var pass = system.env.BT_TEST_MAIN_PASS;
 
-var host = 'http://localhost:3000';
+var checkBoxes = require('../lib/check_boxes.js');
+var logout = require('../lib/logout.js');
 
-function checkBoxes() {
-  return [
-    document.querySelector('#block_new_accounts').checked,
-    document.querySelector('#block_low_followers').checked,
-    document.querySelector('#share_blocks').checked,
-    document.querySelector('#follow_blocktogether').checked
-  ];
-}
+var host = 'http://localhost:3000';
 
 // Sometimes Twitter will immediately redirect back to the Block Together, but
 // sometimes it will show an interstitial with an "Authorize" button even though
@@ -96,13 +90,7 @@ casper.test.begin('Sign up and log on', 6, function(test) {
     test.assert(text.indexOf('unlisted, unguessable') > -1, 'there is a valid show-blocks URL');
   });
 
-  casper.thenOpen(host + '/logout', function() {
-    return true;
-  });
-
-  casper.thenOpen('https://twitter.com/logout', function() {
-    return this.fill('form[action*="/logout"]', {}, true);
-  });
+  logout(casper, host);
 
   casper.run(function() {
     test.done();

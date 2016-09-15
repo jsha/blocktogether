@@ -4,16 +4,10 @@ var mainPass = system.env.BT_TEST_MAIN_PASS;
 var lowUser = system.env.BT_TEST_LOW_FOLLOWER_USER;
 var lowPass = system.env.BT_TEST_LOW_FOLLOWER_PASS;
 
-var host = 'http://localhost:3000';
+var checkBoxes = require('../lib/check_boxes.js');
+var logout = require('../lib/logout.js');
 
-function checkBoxes() {
-  return [
-    document.querySelector('#block_new_accounts').checked,
-    document.querySelector('#block_low_followers').checked,
-    document.querySelector('#share_blocks').checked,
-    document.querySelector('#follow_blocktogether').checked
-  ];
-}
+var host = 'http://localhost:3000';
 
 casper.test.begin('Block low follower users', 2, function(test) {
   casper.start(host, function() {
@@ -74,13 +68,7 @@ casper.test.begin('Block low follower users', 2, function(test) {
     test.assert(this.exists('.BlocksYouTimeline'), 'Low follower user is blocked');
   });
 
-  casper.thenOpen(host + '/logout', function() {
-    return true;
-  });
-
-  casper.thenOpen('https://twitter.com/logout', function() {
-    return this.fill('form[action*="/logout"]', {}, true);
-  });
+  logout(casper, host);
 
   casper.run(function() {
     test.done();
