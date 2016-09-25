@@ -20,7 +20,7 @@
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
     "passport": "^0.3.2",
     "passport-twitter": "^1.0.3",
-    "prom-client": "^4.0.0",
+    "prom-client": "^4.1.0",
     "q": "^1.0.1",
     "scmp": "0.0.3",
     "sequelize": "^3.17.3",
