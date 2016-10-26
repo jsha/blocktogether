@@ -6,7 +6,8 @@
   "license": "GPL-3.0",
   "version": "1.7.2",
   "scripts": {
-    "test": "./node_modules/.bin/casperjs test test/integration/*.js"
+    "test": "./node_modules/.bin/casperjs test test/integration/*.js",
+    "unblock": "node unblock-all.js $BT_TEST_MAIN_USER"
   },
   "dependencies": {
     "body-parser": "^1.6.7",
