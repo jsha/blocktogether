@@ -12,6 +12,7 @@ var twitterAPI = require('node-twitter-api'),
     setup = require('./setup'),
     subscriptions = require('./subscriptions'),
     updateUsers = require('./update-users'),
+    util = require('./util'),
     promRegister = require('prom-client/lib/register'),
     prom = require('prom-client');
 
@@ -377,16 +378,19 @@ function diffBatchWithPrevious(currentBatch) {
     // overall Promise on the result, though.
     addIdsToTwitterUsers(addedBlockIds);
 
-    // Enqueue blocks for users who subscribe
+    // Enqueue blocks for users who subscribe. This can be a large number of
+    // blocks, so we use promiseMap, which waits for each one to succeed before
+    // starting the next. We previously used addedBlockIds.map, but when someone
+    // blocked 100k users between visits, trying to create all 100k promises
+    // chewed up all our memory and caused crashes.
     // NOTE: subscription fanout for unblocks happens within
     // recordUnblocksUnlessDeactivated.
-    // TODO: use allSettled so even if some fail, we still fanout the rest
-    var blockActionsPromise = Q.all(addedBlockIds.map(function(sink_uid) {
+    var blockActionsPromise = util.promiseMap(addedBlockIds, function(sink_uid) {
       // Actions are not recorded if they already exist, i.e. are not
       // external actions. Those come back as null and are filtered in
       // fanoutActions.
       return recordAction(source_uid, sink_uid, Action.BLOCK);
-    })).then(function(blockActions) {
+    }).then(function(blockActions) {
       logger.debug('Calling fanoutActions for', source_uid, 'with', blockActions.length, 'actions');
       subscriptions.fanoutActions(blockActions);
     });
