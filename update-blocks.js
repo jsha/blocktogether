@@ -16,8 +16,6 @@ var twitterAPI = require('node-twitter-api'),
     promRegister = require('prom-client/lib/register'),
     prom = require('prom-client');
 
-require('heapdump');
-
 var twitter = setup.twitter,
     logger = setup.logger,
     configDir = setup.configDir,
@@ -95,15 +93,11 @@ var stats = {
   finalize: new prom.Counter('finalize', 'Number of times finalizeBlockBatch was reached.'),
   finalizeDone: new prom.Counter('finalize_done', 'finalizeBlockBatch\'s Promise completed.'),
   deleteFromActive: new prom.Counter('delete_from_active', 'Fetch was deleted from activeFetches map.'),
-  heapUsed: new prom.Gauge('heap_used', 'Heap used by Node.'),
-  heapTotal: new prom.Gauge('heap_total', 'Heap used by Node.'),
   diffTimeNanos: new prom.Summary('diff_time_nanos', 'Time taken to diff block batches.'),
 }
 
 setInterval(function() {
   stats.numActiveFetches.set(activeFetches.size);
-  stats.heapUsed.set(process.memoryUsage().heapUsed);
-  stats.heapTotal.set(process.memoryUsage().heapTotal);
 }, 1000)
 
 function updateBlocksForUid(uid) {
