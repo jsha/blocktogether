@@ -362,8 +362,8 @@ function diffBatchWithPrevious(currentBatch) {
     var removedBlockIds = _.difference(oldBlockIds, currentBlockIds);
     var elapsedNanos = process.hrtime(start)[1];
     stats.diffTimeNanos.observe(elapsedNanos);
-    logger.debug('Block diff for', source_uid,
-      'added:', addedBlockIds, 'removed:', removedBlockIds,
+    logger.info('Block diff for', source_uid,
+      'added:', addedBlockIds.length, 'removed:', removedBlockIds.length,
       'current size:', currentBlockIds.length,
       'old size:', oldBlockIds.length,
       'msecs:', Math.round(elapsedNanos / 1000000));
@@ -556,14 +556,21 @@ function setupServer() {
     request.on('data', function(chunk) {
       // Assume we all the data shows up in one chunk.
       var args = JSON.parse(chunk.toString('utf-8'));
-      logger.info('Fulfilling remote update request for', args.uid,
-        'from', args.callerName);
       stats.updateRequests.labels(args.callerName).inc()
-      updateBlocksForUid(args.uid).then(function() {
-        response.end();
-      }).catch(function(err) {
-        console.error(err);
-      });
+      if (activeFetches.has(args.uid)) {
+        // Don't create multiple pending block update requests at the same time.
+        logger.info('User', args.uid,
+          'already updating, skipping duplicate from', args.callerName);
+        response.end()
+      } else {
+        logger.info('Fulfilling remote update request for', args.uid,
+          'from', args.callerName);
+        updateBlocksForUid(args.uid).then(function() {
+          response.end();
+        }).catch(function(err) {
+          console.error(err);
+        });
+      }
     });
   });
   // The server will use HTTP keepalive by default, but also set a timeout
