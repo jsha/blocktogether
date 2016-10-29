@@ -5,6 +5,7 @@
 	create 0644 ubuntu ubuntu
 	sharedscripts
 	postrotate
-		killall -HUP node
+		# When stream.js forks, it winds up being nodejs instead of node.
+		killall -HUP node nodejs
 	endscript
 }
