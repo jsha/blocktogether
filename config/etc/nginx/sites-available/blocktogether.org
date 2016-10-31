@@ -28,10 +28,14 @@ server {
         root /data/blocktogether/current/static/;
         location / {
                 proxy_pass http://localhost:2078/;
+                proxy_pass http://localhost:2079/;
+                proxy_pass http://localhost:2080/;
         }
         location /show-blocks/ {
                 limit_req zone=showblocks burst=5;
-                proxy_pass http://localhost:2078/show-blocks/;
+                proxy_pass http://localhost:2078/;
+                proxy_pass http://localhost:2079/;
+                proxy_pass http://localhost:2080/;
         }
         location /favicon.ico {
             alias /data/blocktogether/current/static/favicon.ico;
