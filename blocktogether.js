@@ -1,6 +1,7 @@
 'use strict';
 (function() {
 var express = require('express'), // Web framework
+    cluster = require('cluster'),
     url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -1098,21 +1099,30 @@ function showActions(req, res, next) {
   }).catch(next);
 }
 
-function main() {
-  setup.statsServer(6442);
-  var server = app.listen(config.port);
-
-  process.on('SIGTERM', function () {
-    logger.info('Shutting down.');
-    setup.gracefulShutdown();
-    server.close(function () {
-      logger.info('Shut down succesfully.');
-      process.exit(0);
+if (require.main === module) {
+  if (cluster.isMaster) {
+    logger.info('Starting workers.');
+    for (var i = 0; i < config.ports.length; i++) {
+      cluster.fork();
+    }
+    cluster.on('exit', function(worker, code, signal) {
+      logger.error('worker', worker.process.pid, 'died, resurrecting.');
+      cluster.fork();
     });
-  });
-  logger.info('Listening on', config.port);
+  } else {
+    var port = config.ports[cluster.worker.id - 1];
+
+    setup.statsServer(1000 + port);
+    logger.info('Listening on', port);
+    var server = app.listen(port);
+    process.on('SIGTERM', function () {
+      logger.info('Shutting down port', port);
+      setup.gracefulShutdown();
+      server.close(function () {
+        logger.info('Successfully shut down port', port);
+        process.exit(0);
+      });
+    });
+  }
 }
-
-main();
-
 })();
