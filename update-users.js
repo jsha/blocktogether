@@ -4,6 +4,7 @@
 var setup = require('./setup'),
     Q = require('q'),
     _ = require('lodash'),
+    prom = require('prom-client'),
     verifyCredentials = require('./verify-credentials');
 
 var config = setup.config,
@@ -15,6 +16,12 @@ var config = setup.config,
     BlockBatch = setup.BlockBatch,
     Block = setup.Block;
 
+var stats = {
+  userUpdatesBegun: new prom.Counter('user_updates_begun', 'User updates begun', ['reason']),
+  usersStored: new prom.Counter('users_stored', 'Users stored'),
+  usersSkipped: new prom.Counter('users_skipped', 'Users skipped due to no changes'),
+}
+
 /**
  * Find TwitterUsers needing update, look them up on Twitter, and store in
  * database. A user needs update if it's just been inserted (no screen name)
@@ -23,8 +30,9 @@ var config = setup.config,
  * @param {string} sqlFilter An SQL `where' clause to filter users by. Allows
  *   running separate update cycles for fresh users (with no screen name) vs
  *   users who need a refresh.
+ * @param {string} reason A string describing the reason for this update.
  */
-function findAndUpdateUsers(sqlFilter) {
+function findAndUpdateUsers(sqlFilter, reason) {
   TwitterUser
     .findAll({
       where: sequelize.and(
@@ -33,6 +41,7 @@ function findAndUpdateUsers(sqlFilter) {
       limit: 100
     }).then(function(users) {
       if (users && users.length > 0) {
+        stats.userUpdatesBegun.labels(reason).inc(users.length);
         updateUsers(_.map(users, 'uid'), _.indexBy(users, 'uid'));
       }
     }).catch(function(err) {
@@ -227,6 +236,7 @@ function storeUser(twitterUserResponse, userObj) {
     if (user.changed()) {
       return user.save()
         .then(function(savedUser) {
+          stats.usersStored.inc();
           logger.debug('Saved user', savedUser.screen_name, savedUser.id_str);
           return savedUser;
         }).catch(function(err) {
@@ -240,6 +250,7 @@ function storeUser(twitterUserResponse, userObj) {
           return null;
         });
     } else {
+      stats.usersSkipped.inc();
       logger.debug('Skipping update for', user.screen_name, user.id_str);
       return user;
     }
@@ -288,10 +299,10 @@ if (require.main === module) {
   findAndUpdateUsers();
   // Poll for just-added users every 1 second and do an initial fetch of their
   // information.
-  setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL']), 5000);
+  setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
   // Poll for users needing update every 10 seconds.
   setInterval(
-    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)']), 2500);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 2500);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }
