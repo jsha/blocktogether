@@ -353,7 +353,9 @@ function statsServer(port) {
 }
 
 process.on('uncaughtException', function(err) {
-  logger.fatal('uncaught exception, shutting down: ', err);
+  // log4js file appenders are not guaranteed to flush before exit, so it's
+  // safer to write to stderr explicitly instead.
+  process.stderr.write(new Date() + ': uncaught exception, shutting down: ' + err + '\n');
   process.exit(133);
 });
 
