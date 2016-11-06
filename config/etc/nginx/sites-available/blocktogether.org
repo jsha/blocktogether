@@ -3,6 +3,12 @@ limit_req_zone $binary_remote_addr zone=showblocks:10m rate=20r/m;
 log_format no_ip '$time_iso8601 $request_time $status $body_bytes_sent $cookie_uid '
   '"$request" "$http_referer" "$http_user_agent"';
 
+upstream bt {
+server localhost:2078;
+server localhost:2079;
+server localhost:2080;
+}
+
 server {
         listen 443 default_server ssl;
         listen [::]:443 default_server ipv6only=on ssl;
@@ -27,15 +33,11 @@ server {
 
         root /data/blocktogether/current/static/;
         location / {
-                proxy_pass http://localhost:2078/;
-                proxy_pass http://localhost:2079/;
-                proxy_pass http://localhost:2080/;
+                proxy_pass http://bt/;
         }
         location /show-blocks/ {
                 limit_req zone=showblocks burst=5;
-                proxy_pass http://localhost:2078/;
-                proxy_pass http://localhost:2079/;
-                proxy_pass http://localhost:2080/;
+                proxy_pass http://bt/;
         }
         location /favicon.ico {
             alias /data/blocktogether/current/static/favicon.ico;
