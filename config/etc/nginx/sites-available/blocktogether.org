@@ -33,11 +33,11 @@ server {
 
         root /data/blocktogether/current/static/;
         location / {
-                proxy_pass http://bt/;
+                proxy_pass http://bt;
         }
         location /show-blocks/ {
                 limit_req zone=showblocks burst=5;
-                proxy_pass http://bt/;
+                proxy_pass http://bt;
         }
         location /favicon.ico {
             alias /data/blocktogether/current/static/favicon.ico;
