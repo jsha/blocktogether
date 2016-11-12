@@ -5,8 +5,8 @@ log_format no_ip '$time_iso8601 $request_time $status $body_bytes_sent $cookie_u
 
 upstream bt {
 server localhost:2078;
-server localhost:2079;
-server localhost:2080;
+#server localhost:2079;
+#server localhost:2080;
 }
 
 server {
@@ -34,10 +34,12 @@ server {
         root /data/blocktogether/current/static/;
         location / {
                 proxy_pass http://bt;
+                proxy_read_timeout 45s;
         }
         location /show-blocks/ {
                 limit_req zone=showblocks burst=5;
                 proxy_pass http://bt;
+                proxy_read_timeout 45s;
         }
         location /favicon.ico {
             alias /data/blocktogether/current/static/favicon.ico;
