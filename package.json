@@ -14,7 +14,7 @@
     "cookie-session": "^1.0.2",
     "express": "^4.14.0",
     "lodash": "^3.10.1",
-    "log4js": "jsha/log4js-node#logrotate",
+    "log4js": "^1.0.1",
     "mu2": "jsha/Mu",
     "mysql": "^2.11.1",
     "node-twitter-api": "jsha/node-twitter-api#keepalive",
