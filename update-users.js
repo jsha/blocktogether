@@ -297,12 +297,11 @@ BtUser.findAll({
 if (require.main === module) {
   setup.statsServer(6444);
   findAndUpdateUsers();
-  // Poll for just-added users every 1 second and do an initial fetch of their
-  // information.
+  // Poll for just-added users and do an initial fetch of their information.
   setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
-  // Poll for users needing update every 10 seconds.
+  // Poll for users needing update
   setInterval(
-    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 2500);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 5000);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }
