@@ -52,8 +52,10 @@ function verifyCredentials(user) {
         updateDeactivatedAt();
       } else if (err && err.statusCode) {
         logger.warn('User', user, '/account/verify_credentials', err.statusCode);
+        return;
       } else if (err) {
         logger.warn('User', user, '/account/verify_credentials', err);
+        return;
       } else if (response.suspended === true) {
         logger.info('User', user, 'suspended.')
         updateDeactivatedAt();
