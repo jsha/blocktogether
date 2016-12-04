@@ -1110,7 +1110,7 @@ if (require.main === module) {
       cluster.fork();
     });
   } else {
-    var port = config.ports[cluster.worker.id - 1];
+    var port = config.ports[(cluster.worker.id) % config.ports.length];
 
     setup.statsServer(1000 + port);
     logger.info('Listening on', port);
