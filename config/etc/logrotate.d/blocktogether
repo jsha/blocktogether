@@ -6,6 +6,6 @@
 	sharedscripts
 	postrotate
 		# When stream.js forks, it winds up being nodejs instead of node.
-		killall -HUP node node
+		killall -HUP node nodejs
 	endscript
 }
