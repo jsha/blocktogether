@@ -663,7 +663,7 @@ app.post('/block-all.json',
             }).then(req.user.addSubscription.bind(req.user))
             .catch(function(err) {
               if (err.name !== 'SequelizeUniqueConstraintError') {
-                logger.error(err);
+                logger.error('Subscribing ' + req.user + ' to ' + author + ': ' + err);
               }
             });
 
@@ -698,14 +698,14 @@ app.post('/block-all.json',
                 return null;
               }
             }).catch(function(err) {
-              logger.error(err);
+              logger.error('Copying blocks to ' + req.user + ' from ' + author + ': ' + err);
             });
           } else {
             next(new HttpError(400, 'Invalid shared block list id.'));
           }
           return null;
         }).catch(function(err) {
-          logger.error(err);
+          logger.error('Blocking all for ' + req.user + ': ' + err);
         });
     } else {
       return next(new HttpError(400, 'Invalid parameters.'));
