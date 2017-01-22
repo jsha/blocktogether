@@ -10,6 +10,7 @@ var twitterAPI = require('node-twitter-api'),
     updateUsers = require('./update-users'),
     util = require('./util'),
     setup = require('./setup'),
+    prom = require('prom-client'),
     verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
@@ -18,6 +19,12 @@ var twitter = setup.twitter,
     remoteUpdateBlocks = setup.remoteUpdateBlocks,
     Action = setup.Action,
     BtUser = setup.BtUser;
+
+var stats = {
+  events: new prom.Counter('events', 'Number of events received from streaming API', ['type']),
+  blocks: new prom.Counter('blocks', 'Number of blocks applied based on the streaming API', ['type']),
+  streams: new prom.Gauge('streams', 'Number of active streams.'),
+}
 
 var workerId = -1;
 var numWorkers = 2;
@@ -65,6 +72,7 @@ function startStreams() {
 function refreshStreams() {
   var streamingIds = Object.keys(streams);
   logger.info('Active streams:', streamingIds.length);
+  stats.streams.set(streamingIds.length);
   // Find all users who don't already have a running stream.
   var missingUserIds = _.difference(Object.keys(allUsers), streamingIds);
   if (missingUserIds.length) {
@@ -291,6 +299,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
         data.warning.message);
     }
   } else if (data.event) {
+    stats.events.labels(data.event).inc()
     logger.debug('User', recipientBtUser, 'event', data.event);
     if (data.event === 'unblock' || data.event === 'block') {
       logger.info('User', recipientBtUser, data.event,
@@ -428,6 +437,7 @@ function updateNonPendingBlocks(recipientBtUser) {
  * @param {string} cause One of the valid cause types from Action object
  */
 function enqueueBlock(sourceUser, sinkUserId, cause) {
+  stats.blocks.labels(cause).inc()
   actions.queueActions(
     sourceUser.uid, [sinkUserId], Action.BLOCK, cause
   ).then(function() {
