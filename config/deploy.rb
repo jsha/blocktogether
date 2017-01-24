@@ -22,7 +22,7 @@ task :staging do
 end
 
 task :web do
-  role :app, *%w[ web3.blocktogether.org   ]
+  role :app, *%w[ web3.blocktogether.org  web4.blocktogether.org    ]
   set :process_names, %w[ blocktogether ]
 end
 
