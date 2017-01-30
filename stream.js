@@ -194,6 +194,7 @@ function startStream(user) {
   });
 
   streams[user.uid] = req;
+  stats.streams.set(Object.keys(streams).length);
 
   // When restarting the service or experiencing downtime, there's a gap in
   // streaming coverage. Make sure we cover any tweets we may have missed.
