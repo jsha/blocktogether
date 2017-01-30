@@ -11,12 +11,19 @@ var twitterAPI = require('node-twitter-api'),
     _ = require('lodash'),
     util = require('./util'),
     setup = require('./setup'),
+    prom = require('prom-client'),
     verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
     logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action;
+
+var stats = {
+  usersWithActions: new prom.Gauge('users_with_actions', 'Number of users with pending actions'),
+  actionsBegun: new prom.Counter('actions_begun', 'Number of actions begun', ['type']),
+  actionsFinished: new prom.Counter('actions_finished', 'Number of actions finished', ['type', 'status']),
+}
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -83,6 +90,7 @@ function processActions() {
     limit: 300
   }).then(function(users) {
     if (users && users.length > 0) {
+      stats.usersWithActions.set(users.length);
       logger.info('Processing actions for', users.length, 'users');
       // Space out the kickoff of each user's processing batch to get better
       // reuse of HTTPS connections to Twitter. TODO: Measure latency of Twitter
@@ -159,6 +167,7 @@ function processActionsForUser(user) {
       }
       workingActions[uid] = 1;
       var processingPromise = null;
+      stats.actionsBegun.labels(action.typeNum).inc(run.length);
       if (firstActionType === Action.BLOCK) {
         processingPromise = processBlocksForUser(user, run);
       } else if (firstActionType === Action.UNBLOCK) {
@@ -492,6 +501,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
 function setActionStatus(action, newState) {
   logger.debug('Action', action.id, action.source_uid, action.type,
     action.sink_uid, 'changing to state', newState);
+  stats.actionsFinished.labels(action.typeNum, newState).inc();
   action.status = newState;
   return action.save();
 }
