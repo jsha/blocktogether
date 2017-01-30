@@ -22,6 +22,7 @@ var config = setup.config,
     logger = setup.logger,
     userToFollow = setup.userToFollow,
     remoteUpdateBlocks = setup.remoteUpdateBlocks,
+    sequelize = setup.sequelize,
     BtUser = setup.BtUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
@@ -677,35 +678,40 @@ app.post('/block-all.json',
                   next(new HttpError(400, 'Block list too big to subscribe.'));
                   return null;
                 }
-                return batch.getBlocks()
-                  .then(function(blocks) {
-                    var sinkUids = _.map(blocks, 'sink_uid');
-                    return [sinkUids, actions.queueActions(
-                      req.user.uid, sinkUids, Action.BLOCK,
-                      Action.SUBSCRIPTION, author.uid)];
-                  }).spread(function(sinkUids, actions) {
-                    // On a successful subscribe-on-signup, delete the entries
-                    // from the session.
-                    if (req.body.subscribe_on_signup) {
-                      delete req.session.subscribe_on_signup;
-                    }
-                    res.end(JSON.stringify({
-                      block_count: sinkUids.length
-                    }));
-                  });
+                // Copy block list into Actions, with appropriate metadata.
+                // Note: Using this instead of actions.queueActions saves a lot
+                // of memory and CPU cycles when blocking large (>150k) lists.
+                return sequelize.query('INSERT INTO Actions(source_uid, sink_uid, cause_uid, typeNum, statusNum, causeNum, createdAt, updatedAt)\n' +
+                  'SELECT ?, sink_uid, ?, ?, ?, ?, NOW(), NOW()\n'+
+                  'FROM Blocks WHERE BlockBatchId = ?', {
+                  replacements: [req.user.uid, author.uid, Action.BLOCK, Action.PENDING, Action.SUBSCRIPTION, batch.id],
+                  type: sequelize.QueryTypes.INSERT
+                }).then(function() {
+                  req.user.pendingActions = true;
+                  return req.user.save();
+                }).then(function() {
+                  // On a successful subscribe-on-signup, delete the entries
+                  // from the session.
+                  if (req.body.subscribe_on_signup) {
+                    delete req.session.subscribe_on_signup;
+                  }
+                  res.end(JSON.stringify({
+                    block_count: batch.size
+                  }));
+                });
               } else {
                 next(new HttpError(400, 'Empty block list.'));
                 return null;
               }
             }).catch(function(err) {
-              logger.error('Copying blocks to ' + req.user + ' from ' + author + ': ' + err);
+              logger.error('Copying blocks to ', req.user, ' from ', author, ':', err);
             });
           } else {
             next(new HttpError(400, 'Invalid shared block list id.'));
           }
           return null;
         }).catch(function(err) {
-          logger.error('Blocking all for ' + req.user + ': ' + err);
+          logger.error('Blocking all for', req.user, ': ', err);
         });
     } else {
       return next(new HttpError(400, 'Invalid parameters.'));
@@ -772,8 +778,12 @@ app.post('/do-actions.json',
         type) {
       actions.queueActions(
         req.user.uid, req.body.list, type,
-        Action.SUBSCRIPTION, req.body.cause_uid);
-      res.end('{}');
+        Action.SUBSCRIPTION, req.body.cause_uid
+      ).then(function() {
+        res.end('{}');
+      }).catch(function(err) {
+        next(new Error('Unsubscribe failed.'));
+      });
     } else {
       return next(new HttpError(400, 'Invalid parameters.'));
     }
