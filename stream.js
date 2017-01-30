@@ -277,6 +277,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
   if (!data) return;
   if (data.disconnect) {
+    stats.events.labels("disconnect").inc()
     logger.warn(recipientBtUser, 'disconnect message:', data.disconnect);
     // Code 6 is for revoked, e.g.:
     // { code: 6, stream_name:
@@ -295,6 +296,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       // see all tweets on the user's timeline, but we don't care about timeline
       // tweets anyhow.
     } else {
+      stats.events.labels("warning").inc()
       logger.warn('Stream warning for', recipientBtUser, data.warning.code,
         data.warning.message);
     }
@@ -311,6 +313,7 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
       checkReplyAndBlock(recipientBtUser, data.source);
     }
   } else if (data.text && !data.retweeted_status && data.user) {
+    stats.events.labels("text").inc()
     // If user A tweets "@foo hi" and user B retweets it, that should not count
     // as a mention of @foo for the purposes of blocking. That retweet would
     // show up in the streaming API with text: "@foo hi", as if user B had
