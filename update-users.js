@@ -20,6 +20,8 @@ var stats = {
   userUpdatesBegun: new prom.Counter('user_updates_begun', 'User updates begun', ['reason']),
   usersStored: new prom.Counter('users_stored', 'Users stored'),
   usersSkipped: new prom.Counter('users_skipped', 'Users skipped due to no changes'),
+  usersVerified: new prom.Counter('users_verified', 'Users verified'),
+  inflight: new prom.Counter('inflight', 'Inflight user lookup requests')
 }
 
 /**
@@ -41,11 +43,15 @@ function findAndUpdateUsers(sqlFilter, reason) {
       limit: 100
     }).then(function(users) {
       if (users && users.length > 0) {
+        stats.inflight.inc(users.length)
         stats.userUpdatesBegun.labels(reason).inc(users.length);
-        updateUsers(_.map(users, 'uid'), _.indexBy(users, 'uid'));
+        return updateUsers(_.map(users, 'uid'), _.indexBy(users, 'uid')).then(function(results) {
+          stats.inflight.inc(-users.length);
+          return results;
+        });
       }
     }).catch(function(err) {
-      logger.error(err);
+      logger.error('Updating users:', err);
     });
 }
 
@@ -295,13 +301,13 @@ BtUser.findAll({
 });
 
 if (require.main === module) {
+  logger.info('Starting up.');
   setup.statsServer(6444);
-  findAndUpdateUsers();
   // Poll for just-added users and do an initial fetch of their information.
   setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
-  // Poll for users needing update
+  // Poll for users needing update.
   setInterval(
-    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 5000);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 2500);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }
