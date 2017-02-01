@@ -167,7 +167,7 @@ function processActionsForUser(user) {
       }
       workingActions[uid] = 1;
       var processingPromise = null;
-      stats.actionsBegun.labels(action.typeNum).inc(run.length);
+      stats.actionsBegun.labels(firstActionType).inc(run.length);
       if (firstActionType === Action.BLOCK) {
         processingPromise = processBlocksForUser(user, run);
       } else if (firstActionType === Action.UNBLOCK) {
