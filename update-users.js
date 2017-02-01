@@ -21,7 +21,7 @@ var stats = {
   usersStored: new prom.Counter('users_stored', 'Users stored'),
   usersSkipped: new prom.Counter('users_skipped', 'Users skipped due to no changes'),
   usersVerified: new prom.Counter('users_verified', 'Users verified'),
-  inflight: new prom.Counter('inflight', 'Inflight user lookup requests')
+  inflight: new prom.Gauge('inflight', 'Inflight user lookup requests')
 }
 
 /**
