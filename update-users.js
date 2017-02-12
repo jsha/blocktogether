@@ -35,6 +35,9 @@ var stats = {
  * @param {string} reason A string describing the reason for this update.
  */
 function findAndUpdateUsers(sqlFilter, reason) {
+  if (stats.inflight.get() >= 200) {
+    logger.info('Too may inflight updates, skipping findAndUpdateUsers', stats.inflight.get());
+  }
   TwitterUser
     .findAll({
       where: sequelize.and(
