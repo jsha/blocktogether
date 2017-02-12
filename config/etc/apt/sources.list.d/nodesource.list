@@ -1,2 +1,2 @@
-deb https://deb.nodesource.com/node_5.x trusty main
-deb-src https://deb.nodesource.com/node_5.x trusty main
+deb https://deb.nodesource.com/node_6.x trusty main
+deb-src https://deb.nodesource.com/node_6.x trusty main
