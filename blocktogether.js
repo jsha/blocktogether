@@ -539,7 +539,12 @@ function validSharedBlocksKey(key) {
 
 app.get('/show-blocks/:slug',
   function(req, res, next) {
+    var templateFilename;
     var slug = req.params.slug;
+    if (/\.csv$/.test(slug)) {
+      slug = slug.replace(/\.csv$/, "");
+      templateFilename = "show-blocks-csv.mustache";
+    }
     if (!validSharedBlocksKey(slug)) {
       return next(new HttpError(400, 'Invalid parameters'));
     }
@@ -556,7 +561,7 @@ app.get('/show-blocks/:slug',
           if (req.query.screen_name) {
             return searchBlocks(req, res, next, user);
           } else {
-            return showBlocks(req, res, next, user, false /* ownBlocks */);
+            return showBlocks(req, res, next, user, false /* ownBlocks */, templateFilename);
           }
         } else {
           return Q.reject(new HttpError(404, 'No such block list.'));
@@ -964,7 +969,8 @@ function getLatestBlockBatch(btUser) {
 /**
  * Render the block list for a given BtUser as HTML.
  */
-function showBlocks(req, res, next, btUser, ownBlocks) {
+function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
+  var templateFilename = templateFilename || 'show-blocks.mustache'
   // The user viewing this page may not be logged in.
   var logged_in_screen_name = undefined;
   var user_uid = undefined;
@@ -1029,7 +1035,7 @@ function showBlocks(req, res, next, btUser, ownBlocks) {
     };
     // Merge pagination metadata with template-specific fields.
     _.extend(templateData, paginationData);
-    mu.compileAndRender('show-blocks.mustache', templateData).pipe(res);
+    mu.compileAndRender(templateFilename, templateData).pipe(res);
     return null;
   }).catch(function(err) {
     logger.error(err);
