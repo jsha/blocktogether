@@ -22,9 +22,7 @@ var twitter = setup.twitter,
 var stats = {
   usersWithActions: new prom.Gauge('users_with_actions', 'Number of users with pending actions'),
   actionsBegun: new prom.Counter('actions_begun', 'Number of actions begun', ['type']),
-  actionsFinished: new prom.Counter('actions_finished', 'Number of actions finished', ['type', 'status']),
-  sockets: new prom.Gauge('sockets', 'Number of open sockets to Twitter API'),
-  requests: new prom.Gauge('requests', 'Number of pending requests to Twitter API'),
+  actionsFinished: new prom.Counter('actions_finished', 'Number of actions finished', ['type', 'status'])
 }
 
 /**
@@ -523,32 +521,5 @@ if (require.main === module) {
   // longer be necessary.
   processActions();
   setInterval(processActions, 180 * 1000);
-
-  // Once a second log how many pending HTTPS requests there are.
-  var logPendingRequests = function() {
-    var requests = twitter.keepAliveAgent.requests;
-    var totalRequests = 0;
-    if (Object.keys(requests).length === 0) {
-      logger.trace('Pending requests: 0');
-    } else {
-      for (var host in requests) {
-        totalRequests += requests[host].length;
-        logger.trace('Pending requests to', host, ':', requests[host].length);
-      }
-    }
-    stats.requests.set(totalRequests);
-    var sockets = twitter.keepAliveAgent.sockets;
-    var totalSockets = 0;
-    if (Object.keys(sockets).length === 0) {
-      logger.trace('Open sockets: 0');
-    } else {
-      for (host in sockets) {
-        totalSockets += sockets[host].length;
-        logger.trace('Open sockets to', host, ':', sockets[host].length);
-      }
-    }
-    stats.sockets.set(totalSockets);
-  }
-  setInterval(logPendingRequests, 1000);
 }
 })();

@@ -26,10 +26,30 @@ var nodeEnv = process.env['NODE_ENV'] || 'development';
 var configData = fs.readFileSync(path.join(configDir, 'config.json'), 'utf8');
 var config = JSON.parse(configData);
 
+var stats = {
+  twitterSockets: new prom.Gauge('twitter_sockets', 'Number of open sockets to Twitter API'),
+  twitterRequests: new prom.Gauge('twitter_requests', 'Number of pending requests to Twitter API')
+}
+
 var twitter = new twitterAPI({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret
 });
+setInterval(function() {
+  var requests = twitter.keepAliveAgent.requests;
+  var totalRequests = 0;
+  for (var host in requests) {
+    totalRequests += requests[host].length;
+  }
+  stats.twitterRequests.set(totalRequests);
+
+  var sockets = twitter.keepAliveAgent.sockets;
+  var totalSockets = 0;
+  for (host in sockets) {
+    totalSockets += sockets[host].length;
+  }
+  stats.twitterSockets.set(totalSockets);
+}, 1000);
 
 log4js.configure(path.join(configDir, nodeEnv, '/log4js.json'), {
   cwd: '/data/blocktogether/shared/log'
