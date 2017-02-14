@@ -476,6 +476,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
           '--block-->', blockResult.screen_name, blockResult.id_str);
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
+        stats.actionsFinished.labels(action.typeNum, "error").inc();
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
           verifyCredentials(sourceBtUser);
           return Q.resolve(null);
