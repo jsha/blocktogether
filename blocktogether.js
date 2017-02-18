@@ -484,7 +484,7 @@ app.get('/actions',
 app.get('/my-blocks',
   function(req, res, next) {
     var show = showBlocks.bind(undefined, req, res, next,
-      req.user, true /* ownBlocks */);
+      req.user, true /* ownBlocks */, 'show-blocks.mustache');
     // Each time a user reloads their own blocks page, fetch an updated copy. If
     // it takes too long, render anyhow. Only do this for first page or
     // non-paginated blocks, otherwise you increase chance of making the
@@ -783,7 +783,7 @@ app.post('/do-actions.json',
         type) {
       actions.queueActions(
         req.user.uid, req.body.list, type,
-        Action.SUBSCRIPTION, req.body.cause_uid
+        Action.BULK_MANUAL_BLOCK, req.body.cause_uid
       ).then(function() {
         res.end('{}');
       }).catch(function(err) {
