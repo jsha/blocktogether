@@ -13,7 +13,6 @@ var twitterAPI = require('node-twitter-api'),
     subscriptions = require('./subscriptions'),
     updateUsers = require('./update-users'),
     util = require('./util'),
-    promRegister = require('prom-client/lib/register'),
     prom = require('prom-client');
 
 var twitter = setup.twitter,
@@ -135,7 +134,8 @@ function updateBlocks(user) {
    *   Twitter API.
    */
   function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    logger.info('fetchAndStoreBlocks', user, blockBatch ? blockBatch.id : null, cursor);
+    var blockBatchId = blockBatch ? blockBatch.id : null;
+    logger.info('fetchAndStoreBlocks', user, blockBatchId, cursor);
     var currentCursor = cursor || '-1';
     return Q.ninvoke(twitter,
       'blocks', 'ids', {
@@ -173,7 +173,7 @@ function updateBlocks(user) {
           return finalizeBlockBatch(blockBatch);
         });
       } else {
-        logger.debug('Batch', blockBatch.id, 'cursoring', nextCursor);
+        logger.debug('Batch', blockBatchId, 'cursoring', nextCursor);
         return fetchAndStoreBlocks(user, blockBatch, nextCursor);
       }
     }).catch(function (err) {
@@ -191,7 +191,7 @@ function updateBlocks(user) {
           return Q.resolve(null);
         } else {
           logger.info('Rate limited /blocks/ids', user, 'batch',
-            blockBatch.id, 'Trying again in 15 minutes.');
+            blockBatchId, 'Trying again in 15 minutes.');
           return Q.delay(15 * 60 * 1000)
             .then(function() {
               return fetchAndStoreBlocks(user, blockBatch, currentCursor);
