@@ -982,7 +982,7 @@ function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
 
   if (/csv/.test(templateFilename)) {
     res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=' + user.screen_name + '-blocklist.csv');
+    res.header('Content-Disposition', 'attachment; filename=' + btUser.screen_name + '-blocklist.csv');
   } else {
     res.header('Content-Type', 'text/html');
   }
