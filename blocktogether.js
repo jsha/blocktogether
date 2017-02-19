@@ -980,7 +980,12 @@ function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
     user_uid = user.uid;
   }
 
-  res.header('Content-Type', 'text/html');
+  if (/csv/.test(templateFilename)) {
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename=' + user.screen_name + '-blocklist.csv');
+  } else {
+    res.header('Content-Type', 'text/html');
+  }
 
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
