@@ -43,7 +43,7 @@ function findAndUpdateUsers(sqlFilter, reason) {
       where: sequelize.and(
         { deactivatedAt: null },
         sqlFilter),
-      limit: 100
+      limit: 1000
     }).then(function(users) {
       if (users && users.length > 0) {
         stats.inflight.inc(users.length)
@@ -112,7 +112,7 @@ function deactivateTwitterUser(uid) {
         twitterUser.deactivatedAt = new Date();
         return twitterUser.save();
       } else {
-        return Q.reject('No user found for uid', uid);
+        return Q.reject('No user found for uid ' + uid);
       }
     }).then(function(twitterUser) {
       logger.debug('Deactivated user', twitterUser.screen_name, uid);
