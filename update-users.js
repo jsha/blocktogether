@@ -235,7 +235,13 @@ function updateUsersChunk(uids, usersMap) {
  */
 function storeUser(twitterUserResponse, userObj) {
   function store(user, created) {
-    _.assign(user, twitterUserResponse);
+    user.uid = twitterUserResponse.uid;
+    user.friends_count = twitterUserResponse.friends_count;
+    user.followers_count = twitterUserResponse.followers_count;
+    user.name = twitterUserResponse.name;
+    user.screen_name = twitterUserResponse.screen_name;
+    user.lang = twitterUserResponse.lang;
+    user.statuses_count = twitterUserResponse.statuses_count;
     // This field is special because it needs to be parsed as a date, and
     // because the default name 'created_at' is too confusing alongside
     // Sequelize's built-in createdAt.
