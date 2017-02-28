@@ -316,7 +316,7 @@ if (require.main === module) {
   setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
   // Poll for users needing update.
   setInterval(
-    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 1 DAY)'], 'stale'), 2500);
+    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 3 DAY)'], 'stale'), 2500);
   // Every ten seconds, check credentials of some subset of users.
   setInterval(verifyMany, 10000);
 }
