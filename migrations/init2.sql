@@ -93,7 +93,7 @@ CREATE TABLE `TwitterUsers` (
   `statuses_count` int(11) DEFAULT NULL,
   `account_created_at` datetime DEFAULT NULL,
   PRIMARY KEY (`uid`),
-  KEY `twitter_users_screen_name` (`screen_name`(191)),
+  KEY `twitter_users_screen_name_deactivated_at` (`screen_name`(191),`deactivatedAt`),
   KEY `twitter_users_deactivated_at_updated_at` (`deactivatedAt`,`updatedAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
