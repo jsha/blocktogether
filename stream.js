@@ -5,6 +5,7 @@ var twitterAPI = require('node-twitter-api'),
     cluster = require('cluster'),
     fs = require('fs'),
     https = require('https'),
+    http = require('http'),
     _ = require('lodash'),
     actions = require('./actions'),
     updateUsers = require('./update-users'),
@@ -466,6 +467,13 @@ if (require.main === module) {
     setup.statsServer(6600 + workerId);
     refreshUsers()
       .then(startStreams);
+    var whoServer = http.createServer(function (req, res) {
+      res.end(JSON.stringify({
+        streams: Object.keys(streams),
+        activeUsers: Object.keys(allUsers),
+      }));
+    });
+    whoServer.listen(8800 + workerId);
   }
 }
 })();
