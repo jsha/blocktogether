@@ -77,13 +77,14 @@ function refreshStreams() {
   // Find all users who don't already have a running stream.
   var missingUserIds = _.difference(Object.keys(allUsers), streamingIds);
   if (missingUserIds.length) {
+    var sample = missingUserIds.slice(0, 15);
     logger.info('Restarting streams for', missingUserIds.length,
-      'users that had no active stream.');
+      'users that had no active stream:', sample);
   }
   // Handle at most 20 users at once, to avoid flooding. Choose a random 20, so
   // if the first 20 have some unexpected issue we don't get stuck on them.
   _.sample(missingUserIds, 20).forEach(function(userId) {
-    logger.debug('Restarting stream for', userId);
+    logger.info('Restarting stream for', userId);
     BtUser.findById(userId)
       .then(function(user) {
         if (user && !user.deactivatedAt) {
@@ -92,8 +93,10 @@ function refreshStreams() {
           // up, meaning that by the time we get the success callback from
           // MySQL, a previous call has already started a given stream. So we
           // check a second time that the stream isn't already running.
-          if (!streamingIds[userId]) {
+          if (!streams[userId]) {
             startStream(user);
+          } else {
+            logger.info('Nope, not restarting stream for', userId, 'because already in streamingIds');
           }
         } else {
           logger.info('User', user, 'missing or deactivated.');
