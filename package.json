@@ -17,7 +17,7 @@
     "log4js": "^1.0.1",
     "mu2": "jsha/Mu",
     "mysql": "^2.11.1",
-    "node-twitter-api": "jsha/node-twitter-api#http2",
+    "node-twitter-api": "jsha/node-twitter-api#keepalive",
     "passport": "^0.3.2",
     "passport-twitter": "^1.0.3",
     "prom-client": "^6.3.0",
