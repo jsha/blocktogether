@@ -79,7 +79,7 @@ function refreshStreams() {
   if (missingUserIds.length) {
     var sample = missingUserIds.slice(0, 15);
     logger.info('Restarting streams for', missingUserIds.length,
-      'users that had no active stream:', sample);
+      'users that had no active stream:', sample.join(", "));
   }
   // Handle at most 20 users at once, to avoid flooding. Choose a random 20, so
   // if the first 20 have some unexpected issue we don't get stuck on them.
@@ -280,6 +280,7 @@ function endCallback(user, streamStartTime, httpIncomingMessage) {
  */
 function dataCallback(recipientBtUser, err, data, ret, res) {
   var recipientUid = recipientBtUser.uid;
+  streams[recipientUid].lastData = +new Date();
   if (!data) return;
   if (data.disconnect) {
     stats.events.labels("disconnect").inc()
@@ -472,7 +473,7 @@ if (require.main === module) {
       .then(startStreams);
     var whoServer = http.createServer(function (req, res) {
       res.end(JSON.stringify({
-        streams: Object.keys(streams),
+        streams: _.mapValues(streams, (v) => new Date() - v.lastData),
         activeUsers: Object.keys(allUsers),
       }));
     });
