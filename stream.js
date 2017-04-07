@@ -2,7 +2,6 @@
 (function() {
 
 var twitterAPI = require('node-twitter-api'),
-    cluster = require('cluster'),
     fs = require('fs'),
     https = require('https'),
     http = require('http'),
@@ -27,8 +26,8 @@ var stats = {
   streams: new prom.Gauge('streams', 'Number of active streams.'),
 }
 
-var workerId = -1;
-var numWorkers = 2;
+var workerId = 1;
+var numWorkers = 1;
 
 // An associative array of streams currently running. Indexed by uid.
 var streams = {};
@@ -457,27 +456,15 @@ function enqueueBlock(sourceUser, sinkUserId, cause) {
 }
 
 if (require.main === module) {
-  if (cluster.isMaster) {
-    logger.info('Starting workers.');
-    for (var i = 0; i < numWorkers; i++) {
-      cluster.fork();
-    }
-    cluster.on('exit', function(worker, code, signal) {
-      logger.error('worker', worker.process.pid, 'died, resurrecting.');
-      cluster.fork();
-    });
-  } else {
-    workerId = cluster.worker.id;
-    setup.statsServer(6600 + workerId);
-    refreshUsers()
-      .then(startStreams);
-    var whoServer = http.createServer(function (req, res) {
-      res.end(JSON.stringify({
-        streams: _.mapValues(streams, (v) => new Date() - v.lastData),
-        activeUsers: Object.keys(allUsers),
-      }));
-    });
-    whoServer.listen(8800 + workerId);
-  }
+  setup.statsServer(6600 + workerId);
+  refreshUsers()
+    .then(startStreams);
+  var whoServer = http.createServer(function (req, res) {
+    res.end(JSON.stringify({
+      streams: _.mapValues(streams, (v) => new Date() - v.lastData),
+      activeUsers: Object.keys(allUsers),
+    }));
+  });
+  whoServer.listen(8800 + workerId);
 }
 })();
