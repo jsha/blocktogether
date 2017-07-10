@@ -35,6 +35,7 @@ var twitter = new twitterAPI({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret
 });
+twitter.keepAliveAgent.maxSockets = 18;
 setInterval(function() {
   var requests = twitter.keepAliveAgent.requests;
   var totalRequests = 0;
