@@ -1,4 +1,21 @@
 $(document).ready(function(){
+    $("#unblock-all").click(function() {
+        $.ajax({
+          type: 'POST',
+          url: '/unblock-all.json',
+          contentType: "application/json",
+          dataType: "json",
+          data: JSON.stringify({
+            csrf_token: document.body.getAttribute('data-csrf-token')
+          }),
+          success: function(data, textStatus, jqXHR) {
+            alert('Ok' + data)
+          },
+          error: function(jqXHR, textStatus, errorThrown) {
+            alert('Error: ' + textStatus + " " + errorThrown);
+          }
+        });
+    })
     $(":checkbox").change(function(ev) {
         $.ajax({
           type: 'POST',

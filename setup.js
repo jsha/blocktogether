@@ -267,7 +267,8 @@ Action.causeConstants = [
   "SUBSCRIPTION",
   "NEW_ACCOUNT",
   "LOW_FOLLOWERS",
-  "BULK_MANUAL_BLOCK"
+  "BULK_MANUAL_BLOCK",
+  "UNBLOCK_ALL"
 ];
 Action.causeNames = [];
 for (var i = 0; i < Action.causeConstants.length; i++) {

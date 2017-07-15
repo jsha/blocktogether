@@ -766,6 +766,41 @@ app.post('/unsubscribe.json',
   });
 
 /**
+ * Queue up unblocks for all users the logged-in user currently blocks.
+ */
+app.post('/unblock-all.json',
+  function(req, res, next) {
+    res.header('Content-Type', 'application/json');
+    req.user.getBlockBatches({
+      limit: 1,
+      order: 'complete desc, currentCursor is null, updatedAt desc'
+    }).then(function(blockBatches) {
+      if (blockBatches && blockBatches.length > 0) {
+        var batch = blockBatches[0];
+        // Copy block list into Actions, with appropriate metadata.
+        // Note: Using this instead of actions.queueActions saves a lot
+        // of memory and CPU cycles when unblocking large (>150k) lists.
+        return sequelize.query('INSERT INTO Actions(source_uid, sink_uid, cause_uid, typeNum, statusNum, causeNum, createdAt, updatedAt)\n' +
+          'SELECT ?, sink_uid, NULL, ?, ?, ?, NOW(), NOW()\n'+
+          'FROM Blocks WHERE BlockBatchId = ?', {
+          replacements: [req.user.uid, Action.BLOCK, Action.PENDING, Action.UNBLOCK_ALL, batch.id],
+          type: sequelize.QueryTypes.INSERT
+        }).then(function() {
+          req.user.pendingActions = true;
+          return req.user.save();
+        }).then(function() {
+          res.end(JSON.stringify({
+            unblock_count: batch.size
+          }));
+        });
+      } else {
+        next(new HttpError(400, 'Empty block list.'));
+        return null;
+      }
+  });
+});
+
+/**
  * Given a JSON POST from a My Blocks page, enqueue the appropriate unblocks.
  */
 app.post('/do-actions.json',
