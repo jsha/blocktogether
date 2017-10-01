@@ -38,7 +38,7 @@ function findAndUpdateUsers(sqlFilter, reason) {
   if (stats.inflight.get() >= 200) {
     logger.info('Too may inflight updates, skipping findAndUpdateUsers', stats.inflight.get());
   }
-  TwitterUser
+  return TwitterUser
     .findAll({
       where: sequelize.and(
         { deactivatedAt: null },
@@ -67,7 +67,7 @@ function findAndUpdateUsers(sqlFilter, reason) {
  * screen_name on TwitterUser in case it changes.
  */
 function verifyMany() {
-  BtUser
+  return BtUser
     .findAll({
       where: ['BtUser.uid % 3600 = ?',
         Math.floor(new Date() / 1000) % 3600],
@@ -309,16 +309,28 @@ BtUser.findAll({
   logger.error(err);
 });
 
+/**
+ * Given a function that returns a promise, call it, then each time the promise
+ * resolves, call it again after the provided wait time in millseconds.
+ * @param {Function} fn The function to call
+ * @param {Number} wait Time in milliseconds to wait before calling again.
+ */
+function updateLoop(fn, wait) {
+  return fn().finally(function() {
+    return Q.delay(wait).then(updateLoop.bind(null, fn, wait));
+  })
+}
+
 if (require.main === module) {
   logger.info('Starting up.');
   setup.statsServer(6444);
   // Poll for just-added users and do an initial fetch of their information.
-  setInterval(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
+  updateLoop(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
   // Poll for users needing update.
-  setInterval(
+  updateLoop(
     findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 3 DAY)'], 'stale'), 2500);
   // Every ten seconds, check credentials of some subset of users.
-  setInterval(verifyMany, 10000);
+  updateLoop(verifyMany, 10000);
 }
 
 })();
