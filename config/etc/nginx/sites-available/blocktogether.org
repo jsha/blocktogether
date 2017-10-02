@@ -4,9 +4,10 @@ log_format no_ip '$time_iso8601 $request_time $status $body_bytes_sent $cookie_u
   '"$request" "$http_referer" "$http_user_agent"';
 
 upstream bt {
-server localhost:2078;
-#server localhost:2079;
-#server localhost:2080;
+        server localhost:8701;
+        server localhost:8702;
+        server localhost:8703;
+        server localhost:8704;
 }
 
 server {
