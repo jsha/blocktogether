@@ -11,7 +11,7 @@ set :copy_exclude, [ '.git' ]
 
 set :sequelize_config, "/etc/blocktogether/sequelize.json"
 
-set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter db ]
+set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter db node_exporter ]
 
 # Avoid an error becaues we don't have Rails'
 # public/{images,javascripts,stylesheets} asset structure.
@@ -39,7 +39,7 @@ task :db do
 end
 
 after "deploy:create_symlink" do
-  run "cd #{current_path}; npm install -q"
+  run "cd #{current_path}; npm install -q --production"
   # Note: Have to cp instead of symlink since these must be root-owned.
   run "sudo rsync -lr #{current_path}/config/etc/ /etc/"
 end
