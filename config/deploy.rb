@@ -11,7 +11,7 @@ set :copy_exclude, [ '.git' ]
 
 set :sequelize_config, "/etc/blocktogether/sequelize.json"
 
-set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter ]
+set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter db ]
 
 # Avoid an error becaues we don't have Rails'
 # public/{images,javascripts,stylesheets} asset structure.
