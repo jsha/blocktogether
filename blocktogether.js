@@ -1,7 +1,6 @@
 'use strict';
 (function() {
 var express = require('express'), // Web framework
-    cluster = require('cluster'),
     url = require('url'),
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
@@ -1156,29 +1155,27 @@ function showActions(req, res, next) {
 }
 
 if (require.main === module) {
-  if (cluster.isMaster) {
-    logger.info('Starting workers.');
-    for (var i = 0; i < config.ports.length; i++) {
-      cluster.fork();
+  var port;
+  process.argv.forEach(function (val, index, array) {
+    if (val === '--port' && index <= array.length - 2) {
+      port = parseInt(array[index + 1], 10);
     }
-    cluster.on('exit', function(worker, code, signal) {
-      logger.error('worker', worker.process.pid, 'died, resurrecting.');
-      cluster.fork();
-    });
-  } else {
-    var port = config.ports[(cluster.worker.id) % config.ports.length];
-
-    setup.statsServer(1000 + port);
-    logger.info('Listening on', port);
-    var server = app.listen(port);
-    process.on('SIGTERM', function () {
-      logger.info('Shutting down port', port);
-      setup.gracefulShutdown();
-      server.close(function () {
-        logger.info('Successfully shut down port', port);
-        process.exit(0);
-      });
-    });
+  })
+  if (port === undefined) {
+    logger.fatal("No --port flag specified on command line.")
+    process.exit(0);
   }
+
+  setup.statsServer(1000 + port);
+  logger.info('Listening on', port);
+  var server = app.listen(port);
+  process.on('SIGTERM', function () {
+    logger.info('Shutting down port', port);
+    setup.gracefulShutdown();
+    server.close(function () {
+      logger.info('Successfully shut down port', port);
+      process.exit(0);
+    });
+  });
 }
 })();
