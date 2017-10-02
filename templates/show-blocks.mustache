@@ -58,7 +58,7 @@
   {{^subscribed}}
     {{#too_big}}
       This block list is too big to subscribe to. Maximum block list size for
-      subscriptions is 150,000.
+      subscriptions is 250,000.
     {{/too_big}}
     {{^too_big}}
       <p>
@@ -68,6 +68,7 @@
       </p>
       <div>
         <button class='btn btn-primary block-all'>Block All and Subscribe</button>
+        <a class='btn btn-primary' href='/#details'>Learn more about Block Together</a>
         {{>block-all-processing.mustache}}
       </div>
     {{/too_big}}
