@@ -11,6 +11,8 @@ set :copy_exclude, [ '.git' ]
 
 set :sequelize_config, "/etc/blocktogether/sequelize.json"
 
+set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter ]
+
 # Avoid an error becaues we don't have Rails'
 # public/{images,javascripts,stylesheets} asset structure.
 set :normalize_asset_timestamps, false
@@ -22,18 +24,15 @@ task :staging do
 end
 
 task :web do
-  role :app, *%w[ web3.blocktogether.org  web4.blocktogether.org    ]
-  set :process_names, %w[ blocktogether ]
+  role :app, *%w[ web3.blocktogether.org  ]
 end
 
 task :udb do
   role :app, *%w[ btudb.blocktogether.org   ]
-  set :process_names, %w[ update-blocks update-users ]
 end
 
 task :db do
   role :app, *%w[ btdb2.blocktogether.org ]
-  set :process_names, %w[ stream actions deleter ]
   after "deploy:create_symlink" do
     run "cd #{current_path}; NODE_ENV=production node ./node_modules/.bin/sequelize --config #{sequelize_config} db:migrate"
   end
@@ -47,10 +46,10 @@ end
 
 namespace :deploy do
   task :restart do
-    process_names.each do |name|
-      sudo "service blocktogether-instance restart NAME=#{name}"
+    service_names.each do |name|
+      sudo "service #{name} restart"
       # Only do nginx reloads on the web frontend.
-      if name == "blocktogether"
+      if name == "web1"
         sudo "service nginx reload"
       end
     end
