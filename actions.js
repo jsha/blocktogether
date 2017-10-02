@@ -87,7 +87,8 @@ function processActions() {
       pendingActions: true,
       paused: false
     },
-    limit: 300
+    order: 'pendingActions ASC',
+    limit: 50
   }).then(function(users) {
     if (users && users.length > 0) {
       stats.usersWithActions.set(users.length);
@@ -520,6 +521,6 @@ if (require.main === module) {
   // overlap. NOTE: with workingActions[] keeping track now, this should no
   // longer be necessary.
   processActions();
-  setInterval(processActions, 180 * 1000);
+  setInterval(processActions, 30 * 1000);
 }
 })();
