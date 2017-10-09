@@ -3,8 +3,8 @@ sudo: true
 
 language: node_js
 node_js:
-  - 5.5
   - 6
+  - 8
 
 addons:
   mariadb: '5.5'
