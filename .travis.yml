@@ -34,6 +34,8 @@ script:
   - if [ -n "$CONSUMER_KEY" ]; then npm test; fi
 
 after_script:
+  - cat bt.log
+  - cat /tmp/*.log
   - if [ -n "$CONSUMER_KEY" ]; then npm run-script unblock; fi
 
 after_failure:
