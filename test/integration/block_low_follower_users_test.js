@@ -52,7 +52,9 @@ casper.test.begin('Block low follower users', 6, function(test) {
 
   // Sleep to ensure stream.js has rechecked for this user's settings
   // (refresh interval is 20 seconds)
-  casper.wait(22000, () => true)
+  casper.wait(22000, function() {
+    return true;
+  })
 
   casper.thenOpen('https://twitter.com/logout', function() {
     return true;
