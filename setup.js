@@ -143,17 +143,18 @@ var BtUser = sequelize.define('BtUser', {
   paused: { type: Sequelize.BOOLEAN, defaultValue: false },
   // The number of blocks this user had at last fetch.
   blockCount: { type: Sequelize.INTEGER, defaultValue: 0 },
-})
-
+}, {
+  instanceMethods: {
+    /**
+     * When logging a BtUser object, output just its screen name and uid.
+     * To log all values, specify user.dataValues.
+     */
+    inspect: function() {
+      return [this.screen_name, this.uid].join(" ");
+    },
+  }
+});
 BtUser.hasOne(TwitterUser, {foreignKey: 'uid'});
-
-/**
- * When logging a BtUser object, output just its screen name and uid.
- * To log all values, specify user.dataValues.
- */
-BtUser.prototype.inspect = function() {
-  return [this.screen_name, this.uid].join(" ");
-}
 
 var Subscription = sequelize.define('Subscription', {
   author_uid: Sequelize.BIGINT.UNSIGNED,
@@ -218,18 +219,19 @@ var Action = sequelize.define('Action', {
   // the cause_uid is empty.
   cause: { type: 'TINYINT', field: 'causeNum' },
   cause_uid: Sequelize.BIGINT.UNSIGNED
-})
-
-Action.prototype.status_str = function() {
-  return Action.statusNames[this.status];
-}
-Action.prototype.cause_str = function() {
-  return Action.causeNames[this.cause];
-}
-Action.prototype.type_str = function() {
-  return Action.typeNames[this.type];
-}
-
+}, {
+  instanceMethods: {
+    status_str: function() {
+      return Action.statusNames[this.status];
+    },
+    cause_str: function() {
+      return Action.causeNames[this.cause];
+    },
+    type_str: function() {
+      return Action.typeNames[this.type];
+    }
+  }
+});
 // From a BtUser we want to get a list of Actions.
 BtUser.hasMany(Action, {foreignKey: 'source_uid'});
 // And from an Action we want to get a TwitterUser (to show screen name).
