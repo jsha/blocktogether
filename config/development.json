@@ -1,5 +1,4 @@
 {
-  "ports": [3000, 3001, 3002],
   "updateBlocks": {
     "host": "localhost",
     "port": 8100
