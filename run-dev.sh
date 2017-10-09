@@ -1,7 +1,9 @@
 #!/bin/bash
 cd $(dirname $0)
 run() {
-  node ${1}.js &
+  script=${1}
+  shift
+  node ${script}.js "$@" &
 }
 
 trap 'pkill -P $$' EXIT
