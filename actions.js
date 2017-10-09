@@ -87,8 +87,7 @@ function processActions() {
       pendingActions: true,
       paused: false
     },
-    order: 'pendingActions ASC',
-    limit: 50
+    limit: 300
   }).then(function(users) {
     if (users && users.length > 0) {
       stats.usersWithActions.set(users.length);
@@ -517,10 +516,10 @@ module.exports = {
 if (require.main === module) {
   setup.statsServer(6441);
   // When many users are have processing, it takes about 180 seconds to get
-  // through all of the batches of 100 blocks. Space out intervals to avoid
+  // through all of the batches of 300 blocks. Space out intervals to avoid
   // overlap. NOTE: with workingActions[] keeping track now, this should no
   // longer be necessary.
   processActions();
-  setInterval(processActions, 30 * 1000);
+  setInterval(processActions, 180 * 1000);
 }
 })();
