@@ -80,14 +80,14 @@ function verifyMany() {
         if (btUser.TwitterUser) {
           btUser.screen_name = btUser.TwitterUser.screen_name;
           if (btUser.changed()) {
-            btUser.save().error(function(err) {
-              logger.error(err);
+            btUser.save().catch(function(err) {
+              logger.error("saving user", err);
             });
           }
         }
       });
     }).catch(function(err) {
-      logger.error(err);
+      logger.error("verifying users", err);
     });
 }
 

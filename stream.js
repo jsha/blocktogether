@@ -133,8 +133,8 @@ function refreshUsers() {
     }).then(function(users) {
       _.extend(allUsers, _.indexBy(users, 'uid'));
       allUsersLastUpdate = now;
-    }).error(function(err) {
-      logger.error(err);
+    }).catch(function(err) {
+      logger.error("refreshing useres", err);
     });
 }
 

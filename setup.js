@@ -78,8 +78,9 @@ var Sequelize = require('sequelize'),
     }));
 sequelize
   .authenticate()
-  .error(function(err) {
-    logger.error('Unable to connect to the database:', err);
+  .catch(function(err) {
+    logger.fatal('Unable to connect to the database:', err.name);
+    process.exit(85);
   });
 
 // Use snake_case for model accessors because that's SQL style.
@@ -309,7 +310,7 @@ BtUser.find({
 }).then(function(user) {
   _.assign(userToFollow, user);
 }).catch(function(err) {
-  logger.error(err);
+  logger.error("Finding user to follow:", err);
 });
 
 var keepAliveAgent = new https.Agent({
@@ -344,7 +345,7 @@ function remoteUpdateBlocks(user) {
     // Ignore ECONNRESET: The server will occasionally close the socket, which
     // is fine.
     if (err.code != 'ECONNRESET') {
-      logger.error(err);
+      logger.error("Updating blocks:", err);
       deferred.reject(err);
     }
   });

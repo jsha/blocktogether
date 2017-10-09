@@ -65,8 +65,8 @@ function verifyCredentials(user) {
       }
       user.screen_name = response.screen_name;
       if (user.changed()) {
-        user.save().error(function(err) {
-          logger.error(err);
+        user.save().catch(function(err) {
+          logger.error("saving user", err);
         });
       }
   });
