@@ -1,15 +1,20 @@
 var system = require('system');
-var mainUser = system.env.BT_TEST_MAIN_USER;
-var mainPass = system.env.BT_TEST_MAIN_PASS;
-var lowUser = system.env.BT_TEST_LOW_FOLLOWER_USER;
-var lowPass = system.env.BT_TEST_LOW_FOLLOWER_PASS;
 
 var checkBoxes = require('../lib/check_boxes.js');
 var logout = require('../lib/logout.js');
 
 var host = 'http://localhost:3000';
 
-casper.test.begin('Block low follower users', 2, function(test) {
+casper.test.begin('Block low follower users', 6, function(test) {
+  var mainUser = system.env.BT_TEST_MAIN_USER;
+  test.assert(mainUser !== undefined, "BT_TEST_MAIN_USER env var defined")
+  var mainPass = system.env.BT_TEST_MAIN_PASS;
+  test.assert(mainPass !== undefined, "BT_TEST_MAIN_PASS env var defined")
+  var lowUser = system.env.BT_TEST_LOW_FOLLOWER_USER;
+  test.assert(lowUser !== undefined, "BT_TEST_LOW_FOLLOWER_USER env var defined")
+  var lowPass = system.env.BT_TEST_LOW_FOLLOWER_PASS;
+  test.assert(lowPass !== undefined, "BT_TEST_LOW_FOLLOWER_PASS env var defined")
+
   casper.start(host, function() {
     this.click('#block_low_followers');
     return this.fill('form[action*="/auth/twitter"]', {}, true);
@@ -28,6 +33,7 @@ casper.test.begin('Block low follower users', 2, function(test) {
   });
 
   casper.waitForSelector('.saved', function() {
+    console.log("saved")
     casper.open('https://twitter.com/logout', function() {
       return true;
     });
