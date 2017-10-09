@@ -50,7 +50,7 @@ setInterval(function() {
     totalSockets += sockets[host].length;
   }
   stats.twitterSockets.set(totalSockets);
-}, 1000);
+}, 1000).unref();
 
 log4js.configure(path.join(configDir, nodeEnv, '/log4js.json'), {
   cwd: '/data/blocktogether/shared/log'
