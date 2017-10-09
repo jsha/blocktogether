@@ -63,6 +63,7 @@ BtUser
     }
     return unblockAll().then(function() {
       logger.info('Done.');
+      process.exit(0);
     })
   }).catch(function(err) {
     logger.error(err);
