@@ -592,7 +592,8 @@ function setupServer() {
 }
 
 module.exports = {
-  updateBlocks: updateBlocks
+  updateBlocks: updateBlocks,
+  recordAction: recordAction
 };
 
 if (require.main === module) {
