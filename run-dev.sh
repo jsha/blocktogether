@@ -13,6 +13,6 @@ run actions > /tmp/actions.log
 run update-users > /tmp/update-users.log
 run update-blocks > /tmp/update-blocks.log
 run deleter > /tmp/update-blocks.log
-run blocktogether --port 3000 | tee /tmp/blocktogether.org
+run blocktogether --port 3000 | tee /tmp/blocktogether.log
 
 wait
