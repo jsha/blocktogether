@@ -15,6 +15,7 @@ var twitterAPI = require('node-twitter-api'),
     verifyCredentials = require('./verify-credentials');
 
 var twitter = setup.twitter,
+    sequelize = setup.sequelize,
     logger = setup.logger,
     BtUser = setup.BtUser,
     Action = setup.Action;
@@ -35,6 +36,9 @@ var stats = {
     labelNames: ['type', 'status']
   })
 }
+
+const processingIntervalSeconds = 60;
+const userBatchSize = 300;
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
@@ -98,7 +102,12 @@ function processActions() {
       pendingActions: true,
       paused: false
     },
-    limit: 300
+    // Randomize which users get processed, so users with thousands of pending
+    // actions don't block progress for users with only a few.
+    order:  [
+      [sequelize.fn('RAND', '')]
+    ],
+    limit: userBatchSize
   }).then(function(users) {
     if (users && users.length > 0) {
       stats.usersWithActions.set(users.length);
@@ -526,11 +535,7 @@ module.exports = {
 
 if (require.main === module) {
   setup.statsServer(6441);
-  // When many users are have processing, it takes about 180 seconds to get
-  // through all of the batches of 300 blocks. Space out intervals to avoid
-  // overlap. NOTE: with workingActions[] keeping track now, this should no
-  // longer be necessary.
   processActions();
-  setInterval(processActions, 180 * 1000);
+  setInterval(processActions, processingIntervalSeconds * 1000);
 }
 })();
