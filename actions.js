@@ -37,7 +37,7 @@ var stats = {
   })
 }
 
-const processingIntervalSeconds = 30;
+const processingIntervalSeconds = 45;
 const userBatchSize = 300;
 
 /**
