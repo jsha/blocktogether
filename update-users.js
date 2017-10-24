@@ -17,11 +17,27 @@ var config = setup.config,
     Block = setup.Block;
 
 var stats = {
-  userUpdatesBegun: new prom.Counter('user_updates_begun', 'User updates begun', ['reason']),
-  usersStored: new prom.Counter('users_stored', 'Users stored'),
-  usersSkipped: new prom.Counter('users_skipped', 'Users skipped due to no changes'),
-  usersVerified: new prom.Counter('users_verified', 'Users verified'),
-  inflight: new prom.Gauge('inflight', 'Inflight user lookup requests')
+  userUpdatesBegun: new prom.Counter({
+    name: 'user_updates_begun',
+    help:  'User updates begun',
+    labelNames: ['reason']
+  }),
+  usersStored: new prom.Counter({
+    name: 'users_stored',
+    help:  'Users stored'
+  }),
+  usersSkipped: new prom.Counter({
+    name: 'users_skipped',
+    help:  'Users skipped due to no changes'
+  }),
+  usersVerified: new prom.Counter({
+    name: 'users_verified',
+    help:  'Users verified'
+  }),
+  inflight: new prom.Gauge({
+    name: 'inflight',
+    help:  'Inflight user lookup requests'
+  })
 }
 
 /**

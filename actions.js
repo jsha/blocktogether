@@ -20,9 +20,20 @@ var twitter = setup.twitter,
     Action = setup.Action;
 
 var stats = {
-  usersWithActions: new prom.Gauge('users_with_actions', 'Number of users with pending actions'),
-  actionsBegun: new prom.Counter('actions_begun', 'Number of actions begun', ['type']),
-  actionsFinished: new prom.Counter('actions_finished', 'Number of actions finished', ['type', 'status'])
+  usersWithActions: new prom.Gauge({
+    name: 'users_with_actions',
+    help: 'Number of users with pending actions'
+  }),
+  actionsBegun: new prom.Counter({
+    name: 'actions_begun',
+    help: 'Number of actions begun',
+    labelNames: ['type']
+  }),
+  actionsFinished: new prom.Counter({
+    name: 'actions_finished',
+    help: 'Number of actions finished',
+    labelNames: ['type', 'status']
+  })
 }
 
 /**

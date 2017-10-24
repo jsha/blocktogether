@@ -87,12 +87,31 @@ function findAndUpdateBlocks() {
 var activeFetches = new Map();
 
 var stats = {
-  numActiveFetches: new prom.Gauge('num_active_fetches', 'Number of active block fetches.'),
-  updateRequests: new prom.Counter('update_requests', 'Number of requests to update blocks', ['caller']),
-  finalize: new prom.Counter('finalize', 'Number of times finalizeBlockBatch was reached.'),
-  finalizeDone: new prom.Counter('finalize_done', 'finalizeBlockBatch\'s Promise completed.'),
-  deleteFromActive: new prom.Counter('delete_from_active', 'Fetch was deleted from activeFetches map.'),
-  diffTimeNanos: new prom.Summary('diff_time_nanos', 'Time taken to diff block batches.'),
+  numActiveFetches: new prom.Gauge({
+    name: 'num_active_fetches',
+    help:  'Number of active block fetches.'
+  }),
+  updateRequests: new prom.Counter({
+    name: 'update_requests',
+    help:  'Number of requests to update blocks',
+    labelName: ['caller']
+  }),
+  finalize: new prom.Counter({
+    name: 'finalize',
+    help:  'Number of times finalizeBlockBatch was reached.'
+  }),
+  finalizeDone: new prom.Counter({
+    name: 'finalize_done',
+    help:  'finalizeBlockBatch\'s Promise completed.'
+  }),
+  deleteFromActive: new prom.Counter({
+    name: 'delete_from_active',
+    help:  'Fetch was deleted from activeFetches map.'
+  }),
+  diffTimeNanos: new prom.Summary({
+    name: 'diff_time_nanos',
+    help:  'Time taken to diff block batches.'
+  }),
 }
 
 setInterval(function() {

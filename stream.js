@@ -22,11 +22,25 @@ var twitter = setup.twitter,
     BtUser = setup.BtUser;
 
 var stats = {
-  events: new prom.Counter('events', 'Number of events received from streaming API', ['type']),
-  socketEvents: new prom.Counter('socketEvents',
-    'Number of Node events on the streaming socket.', ['type']),
-  blocks: new prom.Counter('blocks', 'Number of blocks applied based on the streaming API', ['type']),
-  streams: new prom.Gauge('streams', 'Number of active streams.')
+  events: new prom.Counter({
+    name: 'events',
+    help: 'Number of events received from streaming API',
+    labelNames: ['type']
+  }),
+  socketEvents: new prom.Counter({
+    name: 'socketEvents',
+    help: 'Number of Node events on the streaming socket.',
+    labelNames: ['type']
+  }),
+  blocks: new prom.Counter({
+    name: 'blocks',
+    help: 'Number of blocks applied based on the streaming API',
+    labelNames: ['type']
+  }),
+  streams: new prom.Gauge({
+    name: 'streams',
+    help: 'Number of active streams.'
+  })
 }
 
 var workerId = 1;

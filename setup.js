@@ -1,15 +1,14 @@
 'use strict';
 (function() {
-var fs = require('fs'),
+const fs = require('fs'),
     path = require('path'),
     tls = require('tls'),
     https = require('https'),
     Q = require('q'),
     twitterAPI = require('node-twitter-api'),
     log4js = require('log4js'),
-    https = require('https'),
-    promRegister = require('prom-client/lib/register'),
     prom = require('prom-client'),
+    gcStats = require('prometheus-gc-stats'),
     _ = require('lodash');
 
 /*
@@ -26,9 +25,19 @@ var nodeEnv = process.env['NODE_ENV'] || 'development';
 var configData = fs.readFileSync(path.join(configDir, 'config.json'), 'utf8');
 var config = JSON.parse(configData);
 
+prom.collectDefaultMetrics({timeout: 5000})
+const startGcStats = gcStats(prom.register);
+startGcStats();
+
 var stats = {
-  twitterSockets: new prom.Gauge('twitter_sockets', 'Number of open sockets to Twitter API'),
-  twitterRequests: new prom.Gauge('twitter_requests', 'Number of pending requests to Twitter API')
+  twitterSockets: new prom.Gauge({
+    name: 'twitter_sockets',
+    help: 'Number of open sockets to Twitter API'
+  }),
+  twitterRequests: new prom.Gauge({
+    name: 'twitter_requests',
+    help: 'Number of pending requests to Twitter API'
+  })
 }
 
 var twitter = new twitterAPI({
@@ -362,13 +371,10 @@ function gracefulShutdown() {
 function statsServer(port) {
   var tlsOpts = {
     key: fs.readFileSync(path.join(configDir, 'rpc.key')),
-    cert: fs.readFileSync(path.join(configDir, 'rpc.crt')),
-    ca: fs.readFileSync(path.join(configDir, 'rpc.crt')),
-    requestCert: true,
-    rejectUnauthorized: true
+    cert: fs.readFileSync(path.join(configDir, 'rpc.crt'))
   };
   var server = https.createServer(tlsOpts, function (req, res) {
-    res.end(promRegister.metrics());
+    res.end(prom.register.metrics());
   });
   server.unref();
   server.listen(port);
