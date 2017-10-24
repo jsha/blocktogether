@@ -94,7 +94,7 @@ var stats = {
   updateRequests: new prom.Counter({
     name: 'update_requests',
     help:  'Number of requests to update blocks',
-    labelName: ['caller']
+    labelNames: ['caller']
   }),
   finalize: new prom.Counter({
     name: 'finalize',
