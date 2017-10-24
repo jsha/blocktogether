@@ -49,7 +49,7 @@ namespace :deploy do
     service_names.each do |name|
       sudo "service #{name} restart"
       # Only do nginx reloads on the web frontends.
-      if name in %w[ web3 web4 ]
+      if %w[ web3 web4 ].include? name
         sudo "service nginx reload"
       end
     end
