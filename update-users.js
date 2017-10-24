@@ -343,8 +343,8 @@ if (require.main === module) {
   // Poll for just-added users and do an initial fetch of their information.
   updateLoop(findAndUpdateUsers.bind(null, ['screen_name IS NULL'], 'new'), 5000);
   // Poll for users needing update.
-  updateLoop(
-    findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 3 DAY)'], 'stale'), 2500);
+  //updateLoop(
+  //  findAndUpdateUsers.bind(null, ['updatedAt < (now() - INTERVAL 3 DAY)'], 'stale'), 2500);
   // Every ten seconds, check credentials of some subset of users.
   updateLoop(verifyMany, 10000);
 }
