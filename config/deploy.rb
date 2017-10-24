@@ -11,7 +11,7 @@ set :copy_exclude, [ '.git' ]
 
 set :sequelize_config, "/etc/blocktogether/sequelize.json"
 
-set :service_names, %w[ web1 web2 web3 web4 update-blocks update-users stream actions deleter db node_exporter ]
+set :service_names, %w[ web3 web4 update-blocks update-users stream actions deleter db node_exporter ]
 
 # Avoid an error becaues we don't have Rails'
 # public/{images,javascripts,stylesheets} asset structure.
@@ -48,8 +48,8 @@ namespace :deploy do
   task :restart do
     service_names.each do |name|
       sudo "service #{name} restart"
-      # Only do nginx reloads on the web frontend.
-      if name == "web1"
+      # Only do nginx reloads on the web frontends.
+      if name in %w[ web3 web4 ]
         sudo "service nginx reload"
       end
     end
