@@ -23,8 +23,10 @@ var twitter = setup.twitter,
 
 var stats = {
   events: new prom.Counter('events', 'Number of events received from streaming API', ['type']),
+  socketEvents: new prom.Counter('socketEvents',
+    'Number of Node events on the streaming socket.', ['type']),
   blocks: new prom.Counter('blocks', 'Number of blocks applied based on the streaming API', ['type']),
-  streams: new prom.Gauge('streams', 'Number of active streams.'),
+  streams: new prom.Gauge('streams', 'Number of active streams.')
 }
 
 var workerId = 1;
@@ -170,6 +172,7 @@ function startStream(user) {
   var boundEndCallback = endCallback.bind(undefined, user, new Date());
 
   logger.info('Starting stream for user', user);
+  stats.socketEvents.labels("open").inc()
   var req = twitter.getStream('user', {
     // Get events for all replies, not just people the user follows.
     'replies': 'all',
@@ -180,6 +183,7 @@ function startStream(user) {
   // Sometimes we get an ECONNRESET that is not caught in the OAuth code
   // like it should be. Catch it here as a backup.
   req.on('error', function(err) {
+    stats.socketEvents.labels("error").inc()
     logger.error('Socket error for', user, err.message);
     // Per https://dev.twitter.com/streaming/overview/connecting,
     // backoff up to 16 seconds for TCP/IP level network errors.
@@ -193,6 +197,7 @@ function startStream(user) {
   // endCallback, removing the entry from streams and allowing it to be started
   // again.
   req.setTimeout(90000, function() {
+    stats.socketEvents.labels("timeout").inc()
     logger.error('Stream timeout for user', user, 'aborting.');
     req.abort();
   });
