@@ -51,6 +51,11 @@ var stats = {
  * @param {string} reason A string describing the reason for this update.
  */
 function findAndUpdateUsers(sqlFilter, reason) {
+  if (setup.pendingTwitterRequests() > 10000) {
+    logger.info('Skipping processing; too many pending Twitter requests at',
+      setup.pendingTwitterRequests());
+    return;
+  }
   if (stats.inflight.get() >= 200) {
     logger.info('Too may inflight updates, skipping findAndUpdateUsers', stats.inflight.get());
   }

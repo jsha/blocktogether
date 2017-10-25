@@ -33,6 +33,11 @@ var NO_UPDATE_NEEDED = new Error("No users need blocks updated at this time.");
  * Find a user who hasn't had their blocks updated recently and update them.
  */
 function findAndUpdateBlocks() {
+  if (setup.pendingTwitterRequests() > 10000) {
+    logger.info('Skipping processing; too many pending Twitter requests at',
+      setup.pendingTwitterRequests());
+    return;
+  }
   return BtUser.find({
     where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL AND NOT paused"],
     order: 'updatedAt ASC'
