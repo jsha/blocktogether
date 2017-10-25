@@ -44,7 +44,8 @@ var twitter = new twitterAPI({
     consumerKey: config.consumerKey,
     consumerSecret: config.consumerSecret
 });
-twitter.keepAliveAgent.maxSockets = 18;
+twitter.keepAliveAgent.maxSockets = 36;
+twitter.keepAliveAgent.keepAliveMsecs = 10 * 60 * 1000;
 
 function sumLengths(map) {
   var total = 0;
