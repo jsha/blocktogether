@@ -45,20 +45,26 @@ var twitter = new twitterAPI({
     consumerSecret: config.consumerSecret
 });
 twitter.keepAliveAgent.maxSockets = 18;
-setInterval(function() {
-  var requests = twitter.keepAliveAgent.requests;
-  var totalRequests = 0;
-  for (var host in requests) {
-    totalRequests += requests[host].length;
-  }
-  stats.twitterRequests.set(totalRequests);
 
-  var sockets = twitter.keepAliveAgent.sockets;
-  var totalSockets = 0;
-  for (host in sockets) {
-    totalSockets += sockets[host].length;
+function sumLengths(map) {
+  var total = 0;
+  for (var key in map) {
+    total += map[key].length;
   }
-  stats.twitterSockets.set(totalSockets);
+  return total
+}
+
+function pendingTwitterRequests() {
+  return sumLengths(twitter.keepAliveAgent.requests);
+}
+
+function openTwitterSockets() {
+  return sumLengths(twitter.keepAliveAgent.sockets);
+}
+
+setInterval(function() {
+  stats.twitterRequests.set(pendingTwitterRequests());
+  stats.twitterSockets.set(openTwitterSockets());
 }, 1000).unref();
 
 log4js.configure(path.join(configDir, nodeEnv, '/log4js.json'), {
@@ -401,6 +407,7 @@ module.exports = {
   logger: logger,
   sequelize: sequelize,
   twitter: twitter,
+  pendingTwitterRequests: pendingTwitterRequests,
   userToFollow: userToFollow,
   remoteUpdateBlocks: remoteUpdateBlocks,
   gracefulShutdown: gracefulShutdown,

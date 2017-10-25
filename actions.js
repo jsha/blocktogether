@@ -97,6 +97,11 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
  * at a time, but it does not appear to have a rate limit.
  */
 function processActions() {
+  if (setup.pendingTwitterRequests() > 10000) {
+    logger.info('Skipping processing; too many pending Twitter requests at',
+      setup.pendingTwitterRequests());
+    return;
+  }
   return BtUser.findAll({
     where: {
       pendingActions: true,
