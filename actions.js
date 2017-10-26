@@ -102,7 +102,7 @@ function processActions() {
       setup.pendingTwitterRequests());
     return;
   }
-  return BtUser.findAll({
+  BtUser.findAll({
     where: {
       pendingActions: true,
       paused: false
@@ -120,10 +120,7 @@ function processActions() {
       // Space out the kickoff of each user's processing batch to get better
       // reuse of HTTPS connections to Twitter. TODO: Measure latency of Twitter
       // requests.
-      return util.slowForEach(users, 100 /* ms */, processActionsForUser);
-    } else {
-      // No pending actions for anyone, wow!
-      return Q.resolve(null);
+      util.slowForEach(users, 100 /* ms */, processActionsForUser);
     }
   }).catch(function(err) {
     logger.error(err);
