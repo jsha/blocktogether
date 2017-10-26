@@ -117,10 +117,7 @@ function processActions() {
     if (users && users.length > 0) {
       stats.usersWithActions.set(users.length);
       logger.info('Processing actions for', users.length, 'users');
-      // Space out the kickoff of each user's processing batch to get better
-      // reuse of HTTPS connections to Twitter. TODO: Measure latency of Twitter
-      // requests.
-      util.slowForEach(users, 100 /* ms */, processActionsForUser);
+      users.forEach(processActionsForUser);
     }
   }).catch(function(err) {
     logger.error(err);
