@@ -37,8 +37,8 @@ var stats = {
   })
 }
 
-const processingIntervalSeconds = 3;
-const userBatchSize = 20;
+const processingIntervalSeconds = 10;
+const userBatchSize = 65;
 
 /**
  * Given a list of uids, enqueue them all in the Actions table, and trigger a
