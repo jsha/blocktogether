@@ -97,7 +97,7 @@ function queueActions(source_uid, list, type, cause, cause_uid) {
  * at a time, but it does not appear to have a rate limit.
  */
 function processActions() {
-  if (setup.pendingTwitterRequests() > 10000) {
+  if (setup.pendingTwitterRequests() > 3000) {
     logger.info('Skipping processing; too many pending Twitter requests at',
       setup.pendingTwitterRequests());
     return;
@@ -432,7 +432,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
     }
   }).then(function(unblocks) {
     var indexedUnblocks = _.indexBy(unblocks, 'sink_uid');
-    return util.slowForEach(actions, 70, function(action) {
+    actions.forEach(action => {
       return cancelOrPerformBlock(
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
     });
