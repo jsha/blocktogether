@@ -164,6 +164,7 @@ function processActionsForUser(user) {
     limit: 100
   }).then(function(actions) {
     if (actions.length === 0) {
+      logger.info("No actions for", user, "updating pendingActions");
       user.pendingActions = false;
       return user.save().then(function() {
         Q.resolve(null);
@@ -389,13 +390,16 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships4xx").inc();
         verifyCredentials(btUser)
         return Q.resolve(null);
       } else if (err.statusCode) {
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships" + err.statusCode).inc();
         logger.warn('Error /friendships/lookup', err.statusCode, 'for',
           btUser);
         return Q.resolve(null);
       } else {
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships").inc();
         logger.error('Error /friendships/lookup', err);
         return Q.resolve(null);
       }
@@ -437,6 +441,7 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
     });
   }).catch(function(err) {
+    stats.actionsFinished.labels(Action.UNBLOCK, "checkUnblocksError").inc();
     logger.error(err);
     return Q.resolve(null);
   });
