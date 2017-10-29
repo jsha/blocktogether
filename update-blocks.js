@@ -1,5 +1,4 @@
 //'use strict';
-(function() {
 var twitterAPI = require('node-twitter-api'),
     Q = require('q'),
     fs = require('fs'),
@@ -640,4 +639,3 @@ if (require.main === module) {
   }
   process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
 }
-})();

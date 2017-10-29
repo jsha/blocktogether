@@ -1,6 +1,4 @@
 'use strict';
-(function() {
-
 var twitter = require('./setup').twitter,
     BtUser = require('./setup').BtUser;
 
@@ -26,4 +24,3 @@ BtUser.find({
   }).catch(function(err) {
     process.stdout.write(err + '\n');
   });
-})();

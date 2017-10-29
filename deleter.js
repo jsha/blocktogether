@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 /** @type{SetupModule} */
 var setup = require('./setup'),
     Q = require('q');
@@ -61,5 +60,3 @@ if (require.main === module) {
   setup.statsServer(6443);
   setInterval(findAndDeleteOneOldUser, 10000);
 }
-
-})();

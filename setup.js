@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 const fs = require('fs'),
     path = require('path'),
     tls = require('tls'),
@@ -414,4 +413,3 @@ module.exports = {
   gracefulShutdown: gracefulShutdown,
   statsServer: statsServer
 };
-})();

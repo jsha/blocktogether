@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 /**
  * Similar to twurl (https://github.com/twitter/twurl), fetch a given Twitter
  * API URL using appropriate credentials. In this case, credentials are pulled
@@ -39,4 +38,3 @@ BtUser
   }).catch(function(err) {
     process.stderr.write(err);
   });
-})();

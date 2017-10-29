@@ -1,6 +1,4 @@
 'use strict';
-(function() {
-
 var Q = require('q'),
     logger = require('./setup').logger;
 
@@ -65,4 +63,3 @@ if (require.main === module) {
     console.log('Done!');
   });
 }
-})();

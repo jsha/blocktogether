@@ -1,6 +1,4 @@
 'use strict';
-(function() {
-
 /**
  * Queueing and processing of actions (block, unblock, mute, etc).
  */
@@ -542,4 +540,3 @@ if (require.main === module) {
   processActions();
   setInterval(processActions, processingIntervalSeconds * 1000);
 }
-})();

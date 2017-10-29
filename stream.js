@@ -1,6 +1,4 @@
 'use strict';
-(function() {
-
 var twitterAPI = require('node-twitter-api'),
     fs = require('fs'),
     https = require('https'),
@@ -488,4 +486,3 @@ if (require.main === module) {
   });
   whoServer.listen(8800 + workerId);
 }
-})();

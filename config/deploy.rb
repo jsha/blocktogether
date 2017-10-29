@@ -50,7 +50,7 @@ namespace :deploy do
       sudo "service #{name} restart"
       # Only do nginx reloads on the web frontends.
       if %w[ web3 web4 ].include? name
-        sudo "service nginx reload"
+        sudo "service nginx reload || true"
       end
     end
   end

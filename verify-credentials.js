@@ -1,6 +1,4 @@
 'use strict';
-(function() {
-
 var logger = require('./setup').logger,
     twitter = require('./setup').twitter,
     BtUser = require('./setup').BtUser;
@@ -77,5 +75,3 @@ module.exports = verifyCredentials;
 if (require.main === module) {
   BtUser.findById(process.argv[2]).then(verifyCredentials);
 }
-
-})();

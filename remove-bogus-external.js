@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 /**
  * Script to clean up Actions incorrectly marked as 'external'.
  * A bug in how we record actions
@@ -50,4 +49,3 @@ BtUser
   }).catch(function(err) {
     process.stderr.write(err);
   });
-})();

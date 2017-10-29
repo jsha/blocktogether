@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 var express = require('express'), // Web framework
     url = require('url'),
     bodyParser = require('body-parser'),
@@ -1178,4 +1177,3 @@ if (require.main === module) {
     });
   });
 }
-})();

@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 var Q = require('q'),
     _ = require('lodash'),
     setup = require('./setup'),
@@ -454,5 +453,3 @@ if (require.main === module) {
 module.exports = {
   fanoutActions: fanoutActions,
 }
-
-})();

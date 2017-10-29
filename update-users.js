@@ -1,5 +1,4 @@
 'use strict';
-(function() {
 /** @type{SetupModule} */
 var setup = require('./setup'),
     Q = require('q'),
@@ -353,5 +352,3 @@ if (require.main === module) {
   // Every ten seconds, check credentials of some subset of users.
   updateLoop(verifyMany, 10000);
 }
-
-})();
