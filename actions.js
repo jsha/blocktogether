@@ -380,6 +380,7 @@ function processBlocksForUser(btUser, actions) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return Q.reject('Too many sinkUids');
   }
+  logger.info('Processing', sinkUid.length, 'blocks for', btUser);
   logger.debug('Checking follow status', btUser,
     '--???-->', sinkUids.length, 'users');
   return getFriendships(btUser, sinkUids
@@ -401,6 +402,8 @@ function processBlocksForUser(btUser, actions) {
         logger.error('Error /friendships/lookup', err);
         return Q.resolve(null);
       }
+    }).finally(() => {
+      logger.info('Done with', sinkUid.length, 'blocks for', btUser);
     });
 }
 
@@ -494,7 +497,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
       '--block-->', friendship.screen_name, sink_uid);
     return doBlock(sourceBtUser, sink_uid
       ).then(function(blockResult) {
-        logger.info('Blocked ', sourceBtUser.screen_name, sourceBtUser.uid,
+        logger.debug('Blocked ', sourceBtUser.screen_name, sourceBtUser.uid,
           '--block-->', blockResult.screen_name, blockResult.id_str);
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
