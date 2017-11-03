@@ -380,7 +380,7 @@ function processBlocksForUser(btUser, actions) {
     logger.error('No more than 100 sinkUids allowed. Given', sinkUids.length);
     return Q.reject('Too many sinkUids');
   }
-  logger.info('Processing', sinkUid.length, 'blocks for', btUser);
+  logger.info('Processing', sinkUids.length, 'blocks for', btUser);
   logger.debug('Checking follow status', btUser,
     '--???-->', sinkUids.length, 'users');
   return getFriendships(btUser, sinkUids
@@ -403,7 +403,7 @@ function processBlocksForUser(btUser, actions) {
         return Q.resolve(null);
       }
     }).finally(() => {
-      logger.info('Done with', sinkUid.length, 'blocks for', btUser);
+      logger.info('Done with', sinkUids.length, 'blocks for', btUser);
     });
 }
 
