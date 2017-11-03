@@ -589,9 +589,10 @@ function setupServer() {
         logger.info('Fulfilling remote update request for', args.uid,
           'from', args.callerName);
         updateBlocksForUid(args.uid).then(function() {
-          response.end();
         }).catch(function(err) {
-          console.error(err);
+          logger.error(err);
+        }).finally(() => {
+          response.end();
         });
       }
     });
