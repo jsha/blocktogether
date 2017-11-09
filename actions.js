@@ -100,7 +100,7 @@ function processActions() {
       setup.pendingTwitterRequests());
     return;
   }
-  BtUser.findAll({
+  return BtUser.findAll({
     where: {
       pendingActions: true,
       paused: false
@@ -115,7 +115,7 @@ function processActions() {
     if (users && users.length > 0) {
       stats.usersWithActions.set(users.length);
       logger.info('Processing actions for', users.length, 'users');
-      users.forEach(processActionsForUser);
+      return Q.all(users.map(processActionsForUser));
     }
   }).catch(function(err) {
     logger.error(err);
@@ -437,10 +437,10 @@ function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
     }
   }).then(function(unblocks) {
     var indexedUnblocks = _.indexBy(unblocks, 'sink_uid');
-    actions.forEach(action => {
+    return Q.all(actions.map(action => {
       return cancelOrPerformBlock(
         sourceBtUser, indexedFriendships, indexedUnblocks, action);
-    });
+    }));
   }).catch(function(err) {
     stats.actionsFinished.labels(Action.UNBLOCK, "checkUnblocksError").inc();
     logger.error(err);
@@ -538,8 +538,14 @@ module.exports = {
   processActionsForUser: processActionsForUser
 };
 
+async function processEternally() {
+  while (true) {
+    await processActions();
+    await Q.delay(1000);
+  }
+}
+
 if (require.main === module) {
   setup.statsServer(6441);
-  processActions();
-  setInterval(processActions, processingIntervalSeconds * 1000);
+  processEternally();
 }
