@@ -335,10 +335,11 @@ BtUser.findAll({
  * @param {Function} fn The function to call
  * @param {Number} wait Time in milliseconds to wait before calling again.
  */
-function updateLoop(fn, wait) {
-  return fn().finally(function() {
-    return Q.delay(wait).then(updateLoop.bind(null, fn, wait));
-  })
+async function updateLoop(fn, wait) {
+  while (true) {
+    await fn();
+    await Q.delay(wait);
+  }
 }
 
 if (require.main === module) {
