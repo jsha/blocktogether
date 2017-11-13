@@ -57,13 +57,15 @@ function fanoutActions(actions) {
     where: {
       author_uid: source_uids[0]
     }
-  }).then(function(subscriptions) {
+  }).then(async function(subscriptions) {
     if (subscriptions && subscriptions.length > 0) {
       logger.info('Fanning out', actions.length, 'actions from',
         source_uids[0], 'to', subscriptions.length, 'subscribers.');
-      return actions.map(function(action) {
-        return fanoutWithSubscriptions(action, subscriptions);
-      });
+      let result = [];
+      for (let action of actions) {
+        result.push(await fanoutWithSubscriptions(action, subscriptions));
+      }
+      return result;
     } else {
       return Q.resolve([]);
     }
@@ -83,6 +85,8 @@ function fanoutActions(actions) {
  * @return {Promise.<Action[]>}
  */
 function fanoutWithSubscriptions(inputAction, subscriptions) {
+  logger.info("fanoutWithSubscriptions", inputAction.source_uid,
+    "to", subscriptions.length, "subscribers");
   var actions = subscriptions.map(function(subscription) {
     return {
       source_uid: subscription.subscriber_uid,
@@ -101,18 +105,18 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
     // TODO: This should probably use actions.queueActions to automatically set
     // pendingActions = true. But that function doesn't support queuing multiple
     // actions from different source_uids.
-    return Action.bulkCreate(actions).then(function(actions) {
-      var subscriber_uids = _.map(subscriptions, 'subscriber_uid');
-      return BtUser.findAll({
+    return Action.bulkCreate(actions).then(async function(actions) {
+      let subscriber_uids = _.map(subscriptions, 'subscriber_uid');
+      let subscribers = BtUser.findAll({
         where: {
           uid: subscriber_uids
         }
-      }).then(function(users) {
-        return Q.all(users.map(function(user) {
-          user.pendingActions = true;
-          return user.save();
-        }));
       });
+      await Q.all(subscribers.map(function(subscriber) {
+        subscriber.pendingActions = true;
+        return subscriber.save();
+      }));
+      return null;
     });
   } else {
     // For Unblock Actions, we only want to fan out the unblock to users
@@ -124,7 +128,7 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
     // would be nice because actions.js can deal with things asynchronously
     // and slow down gracefully under load, but subscription fanout has to
     // happen in the already-complicated updateBlocks call chain.
-    return Q.all(actions.map(unblockFromSubscription));
+    return Q.all(actions.map(unblockFromSubscription)).then(() => null);
   }
 }
 

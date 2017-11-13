@@ -49,7 +49,7 @@ function findAndUpdateBlocks() {
       // BtUsers table looking for users that haven't had their blocks updated
       // recently, instead of having to iterate on a join of BlockBatches with
       // BtUsers.
-      user.updatedAt = new Date();
+      user.changed('updatedAt', true);
       // We structure this as a second fetch rather than using sequelize's include
       // functionality, because ordering inside nested selects doesn't appear to
       // work (https://github.com/sequelize/sequelize/issues/2121).
@@ -620,9 +620,15 @@ module.exports = {
   recordAction: recordAction
 };
 
+async function processEternally() {
+  while (!shuttingDown) {
+    await findAndUpdateBlocks();
+    await Q.delay(10000);
+  }
+}
+
 if (require.main === module) {
   logger.info('Starting up.');
-  var interval = setInterval(findAndUpdateBlocks, 10 * 1000);
   var server = setupServer();
   var statsServer = setup.statsServer(6440);
   var gracefulExit = function() {
@@ -632,11 +638,11 @@ if (require.main === module) {
     } else {
       shuttingDown = true;
       logger.info('Closing up shop.');
-      clearInterval(interval);
       server.close();
       statsServer.close();
       setup.gracefulShutdown();
     }
   }
   process.on('SIGINT', gracefulExit).on('SIGTERM', gracefulExit);
+  processEternally();
 }
