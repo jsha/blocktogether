@@ -6,7 +6,8 @@ var setup = require('./setup'),
 var logger = setup.logger,
     BtUser = setup.BtUser,
     BlockBatch = setup.BlockBatch,
-    Action = setup.Action;
+    Action = setup.Action,
+    sequelize = setup.sequelize;
 
 /**
  * Find users who deactivated more than thirty days ago and delete them from the
@@ -56,7 +57,27 @@ function deleteOneOldUser(user) {
   });
 }
 
+async function processEternally() {
+  while (true) {
+    await findAndDeleteOneOldUser();
+    await Q.delay(1000);
+  }
+}
+
+async function cleanDuplicateActions() {
+  const limit = 100000;
+  for (let offset = 0; true; offset += limit) {
+    await sequelize.query('DELETE FROM Actions WHERE statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) AND id > ? AND id < ?;',
+     {
+       replacements: [offset, offset+limit],
+       type: sequelize.QueryTypes.DELETE
+     });
+    await Q.delay(1000);
+  }
+}
+
 if (require.main === module) {
   setup.statsServer(6443);
-  setInterval(findAndDeleteOneOldUser, 10000);
+  processEternally();
+  cleanDuplicateActions();
 }
