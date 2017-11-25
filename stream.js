@@ -329,7 +329,9 @@ function dataCallback(recipientBtUser, err, data, ret, res) {
     if (data.event === 'unblock' || data.event === 'block') {
       logger.info('User', recipientBtUser, data.event,
         data.target.screen_name, data.target.id_str);
-      updateBlocks.recordAction(recipientBtUser.uid, data.target.id_str, Action.UNBLOCK);
+      if (data.event === 'unblock') {
+        updateBlocks.recordAction(recipientBtUser.uid, data.target.id_str, Action.UNBLOCK);
+      }
       handleBlockEvent(recipientBtUser, data);
     } else if (data.event === 'user_update') {
       verifyCredentials(recipientBtUser);
