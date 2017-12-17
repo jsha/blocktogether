@@ -14,6 +14,8 @@ var twitterAPI = require('node-twitter-api'),
     util = require('./util'),
     prom = require('prom-client');
 
+require('heapdump');
+
 var twitter = setup.twitter,
     logger = setup.logger,
     configDir = setup.configDir,
