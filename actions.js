@@ -12,6 +12,8 @@ var twitterAPI = require('node-twitter-api'),
     prom = require('prom-client'),
     verifyCredentials = require('./verify-credentials');
 
+require('heapdump');
+
 var twitter = setup.twitter,
     sequelize = setup.sequelize,
     logger = setup.logger,
