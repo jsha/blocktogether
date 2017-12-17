@@ -122,8 +122,6 @@ function processActions() {
   });
 }
 
-var workingActions = {};
-
 /**
  * For a given user, fetch and process pending actions.
  * Actions are processed in batches of up to 100, but they must all be the same
@@ -133,11 +131,6 @@ var workingActions = {};
  */
 function processActionsForUser(user) {
   var uid = user.uid;
-  if (workingActions[uid]) {
-    logger.warn('Skipping processing for', uid,
-      'actions already in progress.', workingActions[uid]);
-    return Q.resolve(null);
-  }
   if (!user || user.deactivatedAt) {
     // Cancel all pending actions for deactivated or absent users.
     logger.info('User missing or deactivated', uid);
@@ -183,25 +176,19 @@ function processActionsForUser(user) {
           firstActionType);
         run = actions.slice(0, firstDiffIndex);
       }
-      workingActions[uid] = 1;
       var processingPromise = null;
       stats.actionsBegun.labels(firstActionType).inc(run.length);
       if (firstActionType === Action.BLOCK) {
-        processingPromise = processBlocksForUser(user, run);
+        return processBlocksForUser(user, run);
       } else if (firstActionType === Action.UNBLOCK) {
-        processingPromise = processUnblocksForUser(user, run);
+        return processUnblocksForUser(user, run);
       } else if (firstActionType === Action.MUTE) {
-        processingPromise = processMutesForUser(user, run);
+        return processMutesForUser(user, run);
       }
-      workingActions[uid] = processingPromise;
-      return processingPromise;
     }
   }).catch(function(err) {
-    logger.error(err);
-  }).finally(function() {
-    delete workingActions[uid];
-    return Q.resolve(null);
-  });
+    logger.error('Processing action',err);
+  })
 }
 
 /**
