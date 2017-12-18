@@ -2,6 +2,8 @@
 	daily
 	missingok
 	rotate 30
+	compress
+	delaycompress
 	create 0644 ubuntu ubuntu
 	sharedscripts
 	postrotate
