@@ -302,7 +302,15 @@ function finalizeBlockBatch(blockBatch) {
   if (shuttingDown) {
     return Q.resolve(null);
   }
-  return diffBatchWithPrevious(blockBatch).catch(function(err) {
+  // If the block batch has 1M or more entries we skip the diff. It's
+  // likely to be too expensive.
+  var diffPromise;
+  if (blockBatch.size < 1000000) {
+    diffPromise = diffBatchWithPrevious(blockBatch);
+  } else {
+    diffPromise = Promise.resolve()
+  }
+  return diffPromise.catch(function(err) {
     // If there was no previous complete block batch to diff against, that's
     // fine. Continue with saving the block batch. Any other error, however,
     // should be propagated.
