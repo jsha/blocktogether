@@ -1013,18 +1013,19 @@ function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
     user_uid = user.uid;
   }
 
-  if (/csv/.test(templateFilename)) {
-    res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=' + btUser.screen_name + '-blocklist.csv');
-  } else {
-    res.header('Content-Type', 'text/html');
-  }
-
   // For pagination:
   var currentPage = parseInt(req.query.page, 10) || 1,
       perPage = 500;
   if (currentPage < 1) {
     currentPage = 1;
+  }
+
+  if (/csv/.test(templateFilename)) {
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename=' + btUser.screen_name + '-blocklist.csv');
+    perPage = 10000000;
+  } else {
+    res.header('Content-Type', 'text/html');
   }
 
   return getLatestBlockBatch(btUser).then(function(blockBatch) {
