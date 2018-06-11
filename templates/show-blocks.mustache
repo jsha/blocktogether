@@ -8,13 +8,6 @@
     {{#paginate}}
     Showing {{per_page}} per page.
     {{/paginate}}
-    <div class="search">
-      <form action="" method="GET">
-        <input id="screen_name" name="screen_name" type="text"></input>
-        <button type="submit" class="btn btn-primary">Search by screen name</button>
-        <a class="btn btn-primary" href="{{shared_blocks_key}}.csv">Download CSV</a>
-      </form>
-    </div>
   </p>
   {{/own_blocks}}
   {{#own_blocks}}
@@ -25,12 +18,6 @@
     {{/paginate}}
   </p>
   {{/own_blocks}}
-
-  {{#paginate}}
-  <div id='pagination-bar'>
-    {{>pagination.mustache}}
-  </div>
-  {{/paginate}}
 
   {{#own_blocks}}
     <button class='btn btn-info btn-sm unblock needs-selection'
@@ -70,10 +57,23 @@
         <button class='btn btn-primary block-all'>Block All and Subscribe</button>
         <a class='btn btn-primary' href='/#details'>Learn more about Block Together</a>
         {{>block-all-processing.mustache}}
+        <form class="search_by_screen_name" action="" method="GET">
+          <input id="screen_name" name="screen_name" type="text"></input>
+          <button type="submit" class="btn btn-primary">Search by screen name</button>
+        </form>
+        <a class="btn btn-primary" href="{{shared_blocks_key}}.csv">Download CSV</a>
       </div>
     {{/too_big}}
   {{/subscribed}}
+
   {{/own_blocks}}
+
+  {{#paginate}}
+  <div id='pagination-bar'>
+    {{>pagination.mustache}}
+  </div>
+  {{/paginate}}
+
   {{! For use in case there's an error. }}
   <div id="error-message"></div>
 

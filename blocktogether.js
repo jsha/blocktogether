@@ -919,10 +919,14 @@ function getPaginationData(items, perPage, currentPage) {
         active: pageNum === currentPage
       };
     }),
+    ellipsis: pageCount > 10,
     // Previous/next page indices for use in pagination template.
     previous_page: currentPage - 1 || false,
     next_page: currentPage === pageCount ? false : currentPage + 1,
     per_page: perPage
+  }
+  if (paginationData.pages.length > 10) {
+    paginationData.pages = paginationData.pages.slice(0, 10);
   }
   return paginationData;
 }

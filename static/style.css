@@ -17,6 +17,14 @@ th {
   display: inline;
 }
 
+.search_by_screen_name {
+  display: inline;
+}
+
+.search_by_screen_name input#screen_name {
+  display: none;
+}
+
 .signup-prompt,
 .index-logged-in,
 .log-on-prompt {

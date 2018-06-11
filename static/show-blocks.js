@@ -11,6 +11,19 @@ $(function(){
     $('button.block-all').prop('disabled', true);
   }
 
+  $('.search_by_screen_name').submit(function(e) {
+    var sn = $('#screen_name')
+    if (sn.css('display') == 'none') {
+      sn.show();
+      sn.focus();
+      return false;
+    }
+    if (sn.val() == '') {
+      return false;
+    }
+    return true;
+  });
+
   function errorHandler(jqXHR, textStatus, errorThrown) {
     if (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.error) {
       var message = 'Error: ' + jqXHR.responseJSON.error;
