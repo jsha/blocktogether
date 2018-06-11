@@ -535,13 +535,35 @@ function validSharedBlocksKey(key) {
   return key && key.match(/^[A-Za-z0-9-_]{40,96}$/);
 }
 
+async function downloadCSV(req, res, next, btUser) {
+  var blockBatch = await getLatestBlockBatch(btUser);
+  if (!blockBatch) {
+    res.end('No blocks fetched yet. Please try again soon.');
+    return Q.reject('No blocks fetched yet for ' + btUser.screen_name);
+  }
+  var blocks = await Block.findAll({
+    where: {
+      blockBatchId: blockBatch.id
+    },
+    limit: 1000000
+  });
+  res.header('Content-Type', 'text/csv');
+  res.header('Content-Disposition', 'attachment; filename=' + btUser.screen_name + '-blocklist.csv');
+  blocks.forEach(function (val, index, array) {
+    res.write(val.sink_uid);
+    res.write("\n");
+  })
+  res.end();
+}
+
 app.get('/show-blocks/:slug',
   function(req, res, next) {
     var templateFilename;
     var slug = req.params.slug;
+    var isCsv = false;
     if (/\.csv$/.test(slug)) {
       slug = slug.replace(/\.csv$/, "");
-      templateFilename = "show-blocks-csv.mustache";
+      isCsv = true;
     }
     if (!validSharedBlocksKey(slug)) {
       return next(new HttpError(400, 'Invalid parameters'));
@@ -556,6 +578,9 @@ app.get('/show-blocks/:slug',
         // check the rest using constantTimeEquals. For details about timing
         // attacks see http://codahale.com/a-lesson-in-timing-attacks/
         if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
+          if (isCsv) {
+            return downloadCSV(req, res, next, user);
+          }
           if (req.query.screen_name) {
             return searchBlocks(req, res, next, user);
           } else {
@@ -1020,13 +1045,7 @@ function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
     currentPage = 1;
   }
 
-  if (/csv/.test(templateFilename)) {
-    res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=' + btUser.screen_name + '-blocklist.csv');
-    perPage = 10000000;
-  } else {
-    res.header('Content-Type', 'text/html');
-  }
+  res.header('Content-Type', 'text/html');
 
   return getLatestBlockBatch(btUser).then(function(blockBatch) {
     if (!blockBatch) {
