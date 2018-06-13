@@ -110,7 +110,7 @@ $(function(){
   }
 
   $('button').click(function(ev) {
-    if ($('#log-on-form').length > 0) {
+    if ($(ev.target).hasClass('block-all') && $('#log-on-form').length > 0) {
       logOnAndSubscribe();
     } else if ($(ev.target).hasClass('unblock')) {
       doAction('unblock');
