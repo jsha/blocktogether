@@ -82,6 +82,12 @@ p, ul {
   max-width: 35em;
 }
 
+.centered {
+  margin-right: auto;
+  margin-left: auto;
+  max-width: 35em;
+}
+
 #error-message {
   color: darkred;
 }

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>The End of Twitter's Streaming API and Block Together changes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap.min.css' />
+    <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap-theme.min.css' />
+    <link rel='stylesheet' href='/static/style.css' />
+    <script defer type='text/javascript' src='/static/jquery-2.1.1.min.js'></script>
+    <script defer type='text/javascript' src='/static/bootstrap-3.1.1/js/bootstrap.min.js'></script>
+  </head>
+  <body class="centered">
+
+
+<h2>The End of Twitter's Streaming API and Block Together changes</h2>
+
+<em>2018-06-24 by Jacob Hoffman-Andrews</em>
+<p/>
+
+<p>
+Twitter is <a
+href="https://blog.twitter.com/developer/en_us/topics/tools/2018/enabling-all-developers-to-build-on-the-account-activity-api.html">ending
+their User Streams API</a> in August. As a result, Block
+Together's auto-block features are going away, effective today. I recommend <a
+href="https://twitter.com/settings/notifications_timeline">Twitter's
+notification settings</a> as a replacement. Relatedly, Block Together will be slower
+to update shared block lists now.
+</p>
+<p>
+Block Together relied on the User Streams API for three things:
+</p>
+
+<ul>
+ <li>Auto-blocking new accounts and accounts with low followers
+ <li>Knowing when you unblock someone, to exempt them from future blocks
+ <li>Knowing when to update your list of blocks
+</ul>
+
+<p>
+Twitter's replacement for User Streams is the Account Activity API, described
+above. Unfortunately, while User Streams was free, the Account Activity API is
+only free up to 15 accounts. From 16 to 250 accounts is "Premium," and 251+
+accounts is "Enterprise" pricing. In the tech world, enterprise pricing is
+code for "if you have to ask, you can't afford it." Block Together has 59,000
+users right now.
+</p>
+
+<p>
+I've gotten a lot of suggestions to crowd-fund Block Together through Patreon. I
+really appreciate all of you supporters out there who are willing to contribute!
+My current feeling is that there is no way I could raise enough money through
+Patreon to pay enterprise-level prices. I might do some crowdfunding in the
+future to pay for server costs, however.
+</p>
+
+<p>
+The good news: after Block Together launched in 2014, Twitter natively
+implemented features pretty similar to Block Together's auto-block features. You
+can now mute notifications based on a variety of things, including "new
+accounts," and "Quality Filter." These are less transparent than Block
+Together's auto-block features; Twitter won't tell you how new a "new account"
+has to be to be muted, nor what specific content will get removed by "Quality
+Filter." Also, the Twitter-native features act as mutes, not blocks. This means
+you're less likely to hear about false positives, like a friend showing up with a
+new account and trying to talk to you. On the flip side, muting may wind up
+avoiding the tendency of determined trolls to escalate conflict when blocked.
+</p>
+
+<p>
+On the whole, the Twitter-native notification settings make a decent replacement
+for Block Together's auto-block features, and I recommend that most Block
+Together users <a href="https://twitter.com/settings/notifications_timeline">enable them</a>.
+</p>
+
+<h2>The Future of Block Lists</h2>
+
+<p>
+Block lists will stick around but will be a bit slower. Without the User Streams API, Block Together
+won't find out immediately when you block someone new, so your block list will
+not get updated immediately. Instead, a once-a-day task will update your block
+list. You can also trigger an earlier update by visiting <a
+href="https://blocktogether.org/my-blocks">your personal blocks page</a>. Note
+that the latter may not update right away if your block list is
+large.
+</p>
+
+<p>
+In the next couple of months, I may redesign how block lists are
+updated. Right now your block list is exactly who you block. The goal
+of this approach was to make it easy to add people to your list, simply
+by blocking them in the Twitter UI. But real-world experience has shown
+that the most effective block lists use dedicated account to host the block
+list, not one that anyone uses for their regular Twitter reading. And often
+these have more than one maintainer. So updating block lists
+based on a specific Twitter account's blocks may not be as useful as I
+originally thought. And it's relatively complex for Block Together to keep
+track of blocks added and removed that way.
+</p>
+
+<p>
+The main design I am considering would be that your Block Together list is
+separate from who you block on Twitter. It would start out empty, and you could
+add and remove accounts through the Block Together web site. I am also considering alternate
+ways to add blocks, for instance via API, via a browser extension, or by sharing
+tweets via DM to @blocktogether. I'm interested in feedback here, especially
+from people who run block lists: What would be the most convenient way for you
+to add blocks to your list?
+</p>
+
+<p>
+These alternate designs could both reduce server costs and make Block Together
+easier to maintain.
+</p>
+
+<h2>Unblocks</h2>
+
+<p>
+As part of the User Streams changes, Block Together will no longer find
+out immediately about unblocks. Since the main purpose of finding out
+about unblocks was to prevent the auto-block features from re-blocking
+someone constantly, this shouldn't matter in most cases.
+</p>
+
+<h2>List size</h2>
+
+<p>
+Block lists are limited to 250,000 blocks. It has been the case for some time
+now that you can't subscribe to a list that has more than 250,000 blocks, but
+the limit will now be applied more broadly. Block Together won't update or display
+lists with more than 250,000 blocks. It also won't offer them for download via
+CSV or distribute blocks to subscribers.
+</p>
+
+<p>
+I've found that Block Together's resource usage is dominated by extremely large
+block lists with zero, or few, subscribers. These changes are a way to ensure that
+resource usage is more fairly spread among all of Block Together's users. It
+also makes a number of engineering choices significantly simpler to assume a
+maximum block list size.
+</p>
+
+<p>
+Thanks for reading, and may your mentions not be garbage.
+</p>
+
+<p>
+Jacob
+</p>
+
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
+<br/>
