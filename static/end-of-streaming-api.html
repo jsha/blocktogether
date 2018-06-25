@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>The End of Twitter's Streaming API and Block Together changes</title>
+    <title>The End of Twitter's Streaming API and Block Together Changes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap.min.css' />
     <link rel='stylesheet' href='/static/bootstrap-3.1.1/css/bootstrap-theme.min.css' />
@@ -37,8 +37,9 @@ Block Together relied on the User Streams API for three things:
 </ul>
 
 <p>
-Twitter's replacement for User Streams is the Account Activity API, described
-above. Unfortunately, while User Streams was free, the Account Activity API is
+Twitter's replacement for User Streams is the <a
+href="https://blog.twitter.com/developer/en_us/topics/tools/2018/enabling-all-developers-to-build-on-the-account-activity-api.html">Account
+Activity API</a>. Unfortunately, while User Streams was free, the Account Activity API is
 only free up to 15 accounts. From 16 to 250 accounts is "Premium," and 251+
 accounts is "Enterprise" pricing. In the tech world, enterprise pricing is
 code for "if you have to ask, you can't afford it." Block Together has 59,000
@@ -89,9 +90,9 @@ In the next couple of months, I may redesign how block lists are
 updated. Right now your block list is exactly who you block. The goal
 of this approach was to make it easy to add people to your list, simply
 by blocking them in the Twitter UI. But real-world experience has shown
-that the most effective block lists use dedicated account to host the block
-list, not one that anyone uses for their regular Twitter reading. And often
-these have more than one maintainer. So updating block lists
+that the most effective block lists use a dedicated account,
+not one that anyone uses for their regular Twitter reading. And often
+these lists have more than one maintainer. So updating block lists
 based on a specific Twitter account's blocks may not be as useful as I
 originally thought. And it's relatively complex for Block Together to keep
 track of blocks added and removed that way.
@@ -101,10 +102,11 @@ track of blocks added and removed that way.
 The main design I am considering would be that your Block Together list is
 separate from who you block on Twitter. It would start out empty, and you could
 add and remove accounts through the Block Together web site. I am also considering alternate
-ways to add blocks, for instance via API, via a browser extension, or by sharing
-tweets via DM to @blocktogether. I'm interested in feedback here, especially
-from people who run block lists: What would be the most convenient way for you
-to add blocks to your list?
+ways to add blocks, by sharing a tweet via DM to @blocktogether (which can be
+done in the Twitter UI), or via API or a browser extension.
+I'm interested in feedback here, especially from people who run block lists:
+What would be the most convenient way for you to go from seeing a tweet to
+adding an account to a shared block list?
 </p>
 
 <p>

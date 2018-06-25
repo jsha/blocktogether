@@ -32,6 +32,10 @@ th {
   border: 1px solid lightgrey;
 }
 
+.disabled {
+  color: lightgrey;
+}
+
 .example-block-list {
   padding-left: 2em;
 }

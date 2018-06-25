@@ -1,7 +1,11 @@
 <p>
+Note: As of 2018-06-28, the <a href="/end-of-streaming-api.html">two auto-block features are disabled</a>.
+</p>
+
+<p>
   <input disabled=true id=block_new_accounts name=block_new_accounts type=checkbox
     {{#block_new_accounts}}checked{{/block_new_accounts}} />
-  <label for='block_new_accounts'>
+  <label class='disabled' for='block_new_accounts'>
     Block young accounts (&lt; 7 days old) that mention you.
   </label>
 </p>
@@ -9,7 +13,7 @@
 <p>
   <input disabled=true id=block_low_followers name=block_low_followers type=checkbox
     {{#block_low_followers}}checked{{/block_low_followers}} />
-  <label for='block_low_followers'>
+  <label class='disabled' for='block_low_followers'>
     Block accounts with &lt; 15 followers that mention you.
   </label>
 </p>
