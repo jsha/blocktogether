@@ -14,8 +14,6 @@ var twitterAPI = require('node-twitter-api'),
     util = require('./util'),
     prom = require('prom-client');
 
-require('heapdump');
-
 var twitter = setup.twitter,
     logger = setup.logger,
     configDir = setup.configDir,
@@ -45,6 +43,7 @@ function findAndUpdateBlocks() {
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
+      logger.info('no user needs update')
       return Q.reject(NO_UPDATE_NEEDED);
     } else {
       // HACK: mark the user as updated. This allows us to iterate through the
@@ -69,7 +68,7 @@ function findAndUpdateBlocks() {
   }).spread(function(user, batches) {
     if (batches && batches.length > 0) {
       var batch = batches[0];
-      logger.debug('User', user.uid, 'has updated blocks from',
+      logger.info('User', user.uid, 'has updated blocks from',
         timeago(new Date(batch.createdAt)));
       if ((new Date() - new Date(batch.createdAt)) > ONE_DAY_IN_MILLIS) {
         stats.updateRequests.labels('self').inc()
@@ -491,13 +490,13 @@ function destroyOldBlocks(userId) {
       return Q.resolve(0);
     }
 
-    // We want to leave at least 4 block batches where the 'complete' flag is
+    // We want to leave at least 2 block batches where the 'complete' flag is
     // set. So we iterate through in order until we've seen that many, then
     // delete older ones.
     for (var i = 0, completeCount = 0; i < blockBatches.length; i++) {
       if (blockBatches[i].complete) {
         completeCount++;
-        if (completeCount >= 4) {
+        if (completeCount >= 2) {
           break;
         }
       }
@@ -632,8 +631,9 @@ module.exports = {
 
 async function processEternally() {
   while (!shuttingDown) {
-    await findAndUpdateBlocks();
-    await Q.delay(10000);
+    logger.info('tick');
+    findAndUpdateBlocks();
+    await Q.delay(1000);
   }
 }
 
