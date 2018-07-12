@@ -38,7 +38,7 @@ function findAndUpdateBlocks() {
     return;
   }
   return BtUser.find({
-    where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL AND NOT paused"],
+    where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL AND NOT paused AND uid IN (SELECT DISTINCT(author_uid) FROM Subscriptions)"],
     order: 'updatedAt ASC'
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
