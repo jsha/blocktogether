@@ -27,7 +27,7 @@ install:
 
 script:
   # TODO: Enable checkTypes after adding more types to externs.js
-  - "cat *.js | java -jar closure-compiler-*.jar --language_in=ECMASCRIPT6 --warning_level=VERBOSE --jscomp_off=checkTypes
+  - "cat *.js | java -jar closure-compiler-*.jar --language_in=ECMASCRIPT8 --warning_level=VERBOSE --jscomp_off=checkTypes
     --externs=externs/externs.js --externs=externs/core.js --externs=externs/process.js
     --externs=externs/underscore-1.5.1.js > /dev/null"
   - if [ -n "$CONSUMER_KEY" ]; then npm test; fi
