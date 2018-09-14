@@ -378,16 +378,16 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships4xx").inc();
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships4xx").inc(actions.length);
         verifyCredentials(btUser)
         return Q.resolve(null);
       } else if (err.statusCode) {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships" + err.statusCode).inc();
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships" + err.statusCode).inc(actions.length);
         logger.warn('Error /friendships/lookup', err.statusCode, 'for',
           btUser);
         return Q.resolve(null);
       } else {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships").inc();
+        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships").inc(actions.length);
         logger.error('Error /friendships/lookup', err);
         return Q.resolve(null);
       }
