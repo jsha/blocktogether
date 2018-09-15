@@ -143,7 +143,7 @@ function processActionsForUser(user) {
     });
   }
   if (pauseUntil[uid] && pauseUntil[uid] > new Date()) {
-    logger.info('User', uid, 'paused until', pauseUntil[uid], 'due to rate limits');
+    logger.trace('User', uid, 'paused until', pauseUntil[uid], 'due to rate limits');
     return Q.resolve(null);
   }
   // We use a separate fetch here rather than an include because the actions
