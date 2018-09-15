@@ -316,6 +316,11 @@ function processUnblocksForUser(btUser, actions) {
         logger.info('Unblock returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
+      } else if (err.statusCode === 429) {
+        stats.actionsFinished.labels(Action.UNBLOCK, "429").inc();
+        logger.info('Error /blocks/destroy 429 for', btUser, 'delaying');
+        pauseUntil[btUser.uid] = new Date(new Date().getTime() + 15 * 60 * 1000);
+        return Q.resolve(null);
       } else if (err.statusCode) {
         logger.warn('Error /blocks/destroy', err.statusCode, btUser,
           '-->', action.sink_uid);
@@ -346,6 +351,11 @@ function processMutesForUser(btUser, actions) {
         logger.info('Unmute returned 404 for inactive sink_uid',
           action.sink_uid, 'cancelling action.');
         return setActionStatus(action, Action.DEFERRED_TARGET_SUSPENDED);
+      } else if (err.statusCode === 429) {
+        stats.actionsFinished.labels(Action.MUTE, "429").inc();
+        logger.info('Error /mutes/users/create 429 for', btUser, 'delaying');
+        pauseUntil[btUser.uid] = new Date(new Date().getTime() + 15 * 60 * 1000);
+        return Q.resolve(null);
       } else if (err.statusCode) {
         logger.warn('Error /mutes/users/create', err.statusCode, btUser,
           '-->', action.sink_uid);
@@ -384,21 +394,21 @@ function processBlocksForUser(btUser, actions) {
       return checkUnblocks(btUser, indexedFriendships, actions);
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships4xx").inc(actions.length);
+        stats.actionsFinished.labels(Action.BLOCK, "getFriendships4xx").inc(actions.length);
         verifyCredentials(btUser)
         return Q.resolve(null);
       } else if (err.statusCode === 429) {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships429").inc(actions.length);
+        stats.actionsFinished.labels(Action.BLOCK, "getFriendships429").inc(actions.length);
         logger.info('Error /friendships/lookup 429 for', btUser, 'delaying');
         pauseUntil[btUser.uid] = new Date(new Date().getTime() + 15 * 60 * 1000);
         return Q.resolve(null);
       } else if (err.statusCode) {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships" + err.statusCode).inc(actions.length);
+        stats.actionsFinished.labels(Action.BLOCK, "getFriendships" + err.statusCode).inc(actions.length);
         logger.warn('Error /friendships/lookup', err.statusCode, 'for',
           btUser);
         return Q.resolve(null);
       } else {
-        stats.actionsFinished.labels(Action.UNBLOCK, "getFriendships").inc(actions.length);
+        stats.actionsFinished.labels(Action.BLOCK, "getFriendships").inc(actions.length);
         logger.error('Error /friendships/lookup', err);
         return Q.resolve(null);
       }
