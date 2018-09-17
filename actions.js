@@ -511,7 +511,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
           '--block-->', blockResult.screen_name, blockResult.id_str);
         return setActionStatus(action, Action.DONE);
       }).catch(function(err) {
-        stats.actionsFinished.labels(action.typeNum, "error").inc();
+        stats.actionsFinished.labels(action.type, "error").inc();
         if (err && (err.statusCode === 401 || err.statusCode === 403)) {
           verifyCredentials(sourceBtUser);
           return Q.resolve(null);
@@ -537,7 +537,7 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
 function setActionStatus(action, newState) {
   logger.debug('Action', action.id, action.source_uid, action.type,
     action.sink_uid, 'changing to state', newState);
-  stats.actionsFinished.labels(action.typeNum, newState).inc();
+  stats.actionsFinished.labels(action.type, newState).inc();
   action.status = newState;
   return action.save();
 }
