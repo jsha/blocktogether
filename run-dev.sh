@@ -8,7 +8,6 @@ run() {
 
 trap 'pkill -P $$' EXIT
 
-run stream > /tmp/stream.log
 run actions > /tmp/actions.log
 run update-users > /tmp/update-users.log
 run update-blocks > /tmp/update-blocks.log
