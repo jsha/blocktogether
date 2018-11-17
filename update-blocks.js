@@ -134,7 +134,7 @@ function updateBlocksForUid(uid) {
  *
  * @param {BtUser} user The user whose blocks we want to fetch.
  */
-function updateBlocks(user) {
+async function updateBlocks(user) {
   if (!user) {
     return Q.reject('No user found.');
   } else if (activeFetches.has(user.uid)) {
@@ -145,81 +145,57 @@ function updateBlocks(user) {
   } else {
     logger.info('Updating blocks for', user);
   }
-
+  var fetchPromise = fetchAndStoreBlocks(user);
+  // Remember there is a fetch running for a user so we don't overlap.
+  activeFetches.set(user.uid, fetchPromise);
+  // Once the promise resolves, success or failure, delete the entry in
+  // activeFetches so future fetches can proceed.
   try {
-  /**
-   * For a given BtUser, fetch all current blocks and store in DB.
-   *
-   * @param {BtUser} user The user whose blocks we want to fetch.
-   * @param {BlockBatch|null} blockBatch The current block batch in which we will
-   *   store the blocks. Null for the first fetch, set after successful first
-   *   request.
-   * @param {string|null} cursor When cursoring, the current cursor for the
-   *   Twitter API.
-   */
-  function fetchAndStoreBlocks(user, blockBatch, cursor) {
-    var blockBatchId = blockBatch ? blockBatch.id : null;
-    logger.info('fetchAndStoreBlocks', user, blockBatchId, cursor);
-    var currentCursor = cursor || '-1';
-    return Q.ninvoke(twitter,
-      'blocks', 'ids', {
-        // Stringify ids is very important, or we'll get back numeric ids that
-        // will get subtly mangled by JS.
-        stringify_ids: true,
-        cursor: currentCursor
-      },
-      user.access_token,
-      user.access_token_secret
-    ).then(function(results) {
-      logger.trace('/blocks/ids', user, currentCursor, results[0]);
-      // Lazily create a BlockBatch after Twitter responds successfully. Avoids
-      // creating excess BlockBatches only to get rate limited.
-      if (!blockBatch) {
-        return BlockBatch.create({
-          source_uid: user.uid,
-          size: 0,
-          complete: false
-        }).then(function(createdBlockBatch) {
-          blockBatch = createdBlockBatch;
-          return handleIds(blockBatch, currentCursor, results[0]);
-        }).catch(function(err) {
-          logger.info(err);
-        });
-      } else {
-        return handleIds(blockBatch, currentCursor, results[0]);
-      }
-    }).then(function(nextCursor) {
-      logger.trace('nextCursor', user, nextCursor);
-      // Check whether we're done or need to grab the items at the next cursor.
-      if (nextCursor === '0') {
-        user.blockCount = blockBatch.size;
-        return user.save().then(function() {
-          return finalizeBlockBatch(blockBatch);
-        });
-      } else {
-        logger.debug('Batch', blockBatchId, 'cursoring', nextCursor);
-        return fetchAndStoreBlocks(user, blockBatch, nextCursor);
-      }
-    }).catch(function (err) {
+    var result = await fetchPromise;
+  } catch (err) {
+    logger.error(err);
+  } finally {
+    logger.info('Deleting activeFetches[', user, '].');
+    stats.deleteFromActive.inc();
+    activeFetches.delete(user.uid);
+  }
+
+  return result;
+}
+
+async function fetchAndStoreBlocks(user) {
+  // ids is an array of arrays, each containing the ids resulting from one block
+  // fetch.
+  var ids = [];
+  // Total running count of blocks fetched.
+  var size = 0;
+  var nextCursor = '-1';
+  for (var i = 0; i < 500; i++) {
+    try {
+      var results = await Q.ninvoke(twitter,
+        'blocks', 'ids', {
+          // Stringify ids is very important, or we'll get back numeric ids that
+          // will get subtly mangled by JS.
+          stringify_ids: true,
+          cursor: nextCursor
+        },
+        user.access_token,
+        user.access_token_secret
+      );
+    } catch (err) {
       if (err.statusCode === 429) {
         // The rate limit for /blocks/ids is 15 requests per 15 minute window.
         // Since the endpoint returns up to 5,000 users, that means users with
         // greater than 15 * 5,000 = 75,000 blocks will always get rate limited
         // when we try to update blocks. So we have to remember state and keep
         // trying after a delay to let the rate limit expire.
-        if (!blockBatch) {
-          // If we got rate limited on the very first request, when we haven't
-          // yet created a blockBatch object, don't bother retrying, just finish
-          // now.
+        if (i === 0) {
+          // If we got rate limited on the very first request, don't bother retrying.
           logger.info('Rate limited /blocks/ids', user);
           return Q.resolve(null);
         } else {
-          logger.info('Rate limited /blocks/ids', user, 'batch',
-            blockBatchId, 'Trying again in 15 minutes.');
-          return Q.delay(15 * 60 * 1000)
-            .then(function() {
-              return fetchAndStoreBlocks(user, blockBatch, currentCursor);
-            });
+          logger.info('Rate limited /blocks/ids', user, 'Trying again in 15 minutes.');
+          await Q.delay(15 * 60 * 1000);
         }
       } else if (err.statusCode) {
         logger.error('Error /blocks/ids', user, err.statusCode, err.data);
@@ -228,63 +204,38 @@ function updateBlocks(user) {
         logger.error('Error /blocks/ids', user, err);
         return Q.resolve(null);
       }
-    });
+    }
+    logger.trace('/blocks/ids', user, nextCursor, results[0]);
+    ids.push(results[0].ids);
+    size += results[0].ids.length
+    nextCursor = results[0].next_cursor_str;
+    if (nextCursor === '0') {
+      break;
+    }
   }
 
-  var fetchPromise = fetchAndStoreBlocks(user, null, null);
-  // Remember there is a fetch running for a user so we don't overlap.
-  activeFetches.set(user.uid, fetchPromise);
-  // Once the promise resolves, success or failure, delete the entry in
-  // activeFetches so future fetches can proceed.
-  fetchPromise.then(function() {
-  }).catch(function(err) {
-    logger.error(err);
-  }).finally(function() {
-    logger.info('Deleting activeFetches[', user, '].');
-    stats.deleteFromActive.inc();
-    activeFetches.delete(user.uid);
+  var blockBatch = await BlockBatch.create({
+    source_uid: user.uid,
+    size: size,
+    complete: false
   });
-  } catch (e) {
-    logger.error('Exception in fetchAndStoreBlocks', e);
-    return Q.resolve(null);
-  }
 
-  return fetchPromise;
-}
-
-/**
- * Given results from Twitter, store as appropriate.
- * @param {BlockBatch|null} blockBatch BlockBatch to add blocks to. Null for the
- *   first batch, set if cursoring is needed.
- * @param {string} currentCursor
- * @param {Object} results
- */
-function handleIds(blockBatch, currentCursor, results) {
-  if (!blockBatch) {
-    return Q.reject('No blockBatch passed to handleIds');
-  } else if (!results || !results.ids) {
-    return Q.reject('Invalid results passed to handleIds:', results);
-  }
-  // Update the current cursor stored with the blockBatch.
-  blockBatch.currentCursor = currentCursor;
-  blockBatch.size += results.ids.length;
-  var blockBatchPromise = blockBatch.save();
-
-  // Now we create block entries for all the blocked ids. Note: setting
-  // BlockBatchId explicitly here doesn't show up in the documentation,
-  // but it seems to work.
-  var blocksToCreate = results.ids.map(function(id) {
-    return {
-      sink_uid: id,
-      BlockBatchId: blockBatch.id
-    };
-  });
-  var blockPromise = Block.bulkCreate(blocksToCreate);
-
-  return Q.all([blockBatchPromise, blockPromise])
-    .then(function() {
-      return Q.resolve(results.next_cursor_str);
+  for (var i = 0; i < ids.length; i++) {
+    var blocksToCreate = ids[i].map(function(id) {
+      // Setting BlockBatchId explicitly here doesn't show up in the documentation,
+      // but it seems to work.
+      return {
+        sink_uid: id,
+        BlockBatchId: blockBatch.id
+      };
     });
+
+    await Block.bulkCreate(blocksToCreate);
+  }
+
+  user.blockCount = size;
+  await user.save()
+  return finalizeBlockBatch(blockBatch);
 }
 
 // Error thrown when diffing blocks and no previous complete block batch exists.
