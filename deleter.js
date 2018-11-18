@@ -82,6 +82,20 @@ async function cleanDuplicateActions() {
 
 // For users with more than 250k Actions, delete the oldest ones.
 async function cleanExcessActions() {
+  for (;;) {
+    let btUsers = await BtUser.findAll();
+    for (let i = 0; i < btUsers.length; i++) {
+      let user = btUsers[i];
+      if (user.blockCount > 250000) {
+        await sequelize.query('DELETE FROM Actions WHERE typeNum = 1 AND source_uid = ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 30 DAY);',
+          {
+            replacements: [user.uid],
+            type: sequelize.QueryTypes.DELETE
+          });
+      }
+      await Q.delay(1000);
+    };
+  }
 }
 
 if (require.main === module) {
