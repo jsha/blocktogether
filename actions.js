@@ -391,7 +391,10 @@ function processBlocksForUser(btUser, actions) {
   return getFriendships(btUser, sinkUids
     ).then(function(friendships) {
       var indexedFriendships = _.indexBy(friendships, 'id_str');
-      return checkUnblocks(btUser, indexedFriendships, actions);
+      return Q.all(actions.map(action => {
+        return cancelOrPerformBlock(
+          sourceBtUser, indexedFriendships, action);
+      }));
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
         stats.actionsFinished.labels(Action.BLOCK, "getFriendships4xx").inc(actions.length);
@@ -418,59 +421,16 @@ function processBlocksForUser(btUser, actions) {
 }
 
 /**
- * Look in the Actions table to see if we have seen the source user unblock any
- * of the sink_uids from an external application. If so, we'll want to avoid
- * auto-blocking those sink_uids. We stipulate 'from an external application'
- * because it's fine for a user that was auto-unblocked (e.g via subscriptions)
- * to later be auto-reblocked.
- *
- * After doing the lookup, call cancelOrPerformBlocks with the results, plus the
- * results of the friendships lookup previously made.
- *
- * @param {BtUser} sourceBtUser The user doing the blocking.
- * @param {Object} indexedFriendships A map from sink uids to friendship
- *   objects. Simply passed through to cancelOrPerformBlocks.
- * @param{Array.<Action>} actions The list of actions to be performed or
- *   cancelled.
- */
-function checkUnblocks(sourceBtUser, indexedFriendships, actions) {
-  var sinkUids = _.map(actions, 'sink_uid');
-  // Look for the any previous unblock Action for this sink_uid with
-  // status = done, cause = external, and cancel if it exists.
-  return Action.findAll({
-    where: {
-      source_uid: sourceBtUser.uid,
-      sink_uid: sinkUids,
-      status: Action.DONE,
-      cause: [Action.EXTERNAL, Action.BULK_MANUAL_BLOCK],
-      type: Action.UNBLOCK
-    }
-  }).then(function(unblocks) {
-    var indexedUnblocks = _.indexBy(unblocks, 'sink_uid');
-    return Q.all(actions.map(action => {
-      return cancelOrPerformBlock(
-        sourceBtUser, indexedFriendships, indexedUnblocks, action);
-    }));
-  }).catch(function(err) {
-    stats.actionsFinished.labels(Action.UNBLOCK, "checkUnblocksError").inc();
-    logger.error(err);
-    return Q.resolve(null);
-  });
-}
-
-/**
  * After fetching friendships results from the Twitter API, process action
  * and block if appropriate. Otherwise cancel.
  *
  * @param{BtUser} sourceBtUser The user doing the blocking.
  * @param{Object} indexedFriendships A map from sink uids to friendship objects
  *   as returned by the Twitter API.
- * @param{Object} indexedUnblocks A map from sink uids to previous unblock
- *   action, if present.
  * @param{Array.<Action>} action An action to be performed or cancelled.
  * @return{Promise.<Action>}
  */
-function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks, action) {
+function cancelOrPerformBlock(sourceBtUser, indexedFriendships, action) {
   // Sanity check that this is a block, not some other action.
   if (action.type != Action.BLOCK) {
     return Q.reject("Shouldn't happen: non-block action " + sourceBtUser);
@@ -494,9 +454,6 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, indexedUnblocks,
   } else if (sourceBtUser.uid === sink_uid) {
     // You cannot block yourself.
     newState = Action.CANCELLED_SELF;
-  } else if (indexedUnblocks[sink_uid]) {
-    // If the user unblocked the sink_uid in the past, don't re-block.
-    newState = Action.CANCELLED_UNBLOCKED;
   }
   // If we're cancelling, update the state of the action.
   if (newState) {
