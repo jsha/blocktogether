@@ -80,10 +80,19 @@ async function cleanDuplicateActions() {
   }
 }
 
+// For users with more than 250k Actions, delete the oldest ones.
+async function cleanExcessActions() {
+}
+
 if (require.main === module) {
   setup.statsServer(6443);
-  processEternally();
+  processEternally().catch(function(err) {
+    logger.error(err);
+  })
   cleanDuplicateActions().catch(function(err) {
+    logger.error(err);
+  });
+  cleanExcessActions().catch(function(err) {
     logger.error(err);
   });
 }

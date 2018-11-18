@@ -29,7 +29,7 @@ var config = setup.config,
     Subscription = setup.Subscription;
 
 // Maximum size of a block list that can be subscribed to.
-const maxSubscribeSize = 250000;
+const maxSubscribeSize = 125000;
 
 // Look for templates here
 mu.root = __dirname + '/templates';
