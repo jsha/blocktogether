@@ -392,8 +392,7 @@ function processBlocksForUser(btUser, actions) {
     ).then(function(friendships) {
       var indexedFriendships = _.indexBy(friendships, 'id_str');
       return Q.all(actions.map(action => {
-        return cancelOrPerformBlock(
-          sourceBtUser, indexedFriendships, action);
+        return cancelOrPerformBlock(btUser, indexedFriendships, action);
       }));
     }).catch(function (err) {
       if (err.statusCode === 401 || err.statusCode === 403) {
