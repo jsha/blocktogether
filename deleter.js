@@ -66,18 +66,24 @@ async function processEternally() {
 
 async function cleanDuplicateActions() {
   const limit = 100000;
-  for (let offset = 0; true; offset += limit) {
-    await sequelize.query('DELETE FROM Actions WHERE statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) AND id > ? AND id < ?;',
-     {
-       replacements: [offset, offset+limit],
-       type: sequelize.QueryTypes.DELETE
-     });
-    await Q.delay(1000);
+  for (;;) {
+    var maxResult = await sequelize.query('SELECT max(id) FROM Actions;');
+    var max = parseInt(maxResult[0][0]['max(id)']);
+    for (let offset = 0; offset < max; offset += limit) {
+      await sequelize.query('DELETE FROM Actions WHERE statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) AND id > ? AND id < ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 10 DAY);',
+       {
+         replacements: [offset, offset+limit],
+         type: sequelize.QueryTypes.DELETE
+       });
+      await Q.delay(1000);
+    }
   }
 }
 
 if (require.main === module) {
   setup.statsServer(6443);
   processEternally();
-  cleanDuplicateActions();
+  cleanDuplicateActions().catch(function(err) {
+    logger.error(err);
+  });
 }
