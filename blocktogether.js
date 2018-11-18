@@ -796,7 +796,7 @@ app.post('/unblock-all.json',
     res.header('Content-Type', 'application/json');
     req.user.getBlockBatches({
       limit: 1,
-      order: 'complete desc, currentCursor is null, updatedAt desc'
+      order: 'complete desc, updatedAt desc'
     }).then(function(blockBatches) {
       if (blockBatches && blockBatches.length > 0) {
         var batch = blockBatches[0];
@@ -1021,10 +1021,8 @@ function getLatestBlockBatch(btUser) {
     // Additionally, for users with more than 75k blocks, updateBlocks will run
     // into the rate limit before finishing updating the blocks. The updating
     // will finish after waiting for the rate limit to lift, but in the meantime
-    // it's possible to have multiple non-complete BlockBatches. In that case,
-    // prefer ones with non-null currentCursors, i.e. those that have stored at
-    // least some blocks.
-    order: 'complete desc, currentCursor is null, updatedAt desc'
+    // it's possible to have multiple non-complete BlockBatches.
+    order: 'complete desc, updatedAt desc'
   });
 }
 
