@@ -698,7 +698,7 @@ app.post('/block-all.json',
 
             author.getBlockBatches({
               limit: 1,
-              order: 'complete desc, currentCursor is null, updatedAt desc'
+              order: 'complete desc, updatedAt desc'
             }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
                 var batch = blockBatches[0];
