@@ -87,7 +87,7 @@ async function cleanExcessActions() {
     for (let i = 0; i < btUsers.length; i++) {
       let user = btUsers[i];
       if (user.blockCount > 250000) {
-        await sequelize.query('DELETE FROM Actions WHERE typeNum = 1 AND source_uid = ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 30 DAY);',
+        await sequelize.query('DELETE FROM Actions WHERE typeNum = 1 AND source_uid = ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 30 DAY) LIMIT 10000;',
           {
             replacements: [user.uid],
             type: sequelize.QueryTypes.DELETE
