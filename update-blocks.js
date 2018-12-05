@@ -140,7 +140,7 @@ async function updateBlocks(user) {
   } else if (activeFetches.has(user.uid)) {
     // Don't create multiple pending block update requests at the same time.
     logger.info('User', user, 'already updating, skipping duplicate. Status:',
-      activeFetches.get(user.uid).inspect());
+      activeFetches.get(user.uid));
     return Q.resolve(null);
   } else {
     logger.info('Updating blocks for', user);
