@@ -1,4 +1,5 @@
-#!/bin/bash -ex
+#!/bin/bash
+set -ex
 
 # Set up a production instance of Block Together. Assumes no existing root MySQL
 # password (as is true of a freshly installed mysql-server).
@@ -8,8 +9,8 @@ APPUSER=${APPUSER:-vagrant}
 DB_ROOT_PASS=${DB_ROOT_PASS:-$(openssl rand -hex 20)}
 ROOT_MY_CONF=/root/.my.cnf
 if [ ! -f ${ROOT_MY_CONF} ] ; then
-  debconf-set-selections <<<"mariadb-server-5.5 mysql-server/root_password password $DB_ROOT_PASS"
-  debconf-set-selections <<<"mariadb-server-5.5 mysql-server/root_password_again password $DB_ROOT_PASS"
+  debconf-set-selections <<<"mariadb-server-10.1 mysql-server/root_password password $DB_ROOT_PASS"
+  debconf-set-selections <<<"mariadb-server-10.1 mysql-server/root_password_again password $DB_ROOT_PASS"
   cat > ${ROOT_MY_CONF} <<EOCONF
 [mysql]
 password=$DB_ROOT_PASS
@@ -35,7 +36,7 @@ EOAPT
 
   apt-get update
   apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-          mariadb-client-5.5 mariadb-server-5.5 git nginx gnupg curl build-essential \
+          mariadb-client mariadb-server git nginx gnupg curl build-essential \
           nodejs mailutils postfix
 
   wget https://github.com/prometheus/node_exporter/releases/download/0.12.0/node_exporter-0.12.0.linux-amd64.tar.gz

@@ -1,4 +1,5 @@
-#!/bin/bash -ex
+#!/bin/bash
+set -ex
 # Bootstraps the Block Together dev environment on a fresh Vagrant box.
 source /vagrant/bin/init_config.sh
 sudo /vagrant/bin/setup.sh
@@ -8,6 +9,10 @@ sudo mkdir -p /data/
 sudo mv /var/lib/mysql /data/mysql
 sudo mkdir /data/mysql/tmp -p
 sudo chown mysql.mysql /data/mysql/tmp
+sudo mkdir /var/lib/mysql
+sudo chown mysql.mysql /var/lib/mysql
+### NOTE: Edit /etc/mysql/maridb.conf.d/server.cnf to remove datadir line so
+### blocktogether override can take precedence.
 
 sudo service mysql restart
 
