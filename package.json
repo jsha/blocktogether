@@ -13,7 +13,6 @@
     "body-parser": "^1.15.2",
     "cookie-session": "^1.0.2",
     "express": "^4.14.0",
-    "heapdump": "^0.3.9",
     "lodash": "^3.10.1",
     "log4js": "^1.0.1",
     "mu2": "jsha/Mu",
