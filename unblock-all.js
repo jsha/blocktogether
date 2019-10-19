@@ -46,7 +46,7 @@ function unblock5000(user) {
 }
 
 BtUser
-  .find({
+  .findOne({
     where: {
       screen_name: process.argv[2]
     }

@@ -16,7 +16,7 @@ if (process.argv.length < 4) {
 }
 
 BtUser
-  .find({
+  .findOne({
     where: {
       screen_name: process.argv[2]
     }

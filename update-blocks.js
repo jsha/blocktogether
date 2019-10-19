@@ -37,9 +37,10 @@ function findAndUpdateBlocks() {
       setup.pendingTwitterRequests());
     return;
   }
-  return BtUser.find({
-    where: ["(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL AND NOT paused AND uid IN (SELECT DISTINCT(author_uid) FROM Subscriptions)"],
-    order: 'updatedAt ASC'
+  return BtUser.findOne({
+    where: sequelize.literal(
+      "(updatedAt < DATE_SUB(NOW(), INTERVAL 1 DAY) OR updatedAt IS NULL) AND deactivatedAt IS NULL AND NOT paused AND uid IN (SELECT DISTINCT(author_uid) FROM Subscriptions)"),
+    order: [['updatedAt', 'ASC']]
   }).then(function(user) {
     // Gracefully exit function if no BtUser matches criteria above.
     if (user === null) {
@@ -62,7 +63,7 @@ function findAndUpdateBlocks() {
         // create an up-to-date BlockBatch immediately (even though it will take
         // some time to fill it and mark it complete).
         limit: 1,
-        order: 'updatedAt desc'
+        order: [['updatedAt', 'desc']]
       })];
     }
   }).spread(function(user, batches) {
@@ -124,7 +125,7 @@ setInterval(function() {
 }, 1000)
 
 function updateBlocksForUid(uid) {
-  return BtUser.findById(uid).then(updateBlocks).catch(function (err) {
+  return BtUser.findByPk(uid).then(updateBlocks).catch(function (err) {
     logger.error(err);
   });
 }
@@ -319,7 +320,7 @@ function diffBatchWithPrevious(currentBatch) {
       id: { lte: currentBatch.id },
       complete: true
     },
-    order: 'id DESC'
+    order: [['id', 'DESC']]
   }).then(function(oldBatch) {
     if (!oldBatch) {
       logger.info('Insufficient block batches to diff for', currentBatch.source_uid);
@@ -403,7 +404,7 @@ function diffBatchWithPrevious(currentBatch) {
  * @returns {Promise.<Array.<Action> >} An array of recorded unblock actions.
  */
 function recordUnblocksUnlessDeactivated(source_uid, sink_uids) {
-  return BtUser.findById(source_uid)
+  return BtUser.findByPk(source_uid)
     .then(function(user) {
       if (!user) {
         return Q.reject("No user found for " + source_uid);
@@ -435,7 +436,7 @@ function destroyOldBlocks(userId) {
     where: {
       source_uid: userId
     },
-    order: 'id DESC'
+    order: [['id', 'DESC']]
   }).then(function(blockBatches) {
     if (!blockBatches || blockBatches.length === 0) {
       return Q.resolve(0);
@@ -495,11 +496,11 @@ function recordAction(source_uid, sink_uid, type) {
   // a duplicate.
   // If it's a different type (i.e. we are recording a block and the most recent
   // action was an unblock), go ahead and record.
-  return Action.find({
+  return Action.findOne({
     where: _.extend(_.clone(actionContents), {
       type: [Action.BLOCK, Action.UNBLOCK],
     }),
-    order: 'updatedAt DESC',
+    order: [['updatedAt', 'DESC']],
   }).then(function(prevAction) {
     // No previous action found, or previous action was a different type, so
     // create a new action. Add the cause and cause_uid fields, which we didn't

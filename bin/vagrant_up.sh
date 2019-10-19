@@ -11,8 +11,9 @@ sudo mkdir /data/mysql/tmp -p
 sudo chown mysql.mysql /data/mysql/tmp
 sudo mkdir /var/lib/mysql
 sudo chown mysql.mysql /var/lib/mysql
-### NOTE: Edit /etc/mysql/maridb.conf.d/server.cnf to remove datadir line so
+### Edit /etc/mysql/mariadb.conf.d/50-server.cnf to remove datadir line so
 ### blocktogether override can take precedence.
+sudo sed -i /datadir/d /etc/mysql/mariadb.conf.d/50-server.cnf
 
 sudo service mysql restart
 

@@ -77,6 +77,7 @@ async function cleanDuplicateActions() {
        });
       await Q.delay(1000);
     }
+    await Q.delay(1000);
   }
 }
 

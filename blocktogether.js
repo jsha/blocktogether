@@ -4,12 +4,12 @@ var express = require('express'), // Web framework
     bodyParser = require('body-parser'),
     cookieSession = require('cookie-session'),
     crypto = require('crypto'),
+    Buffer = require('buffer').Buffer,
     mu = require('mu2'),          // Mustache.js templating
     passport = require('passport'),
     TwitterStrategy = require('passport-twitter').Strategy,
     Q = require('q'),
     timeago = require('timeago'),
-    constantTimeEquals = require('scmp'),
     setup = require('./setup'),
     actions = require('./actions'),
     updateUsers = require('./update-users'),
@@ -41,8 +41,9 @@ function makeApp() {
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(cookieSession({
     keys: [config.cookieSecret],
-    secureProxy: config.secureProxy
+    secure: config.secureProxy
   }));
+  app.set('trust proxy', 1);
   app.use('/static', express["static"](__dirname + '/static'));
   app.use('/', express["static"](__dirname + '/static'));
   app.use(passport.initialize());
@@ -70,7 +71,7 @@ function makeApp() {
   // below.
   passport.deserializeUser(function(serialized, done) {
     var sessionUser = JSON.parse(serialized);
-    return BtUser.find({
+    return BtUser.findOne({
       where: {
         uid: sessionUser.uid,
         deactivatedAt: null
@@ -85,7 +86,7 @@ function makeApp() {
       // submitting arbitrary valid sessions, but this is nice defence in depth
       // against timing attacks in case the cookie secret gets out.
       if (user &&
-          constantTimeEquals(user.access_token, sessionUser.accessToken)) {
+          crypto.timingSafeEqual(Buffer.from(user.access_token), Buffer.from(sessionUser.accessToken))) {
         done(null, user);
       } else {
         logger.error('Incorrect access token in session for', sessionUser.uid);
@@ -122,7 +123,7 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
   var screen_name = profile.username;
 
   BtUser
-    .find({
+    .findOne({
       where: {
         uid: uid
       }
@@ -191,7 +192,7 @@ app.all('/*', requireAuthentication);
 // CSRF protection. Check the provided CSRF token in the request body against
 // the one in the session.
 app.post('/*', function(req, res, next) {
-  if (!constantTimeEquals(req.session.csrf, req.body.csrf_token) ||
+  if (!crypto.timingSafeEqual(Buffer.from(req.session.csrf), Buffer.from(req.body.csrf_token)) ||
       !req.session.csrf) {
     return next(new HttpError(403, 'Invalid CSRF token.'));
   } else {
@@ -569,15 +570,19 @@ app.get('/show-blocks/:slug',
       return next(new HttpError(400, 'Invalid parameters'));
     }
     BtUser
-      .find({
-        where: ['deactivatedAt IS NULL AND shared_blocks_key LIKE ?',
-          slug.slice(0, 10) + '%']
+      .findOne({
+        where: {
+          deactivatedAt: null,
+          shared_blocks_key: {
+            [sequelize.Sequelize.Op.like]: slug.slice(0, 10) + '%'
+          }
+        }
       }).then(function(user) {
         // To avoid timing attacks that try and incrementally discover shared
         // block slugs, use only the first part of the slug for lookup, and
-        // check the rest using constantTimeEquals. For details about timing
+        // check the rest using timingSafeEqual. For details about timing
         // attacks see http://codahale.com/a-lesson-in-timing-attacks/
-        if (user && constantTimeEquals(user.shared_blocks_key, slug)) {
+        if (user && crypto.timingSafeEqual(Buffer.from(user.shared_blocks_key), Buffer.from(slug))) {
           if (isCsv) {
             return downloadCSV(req, res, next, user);
           }
@@ -615,7 +620,7 @@ app.get('/subscribe-on-signup', function(req, res, next) {
       delete req.session.subscribe_on_signup;
       return next(new HttpError(400, 'Invalid parameters'));
     }
-    BtUser.findById(params.author_uid)
+    BtUser.findByPk(params.author_uid)
       .then(function(author) {
       if (!author) {
         return Q.reject('No author found with uid =', params.author_uid);
@@ -669,7 +674,7 @@ app.post('/block-all.json',
         typeof req.body.author_uid === 'string' &&
         validSharedBlocksKey(shared_blocks_key)) {
       BtUser
-        .find({
+        .findOne({
           where: {
             uid: req.body.author_uid,
             deactivatedAt: null
@@ -680,7 +685,8 @@ app.post('/block-all.json',
           // from that shared block list author, and copy each uid onto the
           // blocking user's list.
           if (author &&
-              constantTimeEquals(author.shared_blocks_key, shared_blocks_key)) {
+              crypto.timingSafeEqual(
+                Buffer.from(author.shared_blocks_key), Buffer.from(shared_blocks_key))) {
             logger.info('Subscribing', req.user, 'to list from', author);
             // Note: because of a uniqueness constraint on the [author,
             // subscriber] pair, this will fail if the subscription already
@@ -698,7 +704,7 @@ app.post('/block-all.json',
 
             author.getBlockBatches({
               limit: 1,
-              order: 'complete desc, updatedAt desc'
+              order: [['complete', 'desc'], ['updatedAt', 'desc']]
             }).then(function(blockBatches) {
               if (blockBatches && blockBatches.length > 0) {
                 var batch = blockBatches[0];
@@ -796,7 +802,7 @@ app.post('/unblock-all.json',
     res.header('Content-Type', 'application/json');
     req.user.getBlockBatches({
       limit: 1,
-      order: 'complete desc, updatedAt desc'
+      order: [['complete', 'desc'], ['updatedAt', 'desc']]
     }).then(function(blockBatches) {
       if (blockBatches && blockBatches.length > 0) {
         var batch = blockBatches[0];
@@ -957,12 +963,12 @@ function getBlockedUsers(blockBatch, limit, offset) {
     return [blocks, TwitterUser.findAll({
       where: {
         uid: {
-          in: _.map(blocks, 'sink_uid')
+          [sequelize.Sequelize.Op.in]: _.map(blocks, 'sink_uid')
         }
       }
     })];
   }).spread(function(blocks, users) {
-    var indexedUsers = _.indexBy(users, 'uid');
+    var indexedUsers = _.keyBy(users, 'uid');
     // Turn blocks into blocked TwitterUsers
     return blocks.map(function(block) {
       var user = indexedUsers[block.sink_uid];
@@ -1022,7 +1028,7 @@ function getLatestBlockBatch(btUser) {
     // into the rate limit before finishing updating the blocks. The updating
     // will finish after waiting for the rate limit to lift, but in the meantime
     // it's possible to have multiple non-complete BlockBatches.
-    order: 'complete desc, updatedAt desc'
+    order: [['complete', 'desc'], ['updatedAt', 'desc']]
   });
 }
 
@@ -1056,7 +1062,7 @@ function showBlocks(req, res, next, btUser, ownBlocks, templateFilename) {
     } else {
       // Check whether the authenticated user is subscribed to this block list.
       var subscriptionPromise =
-        req.user ? Subscription.find({
+        req.user ? Subscription.findOne({
           where: {
             author_uid: btUser.uid,
             subscriber_uid: req.user.uid
@@ -1134,7 +1140,7 @@ function showActions(req, res, next) {
     // We want to show pending actions before all other actions.
     // This FIELD statement will return 1 if status is 'pending',
     // otherwise 0.
-    order: 'FIELD(statusNum, ' + Action.PENDING + ') DESC, createdAt DESC',
+    order: [sequelize.literal('FIELD(statusNum, ' + Action.PENDING + ')', 'DESC'), ['createdAt', 'DESC']],
     limit: perPage,
     offset: perPage * (currentPage - 1),
     // Get the associated TwitterUser so we can display screen names.

@@ -20,7 +20,7 @@ if (process.argv.length < 4) {
 }
 
 BtUser
-  .findById(process.argv[2])
+  .findByPk(process.argv[2])
   .then(function(user) {
     var filename = process.argv[3];
 

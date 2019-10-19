@@ -73,5 +73,5 @@ function verifyCredentials(user) {
 module.exports = verifyCredentials;
 
 if (require.main === module) {
-  BtUser.findById(process.argv[2]).then(verifyCredentials);
+  BtUser.findByPk(process.argv[2]).then(verifyCredentials);
 }

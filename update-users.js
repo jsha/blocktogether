@@ -60,15 +60,16 @@ function findAndUpdateUsers(sqlFilter, reason) {
   }
   return TwitterUser
     .findAll({
-      where: sequelize.and(
+      where: [
         { deactivatedAt: null },
-        sqlFilter),
+        sequelize.literal(sqlFilter)
+      ],
       limit: 1000
     }).then(function(users) {
       if (users && users.length > 0) {
         stats.inflight.inc(users.length)
         stats.userUpdatesBegun.labels(reason).inc(users.length);
-        return updateUsers(_.map(users, 'uid'), _.indexBy(users, 'uid')).then(function(results) {
+        return updateUsers(_.map(users, 'uid'), _.keyBy(users, 'uid')).then(function(results) {
           stats.inflight.inc(-users.length);
           return results;
         });
@@ -89,8 +90,8 @@ function findAndUpdateUsers(sqlFilter, reason) {
 function verifyMany() {
   return BtUser
     .findAll({
-      where: ['BtUser.uid % 3600 = ?',
-        Math.floor(new Date() / 1000) % 3600],
+      where: sequelize.literal('BtUser.uid % 3600 = ' +
+        Math.floor(new Date() / 1000) % 3600),
       include: [{
         model: TwitterUser
       }]
@@ -126,7 +127,7 @@ function verifyMany() {
  * @param {string} uid User to delete.
  */
 function deactivateTwitterUser(uid) {
-  return TwitterUser.findById(uid)
+  return TwitterUser.findByPk(uid)
     .then(function(twitterUser) {
       if (twitterUser) {
         twitterUser.deactivatedAt = new Date();
@@ -211,7 +212,7 @@ function updateUsersChunk(uids, usersMap) {
     // When a user is suspended, deactivated, or deleted, Twitter will simply not
     // return that user object in the response. Delete those users so they don't
     // clog future lookup attempts.
-    var indexedResponses = _.indexBy(response, 'id_str');
+    var indexedResponses = _.keyBy(response, 'id_str');
     uids.map(function(uid) {
       if (indexedResponses[uid]) {
         storeUser(indexedResponses[uid], usersMap[uid]);
