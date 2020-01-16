@@ -374,6 +374,7 @@ app.get('/',
 
 app.get('/logout',
   function(req, res) {
+    req.logout();
     req.session = null;
     res.redirect('/logged-out');
   });
