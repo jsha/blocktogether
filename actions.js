@@ -157,7 +157,7 @@ function processActionsForUser(user) {
       status: Action.PENDING,
       source_uid: uid
     },
-    order: [['createdAt'], ['ASC']],
+    order: [['createdAt', 'ASC']],
     limit: 100
   }).then(function(actions) {
     if (actions.length === 0) {
@@ -442,10 +442,10 @@ function cancelOrPerformBlock(sourceBtUser, indexedFriendships, action) {
   // that means the sink_uid was suspened or deactivated, so defer the Action.
   if (!friendship) {
     newState = Action.DEFERRED_TARGET_SUSPENDED;
-  } else if (_.contains(friendship.connections, 'blocking')) {
+  } else if (_.includes(friendship.connections, 'blocking')) {
     // If the sourceBtUser already blocks them, don't re-block.
     newState = Action.CANCELLED_DUPLICATE;
-  } else if (_.contains(friendship.connections, 'following')) {
+  } else if (_.includes(friendship.connections, 'following')) {
     // If the sourceBtUser follows them, don't block.
     newState = Action.CANCELLED_FOLLOWING;
   } else if (sourceBtUser.uid === sink_uid) {
