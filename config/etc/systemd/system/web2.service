@@ -1,0 +1,11 @@
+[Service]
+WorkingDirectory=/data/blocktogether/current
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node --max_old_space_size=1600 blocktogether.js --port 8703
+
+User=ubuntu
+Group=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+
