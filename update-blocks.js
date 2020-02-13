@@ -487,7 +487,7 @@ function recordAction(source_uid, sink_uid, type) {
     // Ignore previous externally-caused actions, because the user may have
     // blocked, unblocked, and reblocked an account.
     cause: {
-      not: Action.EXTERNAL
+      [Op.not]: Action.EXTERNAL
     },
     'status': Action.DONE
   }

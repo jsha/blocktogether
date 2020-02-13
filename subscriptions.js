@@ -176,7 +176,7 @@ function unblockFromSubscription(proposedUnblock) {
     if (!prevAction) {
       logger.debug('Subscription-unblock: no previous block found', logInfo);
     } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
-               _.contains(validCauses, prevAction.cause)) {
+               _.includes(validCauses, prevAction.cause)) {
       // TODO: Use actions.queueActions here.
       return Action.create(proposedUnblock);
     } else {
