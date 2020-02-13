@@ -7,7 +7,8 @@ var logger = setup.logger,
     BtUser = setup.BtUser,
     BlockBatch = setup.BlockBatch,
     Action = setup.Action,
-    sequelize = setup.sequelize;
+    sequelize = setup.sequelize,
+    Op = sequelize.Op;
 
 /**
  * Find users who deactivated more than thirty days ago and delete them from the
@@ -23,7 +24,7 @@ function findAndDeleteOneOldUser() {
     .findOne({
       where: {
         deactivatedAt: {
-          lt: new Date(Date.now() - 30 * 86400 * 1000)
+          [Op.lt]: new Date(Date.now() - 30 * 86400 * 1000)
         }
       },
       order: [['deactivatedAt', 'ASC']]

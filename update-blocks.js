@@ -21,7 +21,8 @@ var twitter = setup.twitter,
     TwitterUser = setup.TwitterUser,
     Action = setup.Action,
     BlockBatch = setup.BlockBatch,
-    Block = setup.Block;
+    Block = setup.Block,
+    Op = sequelize.Op;
 
 var ONE_DAY_IN_MILLIS = 86400 * 1000;
 var shuttingDown = false;
@@ -318,7 +319,7 @@ function diffBatchWithPrevious(currentBatch) {
   return BlockBatch.findOne({
     where: {
       source_uid: source_uid,
-      id: { lte: currentBatch.id },
+      id: { [Op.lt]: currentBatch.id },
       complete: true
     },
     order: [['id', 'DESC']]
