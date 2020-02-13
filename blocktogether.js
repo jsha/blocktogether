@@ -192,6 +192,9 @@ app.all('/*', requireAuthentication);
 // CSRF protection. Check the provided CSRF token in the request body against
 // the one in the session.
 app.post('/*', function(req, res, next) {
+  if (typeof req.session.csrf === "undefined") {
+    return next(new HttpError(403, 'Session unavailable. Please reload and try again.'));
+  }
   if (!crypto.timingSafeEqual(Buffer.from(req.session.csrf), Buffer.from(req.body.csrf_token)) ||
       !req.session.csrf) {
     return next(new HttpError(403, 'Invalid CSRF token.'));
