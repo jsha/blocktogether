@@ -171,7 +171,7 @@ async function fetchAndStoreBlocks(user) {
   // Total running count of blocks fetched.
   var size = 0;
   var nextCursor = '-1';
-  for (var i = 0; i < 500; i++) {
+  for (var i = 0; i < 50; i++) {
     try {
       var results = await Q.ninvoke(twitter,
         'blocks', 'ids', {
@@ -253,10 +253,11 @@ function finalizeBlockBatch(blockBatch) {
   if (shuttingDown) {
     return Q.resolve(null);
   }
-  // If the block batch has 1M or more entries we skip the diff. It's
-  // likely to be too expensive.
+  // If the block batch has 300000 or more entries we skip the diff. It's
+  // likely to be too expensive. Note: this shouldn't happen because we will
+  // only fetch 50 * 5000 = 250k blocks.
   var diffPromise;
-  if (blockBatch.size < 1000000) {
+  if (blockBatch.size < 300000) {
     diffPromise = diffBatchWithPrevious(blockBatch);
   } else {
     diffPromise = Promise.resolve()
