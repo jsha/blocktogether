@@ -97,95 +97,24 @@ function fanoutWithSubscriptions(inputAction, subscriptions) {
       'status': Action.PENDING
     };
   });
-  // For Block Actions, fanout is very simple: Just create all the
-  // corresponding Block Actions. Users who have a previous manual unblock
-  // of the sink_uid (and therefore shouldn't auto-block) will be handled
-  // inside actions.js.
-  if (inputAction.type === Action.BLOCK) {
-    // TODO: This should probably use actions.queueActions to automatically set
-    // pendingActions = true. But that function doesn't support queuing multiple
-    // actions from different source_uids.
-    return Action.bulkCreate(actions).then(async function(actions) {
-      let subscriber_uids = _.map(subscriptions, 'subscriber_uid');
-      let subscribers = BtUser.findAll({
-        where: {
-          uid: subscriber_uids
-        }
-      });
-      await Q.all(subscribers.map(function(subscriber) {
-        subscriber.pendingActions = true;
-        return subscriber.save();
-      }));
-      return null;
+  // Create all the corresponding Block (or Unblock) Actions. Users who
+  // have a previous manual unblock of the sink_uid (and therefore shouldn't
+  // auto-block) will be handled inside actions.js.
+  // TODO: This should probably use actions.queueActions to automatically set
+  // pendingActions = true. But that function doesn't support queuing multiple
+  // actions from different source_uids.
+  return Action.bulkCreate(actions).then(async function(actions) {
+    let subscriber_uids = _.map(subscriptions, 'subscriber_uid');
+    let subscribers = BtUser.findAll({
+      where: {
+        uid: subscriber_uids
+      }
     });
-  } else {
-    // For Unblock Actions, we only want to fan out the unblock to users
-    // who originally blocked the given user due to a subscription.
-    // Pass each Action through unblockFromSubscription to check the cause
-    // of the most recent corresponding block, if any.
-    // TODO: Maybe the filtering logic to only do unblocks that were
-    // originally due to a subscription should be handled in actions.js. That
-    // would be nice because actions.js can deal with things asynchronously
-    // and slow down gracefully under load, but subscription fanout has to
-    // happen in the already-complicated updateBlocks call chain.
-    return Q.all(actions.map(unblockFromSubscription)).then(() => null);
-  }
-}
-
-/**
- * Given a subscription-based Unblock that we are about to enqueue, first check
- * that the most recent Block of that account had cause:
- * subscription | bulk-manual-block, and cause_uid = the cause_uid of the
- * unblock we are about to enqueue.
- *
- * TODO: Unblocks should also not fanout to users that are subscribed to other
- * block lists which still contain the account to be unblocked.
- *
- * @param {Object} JSON representing an Action to possibly enqueue.
- */
-function unblockFromSubscription(proposedUnblock) {
-  var validCauses = [Action.SUBSCRIPTION, Action.BULK_MANUAL_BLOCK];
-  var logInfo = proposedUnblock.source_uid + ' --unblock--> ' +
-    proposedUnblock.sink_uid;
-  // The separation between which properties get put in the where clause, versus
-  // which ones get checked in the `if' statement below, is a little subtle.
-  // We want to make sure we look at the most recent block, even if it doesn't
-  // match on cause_uid, because we specifically want to notice the case where
-  // the most recent block was manual.
-  return Action.findOne({
-    where: {
-      type: Action.BLOCK,
-      source_uid: proposedUnblock.source_uid,
-      sink_uid: proposedUnblock.sink_uid,
-      // NOTE: Intuitively Action.PENDING should be included here: If an author
-      // blocks an account, then unblocks it immediately while the fanned-out
-      // actions are still pending, the unblocks should also fanout.
-      // HOWEVER, that would mean that if subscriber S independently has account
-      // T blocked, then an author they subscribe to could very quickly block
-      // and unblock T, which would cause an unblock of T on the subscriber's
-      // account. This is probably an argument of 'enqueue it all and sort it
-      // out when executing actions.'
-      status: Action.DONE
-    },
-    order: [['updatedAt', 'DESC']]
-  }).then(function(prevAction) {
-    // All three of these cases are normal and expected: the user never blocked
-    // the target; the user did block the target due to a subscription, and the
-    // author of the subscribed list unblocked; the user did block the target,
-    // but not because of a subscription.
-    if (!prevAction) {
-      logger.debug('Subscription-unblock: no previous block found', logInfo);
-    } else if (prevAction.cause_uid === proposedUnblock.cause_uid &&
-               _.includes(validCauses, prevAction.cause)) {
-      // TODO: Use actions.queueActions here.
-      return Action.create(proposedUnblock);
-    } else {
-      logger.debug('Subscription-unblock: previous block not matched', logInfo, 'previous block:', prevAction);
-      return Q.resolve(null);
-    }
-  }).catch(function(err) {
-    logger.error(err);
-    return Q.resolve(null);
+    await Q.all(subscribers.map(function(subscriber) {
+      subscriber.pendingActions = true;
+      return subscriber.save();
+    }));
+    return null;
   });
 }
 
