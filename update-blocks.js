@@ -237,7 +237,15 @@ async function fetchAndStoreBlocks(user) {
 
   user.blockCount = size;
   await user.save()
-  return finalizeBlockBatch(blockBatch);
+  if (user.shared_blocks_key != null && size != 250000) {
+    logger.info("finalizing blocks for", user);
+    return finalizeBlockBatch(blockBatch);
+  } else {
+    logger.info("skipping finalize blocks for", user, "who doesn't have a blocklist.");
+    await destroyOldBlocks(blockBatch.source_uid);
+    blockBatch.complete = true;
+    return blockBatch.save();
+  }
 }
 
 // Error thrown when diffing blocks and no previous complete block batch exists.
