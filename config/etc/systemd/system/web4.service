@@ -6,6 +6,8 @@ ExecStart=/usr/bin/node --max_old_space_size=1600 blocktogether.js --port 8701
 User=ubuntu
 Group=ubuntu
 
+Restart=always
+
 [Install]
 WantedBy=multi-user.target
 
