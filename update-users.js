@@ -6,6 +6,8 @@ var setup = require('./setup'),
     prom = require('prom-client'),
     verifyCredentials = require('./verify-credentials');
 
+var Op = require('sequelize').Op;
+
 var config = setup.config,
     twitter = setup.twitter,
     logger = setup.logger,
@@ -60,10 +62,7 @@ function findAndUpdateUsers(sqlFilter, reason) {
   }
   return TwitterUser
     .findAll({
-      where: [
-        { deactivatedAt: null },
-        sequelize.literal(sqlFilter)
-      ],
+      where: sequelize.literal(sqlFilter),
       limit: 1000
     }).then(function(users) {
       if (users && users.length > 0) {
@@ -317,7 +316,9 @@ module.exports = {
 
 BtUser.findAll({
   where: {
-    deactivatedAt: null
+    deactivatedAt: {
+      [Op.is]: null,
+    }
   },
   limit: 100
 }).then(function(users) {
