@@ -1,14 +1,14 @@
 'use strict';
 /** @type{SetupModule} */
 var setup = require('./setup'),
-    Q = require('q');
+    Q = require('q'),
+    Op = require('sequelize').Op;
 
 var logger = setup.logger,
     BtUser = setup.BtUser,
     BlockBatch = setup.BlockBatch,
     Action = setup.Action,
-    sequelize = setup.sequelize,
-    Op = sequelize.Op;
+    sequelize = setup.sequelize;
 
 /**
  * Find users who deactivated more than thirty days ago and delete them from the
@@ -40,7 +40,7 @@ function findAndDeleteOneOldUser() {
 }
 
 function deleteOneOldUser(user) {
-  logger.info(user, user.dataValues);
+  logger.info('deleting', user);
   return Action.destroy({
     where: {
       source_uid: user.uid
