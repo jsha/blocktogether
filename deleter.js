@@ -71,7 +71,7 @@ async function cleanDuplicateAndExternalActions() {
     var maxResult = await sequelize.query('SELECT max(id) FROM Actions;');
     var max = parseInt(maxResult[0][0]['max(id)']);
     for (let offset = 0; offset < max; offset += limit) {
-      logger.info("cleanDuplicateActions, offset = ", offset);
+      logger.info("cleanDuplicateAndExternalActions, offset = ", offset);
       await sequelize.query('DELETE FROM Actions WHERE (statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) OR causeNum = 0) AND id > ? AND id < ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 10 DAY);',
        {
          replacements: [offset, offset+limit],
@@ -79,7 +79,7 @@ async function cleanDuplicateAndExternalActions() {
        });
       await Q.delay(1000);
     }
-    logger.info("restarting cleanDuplicateActions loop");
+    logger.info("restarting cleanDuplicateAndExternalActions loop");
     await Q.delay(1000);
   }
 }
@@ -108,7 +108,7 @@ if (require.main === module) {
   processEternally().catch(function(err) {
     logger.error(err);
   })
-  cleanDuplicateActions().catch(function(err) {
+  cleanDuplicateAndExternalActions().catch(function(err) {
     logger.error(err);
   });
   cleanExcessActions().catch(function(err) {
