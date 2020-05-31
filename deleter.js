@@ -65,31 +65,33 @@ async function processEternally() {
   }
 }
 
-async function cleanDuplicateActions() {
-  const limit = 100000;
+async function cleanDuplicateAndExternalActions() {
+  const limit = 10000;
   for (;;) {
     var maxResult = await sequelize.query('SELECT max(id) FROM Actions;');
     var max = parseInt(maxResult[0][0]['max(id)']);
     for (let offset = 0; offset < max; offset += limit) {
-      await sequelize.query('DELETE FROM Actions WHERE statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) AND id > ? AND id < ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 10 DAY);',
+      logger.info("cleanDuplicateActions, offset = ", offset);
+      await sequelize.query('DELETE FROM Actions WHERE (statusNum IN (3, 4, 5, 6, 7, 8, 9, 10) OR causeNum = 0) AND id > ? AND id < ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 10 DAY);',
        {
          replacements: [offset, offset+limit],
          type: sequelize.QueryTypes.DELETE
        });
       await Q.delay(1000);
     }
+    logger.info("restarting cleanDuplicateActions loop");
     await Q.delay(1000);
   }
 }
 
-// For users with more than 250k Actions, delete the oldest ones.
+// For users with more than 125k Actions, delete the oldest ones.
 async function cleanExcessActions() {
   for (;;) {
     let btUsers = await BtUser.findAll();
     for (let i = 0; i < btUsers.length; i++) {
       let user = btUsers[i];
       if (user.blockCount >= 125000) {
-	logger.info('trimming old actions for', user);
+        logger.info('trimming old actions for', user);
         await sequelize.query('DELETE FROM Actions WHERE typeNum = 1 AND source_uid = ? AND updatedAt < DATE_SUB(NOW(), INTERVAL 30 DAY) LIMIT 10000;',
           {
             replacements: [user.uid],
