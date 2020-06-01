@@ -7,20 +7,7 @@
     </p>
   </div>
   {{^logged_in_screen_name}}
-  <div class="signup-prompt">
-    <form action="/auth/twitter" method="POST">
-      <input type="hidden" name="signup" value="true" />
-      <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-      {{>settings_include.mustache}}
-      <button type="submit" class="btn btn-primary">Sign up using Twitter</button>
-    </form>
-    <br>
-    <div>
-    Block Together will not tweet on your behalf, but it needs read/write
-    access so it can block people when you ask it to. Twitter describes
-    that permission as 'Post tweets for you.'
-    </div>
-  </div>
+  <div class="signup-prompt">Note: New signups disabled due to overcapacity.</div>
   <div class="log-on-prompt">
     <b>Already using Block Together?</b>
     <form action="/auth/twitter" method="POST">

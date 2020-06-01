@@ -54,7 +54,11 @@
       They will not receive a notification.
       </p>
       <div>
-        <button class='btn btn-primary block-all'>Block All and Subscribe</button>
+        <button
+         {{^logged_in_screen_name}}
+         disabled="true"
+         {{/logged_in_screen_name}}
+        class='btn btn-primary block-all'>Block All and Subscribe</button>
         <a class='btn btn-primary' href='/#details'>Learn more about Block Together</a>
         {{>block-all-processing.mustache}}
         <form class="search_by_screen_name" action="" method="GET">
@@ -62,6 +66,11 @@
           <button type="submit" class="btn btn-primary">Search by screen name</button>
         </form>
         <a class="btn btn-primary" href="{{shared_blocks_key}}.csv">Download CSV</a>
+        <br/>
+         {{^logged_in_screen_name}}
+         Note: New signups are disabled due to overcapacity.
+         {{/logged_in_screen_name}}
+        <br/>
       </div>
     {{/too_big}}
   {{/subscribed}}
