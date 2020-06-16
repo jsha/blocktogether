@@ -129,20 +129,8 @@ function passportSuccessCallback(accessToken, accessTokenSecret, profile, done) 
       }
     }).then(function(btUser) {
       if (!btUser) {
-        return BtUser.create({
-          uid: uid,
-          screen_name: screen_name,
-          access_token: accessToken,
-          access_token_secret: accessTokenSecret,
-          shared_blocks_key: null,
-          block_new_accounts: false,
-          block_low_followers: false,
-          follow_blocktogether: false,
-          pendingActions: 0,
-          paused: false,
-          blockCount: null,
-          deactivatedAt: null
-        });
+        done(null, undefined);
+        return;
       } else {
         // The user's access token may have changed since last login, or they may
         // have been previously deactivated. Overwrite appropriate values with
