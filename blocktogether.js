@@ -298,7 +298,7 @@ app.get('/auth/twitter/callback', function(req, res, next) {
         // etc), so we call them 403's.
         return next(new HttpError(403, err.message));
       } else if (!user) {
-        return next(new HttpError(403, 'Problem during app authorization.'));
+        return next(new HttpError(403, 'Signups turned off due to overcapacity.'));
       } else {
         // If this was a signup (vs a log on), set settings based on what the user
         // selected on the main page.
