@@ -1,0 +1,75 @@
+<p>
+<a href="https://twitter.com/j4cob/status/496484851013677056">Six years ago</a>,
+I launched Block Together, a tool to defend against abuse on Twitter by
+automating blocks. I wanted to show a way that Twitter could give users the
+ability to defend their communities against abuse. I've shown that, and learned
+some things along the way, but Block Together has gotten too big to maintain on
+a volunteer basis, and it's ultimately trying to fill a need that
+Twitter should be fulfilling on the official platform. I've turned
+off new signups for Block Together. At the end of July, I'll turn off
+delivery of blocks on existing block list subscriptions. I will try to
+keep delivery of unblocks enabled for several months after that.
+
+</p><p>
+The idea behind Block Together has been this: Relying on the platform
+owners to make one global set of rules and enforce them fairly and
+effectively for everyone was never going to be sufficient. Similarly,
+relying on individual people to block abusers after the fact ignores
+both serial abusers and abusers who target a whole group of people.
+
+</p><p>
+With block lists, communities could define their own boundaries, much as old-school forums often did by moderating posts and kicking out people who repeatedly violated the local norms. If a given community subscribes to a shared block list, people who try to intrude on the community with abuse could be quickly and easily blocked.
+
+</p><p>
+My hope, originally, was that Twitter would see the value in this mechanism and adopt it-- maybe even make it better! In fact, Twitter eventually did implement something similar: <a href="https://blog.twitter.com/en_us/a/2015/sharing-block-lists-to-help-make-twitter-safer.html">import / export block lists</a>. I gave lots of feedback while that feature was in development, based on my experience with Block Together. I wanted it to work, since it would mean I could retire Block Together happy with the knowledge that a better option was built into Twitter. Unfortunately, Twitter's version was less usable than Block Together. The design was built around the concept of exporting a CSV containing all your blocks, so it left users to figure out how and where to share that CSV with their community. And because it was a manual step for other people to import that CSV, you would need to download and manually import someone's block list every single day to get updates!
+
+</p><p>
+Twitter's import / export block list feature remained relatively unknown, and as far as I could tell, relatively unused. It quietly disappeared sometime back and is "<a href="https://help.twitter.com/en/using-twitter/advanced-twitter-block-options">currently unavailable</a>."
+
+</p><p>
+Block Together was always meant to be a proof of concept-- I never imagined one person, working through Twitter's API, could make a meaningful dent in abuse at Twitter's scale. However, as time went on, people kept finding it useful, and it kept seeming like just a little incremental work to push it along. But that work builds up over time and it no longer feels like a worthwhile tradeoff. Block Together is in an awkward middle ground - too big for one person to maintain alone, but too small to handle abuse at the full scale of Twitter. Only Twitter the company can reasonably do that.
+
+</p><p>
+I plan to keep the blocktogether.org domain name even once the service is shut down. People have put trust in the service and I don't want that trust to be abused by domain squatters. If you want to spin up a service running the same code on a different domain name, you are more than welcome to. I'll even provide some help. I just ask that you make it clear it's a different service, run by someone else.
+
+</p><p>
+If you want to stop using Block Together, you can go to the <a
+href="https://twitter.com/settings/applications">Applications page of your
+Twitter account settings</a> and revoke the app's access. Block Together will
+deactivate your account within a day or so, and will delete all data associated
+with your account within 30 days. Note that if you run a block list, this will
+not cause your subscribers to unblock everyone on your lists. If you
+want to do that, you will need to unblock everyone before your account
+data is deleted. If you've already revoked Block Together's access,
+you can re-login to Block Together within 30 days and you'll have an
+opportunity to do any unblocks you'd like.
+
+</p><p>
+Alternatives considered:
+
+</p><p>
+Through Block Together's life, people have suggested I start a Patreon or
+otherwise collect donations. I've thought about it, but (a) I'm very skeptical
+that I can raise enough to cover even the server costs (currently about
+$430/month on EC2, mainly disk cost for the database), (b) raising money for the
+service would make me feel that much more stressed when it goes down. Also, it's
+not simply a matter of money: Block Together's database is currently 1.2 TB.
+It needs a major <a href="https://en.wikipedia.org/wiki/Code_refactoring">refactoring</a>
+in order to handle more users.
+
+</p><p>
+I've also thought about finding another person who would like to take on maintenance of the service. Since Block Together requires a lot of trust from its users, I wouldn't feel comfortable giving control of its API access tokens to anyone I didn't know and personally trust very deeply.
+
+</p><p>
+I'm sad to be putting this project behind me, and disappointed that Twitter hasn't picked up this functionality and improved on it, but I am happy to have helped protect people against some of the abuse on Twitter, for a little while.
+
+</p><p>
+Jacob Hoffman-Andrews, June 16 2020
+
+</p><p>
+Stats:<br/>
+303k registered users.<br/>
+198k users subscribing to at least one list.<br/>
+4.5k users offering a list, with at least one subscriber.<br/>
+3.7B actions.<br/>
+</p>

@@ -2,9 +2,10 @@
 <div class="index">
   <div class="description">
     <h1>Block Together</h1>
-    <p>
+    <p class="subtitle">
     A web app intended to help cope with harassment and abuse on Twitter.
     </p>
+    {{>shutdown.html}}
   </div>
   {{^logged_in_screen_name}}
   <div class="signup-prompt">Note: New signups disabled due to overcapacity.</div>
@@ -95,7 +96,7 @@
     </a>
     <p>
     The largest size of a shared block list is 70,000 accounts. If your
-    blocklist is larger than this, new people will not be able to subscribe to
+    block list is larger than this, new people will not be able to subscribe to
     it. If you remove some accounts from your block list to get it below
     70,000, people will be able to subscribe to it again. Also, your block list
     won't be updated at all past 125,000 blocks.

@@ -2,6 +2,10 @@ th {
   white-space: nowrap;
 }
 
+.subtitle {
+  color: lightgrey;
+}
+
 .description,
 .signup-prompt,
 .index-logged-in,
